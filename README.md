@@ -12,6 +12,8 @@ There are probably more dependencies to install.
 
 ## Repository description
 
+---
+
 ### complex_room_dataset.py
 
 This file contains a torch dataset class called ***RoomDataset***. ***RoomDataset*** contains 2D rooms of varying complexity with a microphone and source within them, with the label Room Impulse Response (RIR) which corresponds to that room.
@@ -39,6 +41,8 @@ Options for the room/RIR dataset generation
 
 The ***RoomDataset*** class also has methods for plotting datapoints.
 
+---
+
 ### compute_rir.py
 
 This is a reimplementation of the pyroomacoustics function compute_rir. It is modified to work with pytorch tensors with autograd.
@@ -46,6 +50,8 @@ The original function is not differentiable, and therefore cannot be used in a n
 Absorption is not backpropagatable yet. It is a constant for now.
 
 The function is called **simulate_rir_ism**. The summing of the image sources is done with torch, in the frequency domain, rather than with Cython with fractionnal delays.
+
+---
 
 ### encoder.py
 
@@ -61,9 +67,13 @@ Here, 8 2d vertices are used, but conceivably any amount of vertices is ok. Plea
 
 ***GraphToShoeboxEncoder*** is the generalization of the ***RoomToShoeboxEncoder*** to graph inputs. It is still under construction. Sorry!
 
+---
+
 ### LKLogger.py
 
 This file contains the ***LKLogger*** class, my own custom logger for csv files. This is used in RIRMetricsExperiments.py and for the ***complex_room_dataset*** data generation.
+
+---
 
 ### RIRMetricsExperiments.py
 
@@ -74,6 +84,7 @@ I might have made the metrics in this file bug out, but they are properly implem
 I used the ***RIRMetricsExperiments*** class to run experiments on my metrics to test them and how efficient they are in different scenarios.
 
 Three main experiments were done:
+
 
 #### overfit_training
 
@@ -86,6 +97,8 @@ Localize the target source position in an oracle room using the metrics.
 #### rooms_losses
 
 Identify room size with oracle source and mic positions using the metrics.
+
+---
 
 ### RIRMetricsLoss.py
 
@@ -114,6 +127,8 @@ It visualizes metrics for a single rir pair or the first element of a batch of r
 - Graph 6: Bar graphs between compared metrics.
 
 Center time visualization needs a bit of work.
+
+---
 
 ### train.py
 
