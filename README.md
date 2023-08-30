@@ -5,10 +5,10 @@ README updated 30/08/2023
 ## Installation
 
 ```bash
-python -m pip install librosa auraloss
+python -m pip install librosa auraloss torch-geometric
 ```
 
-There are probably more dependencies to install.
+There are probably more dependencies to install, like torch.
 
 ## Repository description
 
