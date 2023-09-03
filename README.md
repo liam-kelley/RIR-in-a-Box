@@ -5,7 +5,7 @@ README updated 30/08/2023
 ## Installation
 
 ```bash
-python -m pip install librosa auraloss torch-geometric
+python -m pip install librosa auraloss torch-geometric torch-scatter
 ```
 
 There are probably more dependencies to install, like torch.
@@ -75,6 +75,20 @@ This file contains the ***LKLogger*** class, my own custom logger for csv files.
 
 ---
 
+### mesh_dataset.py
+
+This file contains a torch dataset class called ***GraphDataset***. ***GraphDataset*** contains mesh representations of rooms (ONLY SHOEBOXES for now) of varying complexity with a microphone and source within them, with the label Room Impulse Response (RIR) which corresponds to that room.
+
+Its "**\_\_getitem\_\_**" method returns an input tensor for the ***GraphToShoeboxEncoder***, along with label_rir_tensors and label_origin tensors, and label_mic_pos, label_src_pos, label_energy_absorption, label_scattering.
+
+New datapoints can be generated for the dataset quickly using the **shoebox_mesh_dataset_generation** function. (I plan to implement generation from rooms from the rooms dataset rather than just shoeboxes).
+
+Options for generation and example use of this dataset are provided in the **main** function.
+
+This file also has functions to plot a mesh from either an edge_index or a triangle list.
+
+---
+
 ### RIRMetricsExperiments.py
 
 Many helpful functions are in this file. It might need to be cleaned up.
@@ -84,7 +98,6 @@ I might have made the metrics in this file bug out, but they are properly implem
 I used the ***RIRMetricsExperiments*** class to run experiments on my metrics to test them and how efficient they are in different scenarios.
 
 Three main experiments were done:
-
 
 #### overfit_training
 
@@ -130,8 +143,12 @@ Center time visualization needs a bit of work.
 
 ---
 
-### train.py
+### train_2D_rooms.py
 
-This file is used to train the encoders. Run logging is implemented with wandb.
+This file is used to train the RoomToRIR encoder. Run logging is implemented with wandb.
 
 Models aren't saved yet.
+
+### train_graphs.py
+
+Not fully implemented yet.

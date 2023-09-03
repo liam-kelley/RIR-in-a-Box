@@ -121,23 +121,25 @@ def draw_polygon(polygon):
     ax.set_aspect('equal', 'box')
     plt.show()
 
-def get_an_inside_point(room):
+def get_an_inside_point(room, shoebox=False):
     p = [0.0, 0.0]
     bbox=room.get_bbox()
     p[0] = random.uniform(bbox[0][0], bbox[0][1])
     p[1] = random.uniform(bbox[1][0], bbox[1][1])
-    while (not room.is_inside(p, include_borders=False)):
-        p[0] = random.uniform(bbox[0][0], bbox[0][1])
-        p[1] = random.uniform(bbox[1][0], bbox[1][1])
+    if not shoebox: # it will always be inside for a shoebox and is_inside is different for a shoebox 
+        while (not room.is_inside(p, include_borders=False)):
+            p[0] = random.uniform(bbox[0][0], bbox[0][1])
+            p[1] = random.uniform(bbox[1][0], bbox[1][1])
     return p
 
-def is_array_inside_room(array, room):
-    for point in array:
-        if not room.is_inside(point, include_borders=False):
-            return False
+def is_array_inside_room(array, room, shoebox=False):
+    if not shoebox: # it will always be inside for a shoebox and is_inside is different for a shoebox 
+        for point in array:
+            if not room.is_inside(point, include_borders=False):
+                return False
     return True
 
-def get_an_inside_array(room, n=4, distance_between_mics=0.1):
+def get_an_inside_array(room, n=4, distance_between_mics=0.1, shoebox=False):
     #init array
     array = []
     for i in range(n): array.append([0.0,0.0])
@@ -150,7 +152,7 @@ def get_an_inside_array(room, n=4, distance_between_mics=0.1):
         array[i][0] = array[0][0]+distance_between_mics*i
         array[i][1] = array[0][1]
 
-    while not is_array_inside_room(array, room):
+    while not is_array_inside_room(array, room, shoebox):
         #Generate array inside bbox
         array[0][0] = random.uniform(bbox[0][0], bbox[0][1])
         array[0][1] = random.uniform(bbox[1][0], bbox[1][1])
@@ -530,7 +532,7 @@ class RoomDataset(Dataset):
         plt.show()
 
 def main():
-    dataset_generation(iterations=1000, dataset_name='simple_room_dataset.csv',
+    dataset_generation(iterations=10, dataset_name='simple_room_dataset.csv',
                        rooms_min_sides=4, rooms_max_sides=4,
                        vertex_line_distance_threshold=3,
                        min_source_mic_distance=3, min_source_wall_distance=1)

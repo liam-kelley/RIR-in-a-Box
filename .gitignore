@@ -5,6 +5,7 @@ __pycache__
 # these are the folders where the label rirs for my RoomDataset where stored 
 rirsdataset
 rirsdatasetSimple
+meshdataset
 
 # These are my log files
 simple_room_dataset.csv
@@ -13,3 +14,4 @@ measure_time_log.csv
 room_task_log.csv
 
 open_profiler.py
+diffpool_example.py
