@@ -374,7 +374,7 @@ class RIRMetricsLoss(nn.Module):
                 batch_input_c_t = batch_center_time(batch_input_rir2, self.sample_rate, batch_input_rir2_sum, batch_input_origins) # Calculate batch_c_t
                 batch_label_c_t = batch_center_time(batch_label_rir2, self.sample_rate, batch_label_rir2_sum, batch_label_origins) # Calculate batch_c_t
 
-                batch_center_time_loss= - torch.abs(batch_input_c_t-batch_label_c_t)  # Difference (negatively correlated)
+                batch_center_time_loss= torch.abs(batch_input_c_t-batch_label_c_t)  # Difference
                 batch_center_time_loss=self.pre_lambdas['center_time']*batch_center_time_loss # pre lambda
                 self.loss_dict['center_time']=batch_center_time_loss # Store
 
