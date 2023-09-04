@@ -698,13 +698,23 @@ def main():
         rir_max_order                                       int, or [int, int]
         rir_line_of_sight                                               1 or 0 
     '''
-    shoebox_mesh_dataset_generation(iterations=5, options={'plot':False,
-                                                             'mesh_points_per_m2' : 50})#200})
+    for i in range(180):
+        offset=(random.random()/3)+0.05
+        mesh_points_per_edge = random.randint(5, 20)
+        mesh_points_per_m2 = random.randint(10, 200)
+        rir_energy_absorption = random.choice([0.1,0.2,0.3,0.4,0.5])
+        rir_scattering = random.choice([0.1,0.2,0.3,0.4,0.5])
+        shoebox_mesh_dataset_generation(iterations=5, options={'plot':False,
+                                                                'mesh_points_per_m2' : mesh_points_per_m2, #200
+                                                                'mesh_max_offset' : offset,
+                                                                'mesh_points_per_edge' : mesh_points_per_edge,
+                                                                'rir_energy_absorption' : rir_energy_absorption,
+                                                                'rir_scattering' : rir_scattering,})
     
-    dataset=GraphDataset("meshdataset/shoebox_mesh_dataset.csv", filter={})
+    # dataset=GraphDataset("meshdataset/shoebox_mesh_dataset.csv", filter={})
     
-    graph_data, _ , _ ,_ ,_, _, _= dataset[-3]
-    plot_mesh_from_edge_index(graph_data['x'], graph_data['edge_index'])
+    # graph_data, _ , _ ,_ ,_, _, _= dataset[-3]
+    # plot_mesh_from_edge_index(graph_data['x'], graph_data['edge_index'])
 
 
 if __name__ == '__main__':
