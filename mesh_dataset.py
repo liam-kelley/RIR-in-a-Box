@@ -174,12 +174,12 @@ def plot_mesh_from_triangle_list(wall_vertices , wall_tri):
     
     plt.show()
 
-def plot_mesh_from_edge_index(wall_vertices , wall_edge_index):
+def plot_mesh_from_edge_index(wall_vertices , wall_edge_index, show=True):
     '''
     Manages both having a dicts of different meshes and having a single tensor mesh.
     '''
     print("plotting mesh from edge index")
-    fig = plt.figure()
+    fig = plt.figure(figsize=(9,7))
     ax = fig.add_subplot(111, projection='3d')
     
     if type(wall_vertices) == dict and type(wall_edge_index) == dict:
@@ -206,7 +206,19 @@ def plot_mesh_from_edge_index(wall_vertices , wall_edge_index):
     ax.set_zlabel('Z (m)')
     ax.set_title('Mesh used as input for network')
     
-    plt.show()
+    if show : plt.show()
+
+def plot_mesh_from_edge_index_batch(x_batch , edge_index_batch, batch_indexes, show=True):
+    '''
+    graph batches are somwhat annoying, this unbatches a graph batch and to plot it.
+    '''
+    batch_indexes_0 = [elem for elem in batch_indexes.detach().numpy() if elem == 0]
+    x_batch_0 = x_batch.detach()[:len(batch_indexes_0)]
+    edge_index_batch_0 = [torch.unsqueeze(elem, dim=0) for elem in torch.transpose(edge_index_batch.detach(),0,1) if elem[0] < len(x_batch_0) and elem[1] < len(x_batch_0)]
+    edge_index_batch_0 = torch.cat(edge_index_batch_0,dim=0)
+    edge_index_batch_0 = torch.transpose(edge_index_batch_0,0,1)
+    assert(len(x_batch_0) == torch.max(edge_index_batch_0)+1)
+    plot_mesh_from_edge_index(x_batch_0, edge_index_batch_0, show=show)
 
 def shoebox_mesh_dataset_generate_rir_and_mesh(options, log_row):
     '''
@@ -513,7 +525,7 @@ class GraphDataset(Dataset):
 
         # Drop columns that won't be used
         drop_columns=['mesh_points_per_m2','mesh_max_offset','mesh_points_per_edge',
-                      'room_n_walls','room_height','room_shoebox','room_area',
+                      'room_n_walls','room_area', # 'room_height', 'room_shoebox'
                       'rir_sample_rate','rir_max_order','rir_line_of_sight']
         # drop_columns+=['rir_energy_absorption','rir_scattering']
         self.data = self.data.drop(drop_columns, axis=1)
@@ -622,9 +634,17 @@ class GraphDataset(Dataset):
         # pad tensor to max_length_rir for dataloader
         if not self.pad_in_collate : label_rir_tensor = torch.nn.functional.pad(label_rir_tensor, (0, self.max_length_rir - len(label_rir_tensor)))
 
+        ################ Get LABEL ROOM_DIMENSIONS ####################################
+
+        if df['room_shoebox']:
+            room_dim = [max(df['vertex_arr'][0]),max(df['vertex_arr'][1]), df['room_height']]
+
+
         ################ Get MIC POS, SRC POS, ENERGY ABS, SCATTERING ####################################
 
         label_origin_tensor = torch.tensor(label_origin, dtype=torch.float32)
+        if df['room_shoebox']: room_dim_tensor = torch.tensor(room_dim, dtype=torch.float32)
+        else : room_dim_tensor = torch.tensor([0,0,0], dtype=torch.float32)
         mic_pos_tensor = torch.tensor(df['mic_array'], dtype=torch.float32)
         source_pos_tensor = torch.tensor(df['source_pos'], dtype=torch.float32)
         absorption_tensor = torch.tensor(df['rir_energy_absorption'], dtype=torch.float32)
@@ -634,7 +654,8 @@ class GraphDataset(Dataset):
         # I return a tuple of elements that can be used to create a batch vectors with this dataset custom collate_fn
         return (Data(x=x, edge_index=edge_index.long().contiguous()), 
                 label_rir_tensor, 
-                label_origin_tensor, 
+                label_origin_tensor,
+                room_dim_tensor, 
                 mic_pos_tensor, 
                 source_pos_tensor,
                 absorption_tensor,
@@ -646,7 +667,7 @@ class GraphDataset(Dataset):
         Use this in a normal torch.utils.data.DataLoader to get a batch.
         returns (list_of_Data, rir_tensor_batch, list_of_origin, mic_tensor_batch, source_tensor_batch, absorption_tensor_batch, scattering_tensor_batch)
         '''
-        data_list, label_rir_tensors, origin_tensors, mic_pos_tensors, source_pos_tensors, absorption_tensors, scattering_tensors = zip(*list_of_tuples)
+        data_list, label_rir_tensors, origin_tensors, room_dim_tensors, mic_pos_tensors, source_pos_tensors, absorption_tensors, scattering_tensors = zip(*list_of_tuples)
 
         # create a batch vector for the graph data.        
         graph_batch=Batch.from_data_list(data_list)
@@ -661,7 +682,7 @@ class GraphDataset(Dataset):
 
         return (graph_batch.x, graph_batch.edge_index, graph_batch.batch,
                 torch.stack(label_rir_tensors, dim=0), torch.stack(origin_tensors, dim=0),
-                torch.stack(mic_pos_tensors, dim=0), torch.stack(source_pos_tensors, dim=0),
+                torch.stack(room_dim_tensors, dim=0), torch.stack(mic_pos_tensors, dim=0), torch.stack(source_pos_tensors, dim=0),
                 torch.stack(absorption_tensors, dim=0), torch.stack(scattering_tensors, dim=0))
 
 def main():

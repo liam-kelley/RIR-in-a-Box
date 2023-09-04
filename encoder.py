@@ -1,9 +1,12 @@
 import torch.nn as nn
+from numpy import concatenate
 from torch import cat
 from torch.linalg import norm
 from RIRMetricsExperiments import get_pytorch_rir
 import torch
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
 from torch_geometric.nn import GraphConv, TopKPooling
 from torch_geometric.nn import global_max_pool as gmp
@@ -155,6 +158,43 @@ class GraphToShoeboxEncoder(nn.Module):
         x = F.sigmoid(self.lin3(x))
 
         return x
+
+    @staticmethod
+    def plot_intermediate_shoeboxes(x, label_x, show=True):
+        fig, ax = plt.subplots(1, figsize=(7, 7))
+        boum=x.detach().cpu().numpy()[0]
+        bing=label_x.detach().cpu().numpy()[0]
+        room_dimensions = boum[0:3]*10
+        label_room_dimensions = bing[0:3]*10
+        room_dimensions = concatenate((room_dimensions,[room_dimensions[0]]), axis=0)
+        label_room_dimensions = concatenate((label_room_dimensions,[label_room_dimensions[0]]), axis=0)
+        ax.plot([0, room_dimensions[0], room_dimensions[0], 0, 0], [0, 0, room_dimensions[1], room_dimensions[1], 0], c='blue',label='intermediate shoebox')
+        ax.plot([0, label_room_dimensions[0], label_room_dimensions[0], 0, 0], [0, 0, label_room_dimensions[1], label_room_dimensions[1], 0], c='darkorange',label='label shoebox')
+        ax.add_patch(Rectangle((0, 0), room_dimensions[0], room_dimensions[1],
+                                    alpha=0.2, facecolor = 'darkblue', fill=True))
+        ax.add_patch(Rectangle((0, 0), label_room_dimensions[0], label_room_dimensions[1],
+                                    alpha=0.3, facecolor = 'orange', fill=True))
+        ax.text(0.15, 9.5, 'Intermediate room height = ' + str(room_dimensions[2]),
+                     bbox={'facecolor': 'white', 'alpha': 1, 'pad': 2})
+        ax.text(0.15, 9, 'Label room height = ' + str(label_room_dimensions[2]),
+                     bbox={'facecolor': 'white', 'alpha': 1, 'pad': 2})
+        mic_pos=boum[3:6]*room_dimensions[:3]
+        label_mic_pos=bing[3:6]*label_room_dimensions[:3]
+        ax.scatter(mic_pos[0], mic_pos[1], marker='x', c='darkblue',label='mic')
+        ax.scatter(label_mic_pos[0], label_mic_pos[1], marker='x', c='darkorange',label='mic')
+        source_pos=boum[6:9]*room_dimensions[:3]
+        label_source_pos=bing[6:9]*label_room_dimensions[:3]
+        ax.scatter(source_pos[0], source_pos[1],  c='darkblue', label='source')
+        ax.scatter(label_source_pos[0], label_source_pos[1],  c='darkorange', label='source')
+        ax.set_xlabel('x (m)')
+        ax.set_ylabel('y (m)')
+        ax.set_xlim(0, 10)
+        ax.set_ylim(0, 10)
+        ax.set_aspect('equal', 'box')
+        ax.set_title('Intermediate shoebox loss')
+        ax.legend()
+
+        if show: plt.show()
 
 
 # class a_GNN_with_a_couple_convolutionnal_layers(nn.Module):

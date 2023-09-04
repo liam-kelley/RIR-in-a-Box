@@ -49,8 +49,12 @@ def truncate_to_origin_and_pad(batch_rir1_enveloppe, batch_rir2_enveloppe, batch
     origin_truncated_list1=[]
     origin_truncated_list2=[]
     for i in range(batch_rir1_enveloppe.shape[0]):
-        index1=int(batch_origin1[i].item())
-        index2=int(batch_origin2[i].item())
+        item1=batch_origin1[i].item()
+        item2=batch_origin2[i].item()
+        if item1 is float('NaN'): index1=0
+        else: index1=int(item1)
+        if item2 is float('NaN'): index2=0
+        else: index2=int(item2)
         origin_truncated_list1.append(nn.functional.pad(batch_rir1_enveloppe[i][max(index1-truncate_less,0):], (0,index1)))
         origin_truncated_list2.append(nn.functional.pad(batch_rir2_enveloppe[i][max(index2-truncate_less,0):], (0,index2)))
     batch_rir1_enveloppe=torch.stack(origin_truncated_list1)
