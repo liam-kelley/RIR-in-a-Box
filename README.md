@@ -1,4 +1,4 @@
-# Graph To Shoebox
+# RIR-in-a-Box
 
 README updated 30/08/2023
 
