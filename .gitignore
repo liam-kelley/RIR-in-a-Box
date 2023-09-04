@@ -2,10 +2,10 @@ archived_code
 wandb
 __pycache__
 
-# these are the folders where the label rirs for my RoomDataset where stored 
 rirsdataset
 rirsdatasetSimple
 meshdataset
+saved_models
 
 # These are my log files
 simple_room_dataset.csv

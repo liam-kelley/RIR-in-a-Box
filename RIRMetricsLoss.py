@@ -315,7 +315,7 @@ class RIRMetricsLoss(nn.Module):
             for loss in self.lambda_param.keys():
                 if self.lambda_param[loss] != 0:
                     which_losses.append(loss)
-        print("RIRMetrisLoss Initialized.\nUsing losses : ", which_losses)
+        print("RIRMetrisLoss Initialized. Using losses : ", which_losses)
         return(which_losses)
 
     def forward(self, batch_input_rir, batch_input_origins,batch_label_rir, batch_label_origins):

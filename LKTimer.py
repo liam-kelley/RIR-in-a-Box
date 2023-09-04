@@ -8,9 +8,7 @@ class LKTimer:
         return TimerContext(self, key)
 
     def log_time(self, key, duration):
-        if key not in self.times:
-            self.times[key] = []
-        self.times[key].append(duration)
+        self.times[key]=duration
 
     def get_logs(self, key=None):
         if key:
