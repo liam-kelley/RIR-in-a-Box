@@ -8,7 +8,7 @@ import torch
 import pandas as pd
 from scipy.io.wavfile import read
 from scipy.signal import find_peaks
-from LKLogger import LKLogger
+from pyLiam.LKLogger import LKLogger
 
 from shapely.geometry import Polygon
 import pyroomacoustics as pra
@@ -127,7 +127,7 @@ def create_shoebox_mesh(max_offset, num_points_per_wall, num_points_per_edge, ro
 
 def triangle_list_to_edge_index(triangle_list):
     """
-    Convert a triangle list to an edge index format.
+    Convert a triangle list to an edge index format. This is the inverse of edge_index_to_triangle_list.
 
     Args:
     - triangle_list (n_triangles, 3 vertex indices): Each inner list contains 3 vertex indices representing a triangle.
@@ -154,29 +154,45 @@ def triangle_list_to_edge_index(triangle_list):
     
     return np.array([list(source_nodes), list(target_nodes)])   
 
-def plot_mesh_from_triangle_list(wall_vertices , wall_tri):
-    '''*from edge index is slightly more up to date'''
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+def _get_neighbor_nodes(edge_index, node_idx):
+    connected_edges = edge_index[np.where((edge_index[:,0]==node_idx) | (edge_index[:,1]==node_idx))[0],:]
+    connected_nodes_idxs = set(connected_edges.flatten()) - {node_idx} 
+    return connected_nodes_idxs
+
+def edge_index_to_triangle_list(edge_index):
+    """
+    Convert an edge index to a triangle list format. This is the inverse of triangle_list_to_edge_index.
+
+    Args:
+    - edge_index (2 * n_edges): Two lists, one for source nodes and one for target nodes.
+
+    Returns:
+    - triangle_list (n_triangles, 3 vertex indices): Each inner list contains 3 vertex indices representing a triangle.
+    """
+    edge_index = np.asarray(edge_index).T
+    triangle_set =  set()
+    n_nodes= np.max(edge_index)+1
+
+    for node_idx in range(n_nodes):
+        #find all nodes connected to current node (all edges that have node_idx as a source or target)
+        connected_nodes_idxs = _get_neighbor_nodes(edge_index, node_idx)
+        # for all connected nodes
+        for connected_node_idx in connected_nodes_idxs:
+            # find all nodes connected to it
+            further_connected_nodes_idxs = _get_neighbor_nodes(edge_index, connected_node_idx)
+            # if one of those edges endpoints is also connected to node_idx, then we have a triangle
+            for further_connected_node_idx in further_connected_nodes_idxs:
+                if further_connected_node_idx in connected_nodes_idxs:
+                    # print('triangle added:', tuple(sorted([node_idx, connected_node_idx, further_connected_node_idx])))
+                    triangle_set.add(tuple(sorted([node_idx, connected_node_idx, further_connected_node_idx])))
     
-    for wall in ['floor', 'left_wall']: # wall_vertices.keys():
-        ax.scatter([v[0] for v in wall_vertices[wall]], [v[1] for v in wall_vertices[wall]], [v[2] for v in wall_vertices[wall]], label=wall)
-        for triangle in wall_tri[wall].simplices:
-            triangle = np.append(triangle, triangle[0]) # Here we cycle back to the first coordinate for a full triangle plot
-            ax.plot([wall_vertices[wall][vertex_index][0] for vertex_index in triangle],
-                    [wall_vertices[wall][vertex_index][1] for vertex_index in triangle],
-                    [wall_vertices[wall][vertex_index][2] for vertex_index in triangle],
-                    color='black')
-    ax.legend()
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    
-    plt.show()
+    triangle_list = np.array(list(triangle_set))
+    return triangle_list
 
 def plot_mesh_from_edge_index(wall_vertices , wall_edge_index, show=True):
     '''
     Manages both having a dicts of different meshes and having a single tensor mesh.
+    Inputs: wall_vertices/x, and wall_edge_index/edge_index
     '''
     print("plotting mesh from edge index")
     fig = plt.figure(figsize=(9,7))
@@ -191,9 +207,11 @@ def plot_mesh_from_edge_index(wall_vertices , wall_edge_index, show=True):
                         [wall_vertices[wall][vertex_index][2] for vertex_index in edge],
                         color='black')
     else:
-        assert(type(wall_vertices) == torch.Tensor and type(wall_edge_index) == torch.Tensor)
-        wall_vertices = wall_vertices.detach().numpy()
-        wall_edge_index = wall_edge_index.detach().numpy().astype(int)
+        if type(wall_vertices) == torch.Tensor and type(wall_edge_index) == torch.Tensor:
+            wall_vertices = wall_vertices.detach().numpy()
+            wall_edge_index = wall_edge_index.detach().numpy().astype(int)
+        elif not (type(wall_vertices) == np.ndarray and type(wall_edge_index) == np.ndarray):
+            raise("non-dict inputs should either be tensors or numpy arrays")
         ax.scatter([v[0] for v in wall_vertices], [v[1] for v in wall_vertices], [v[2] for v in wall_vertices], label='vertices')
         for edge in np.transpose(wall_edge_index):
             ax.plot([wall_vertices[vertex_index][0] for vertex_index in edge],
@@ -210,7 +228,7 @@ def plot_mesh_from_edge_index(wall_vertices , wall_edge_index, show=True):
 
 def plot_mesh_from_edge_index_batch(x_batch , edge_index_batch, batch_indexes, show=True):
     '''
-    graph batches are somwhat annoying, this unbatches a graph batch and to plot it.
+    graph mesh batches are somwhat annoying, this unbatches a graph batch and to plot it.
     '''
     batch_indexes_0 = [elem for elem in batch_indexes.detach().numpy() if elem == 0]
     x_batch_0 = x_batch.detach()[:len(batch_indexes_0)]
@@ -289,22 +307,6 @@ def shoebox_mesh_dataset_generate_rir_and_mesh(options, log_row):
         mic_array=np.transpose(mic_array)
         mic_array=np.transpose(np.asarray([mic_array[0].tolist()+[mic_height]]))
     
-    # Plot the room geometry
-    if options['plot']:
-        room2D = pra.room.Room.from_corners(vertex_arr)
-        room2D.add_source(source_pos[:2])
-        room2D.add_microphone_array(mic_array[:2])
-        fig, ax = room2D.plot()
-        # ax.set_xlim(-6, 6)
-        # ax.set_ylim(-6, 6)
-        ax.set_xlim(-1, 10)
-        ax.set_ylim(-1, 10)
-        ax.grid(True, ls=':', alpha=0.5)
-        ax.text(1, 9, 'room height = '+str(room_dim[2]), bbox={'facecolor': 'white', 'alpha': 1, 'pad': 2})
-        ax.set_xlabel("x (m)")
-        ax.set_ylabel("y (m)")
-        ax.set_title("Room used for pyroom label calculation")
-
     # Compute RIR    
     room.add_source(source_pos)
     room.add_microphone_array(mic_array)
@@ -325,16 +327,6 @@ def shoebox_mesh_dataset_generate_rir_and_mesh(options, log_row):
         print("RIR saved as " + rir_file_name)
     else:
         rir_file_name=""
-    
-    # plot the RIR between mic 0 and source 0
-    if options['plot']:
-        plt.figure()
-        plt.title("RIR : " + rir_file_name)
-        plt.plot(np.arange(len(rir))/options['rir_sample_rate'], rir, label="rir")
-        plt.legend()
-        plt.grid(True, ls=':', alpha=0.5)
-        plt.xlabel("time (s)")
-        plt.ylabel("amplitude")
 
     # Convert lists to strings for saving the vertices in dataframe later
     vertex_arr_str, mic_array_str, source_pos_str = convert_lists_to_str(vertex_arr, mic_array, source_pos)
@@ -350,8 +342,36 @@ def shoebox_mesh_dataset_generate_rir_and_mesh(options, log_row):
     for wall in wall_tri.keys():
         wall_edge_index[wall] = triangle_list_to_edge_index(wall_tri[wall].simplices)
     
-    # plot the mesh
     if options['plot']:
+        print('room_dim', room_dim)
+        print("source_pos",source_pos)
+        print("mic_array", mic_array)
+        
+        # Plot the room geometry
+        room2D = pra.room.Room.from_corners(vertex_arr)
+        room2D.add_source(source_pos[:2])
+        room2D.add_microphone_array(mic_array[:2])
+        fig, ax = room2D.plot()
+        # ax.set_xlim(-6, 6)
+        # ax.set_ylim(-6, 6)
+        ax.set_xlim(-1, 10)
+        ax.set_ylim(-1, 10)
+        ax.grid(True, ls=':', alpha=0.5)
+        ax.text(1, 9, 'room height = '+str(room_dim[2]), bbox={'facecolor': 'white', 'alpha': 1, 'pad': 2})
+        ax.set_xlabel("x (m)")
+        ax.set_ylabel("y (m)")
+        ax.set_title("Room used for pyroom label calculation")
+        
+        # plot the RIR between mic 0 and source 0
+        plt.figure()
+        plt.title("RIR : " + rir_file_name)
+        plt.plot(rir, alpha=0.5,label="pyroom")
+        plt.legend()
+        plt.grid(True, ls=':', alpha=0.5)
+        plt.xlabel("time (samples)")
+        plt.ylabel("amplitude")
+
+        # plot the mesh
         # plot_mesh_from_triangle_list(wall_vertices , wall_tri)
         plot_mesh_from_edge_index(wall_vertices , wall_edge_index)
 
@@ -448,6 +468,83 @@ def shoebox_mesh_dataset_generation(dataset_name="meshdataset/shoebox_mesh_datas
         log_row=shoebox_mesh_dataset_generate_rir_and_mesh(options, empty_log_row)
         logger.add_line_to_log(log_row)
 
+def load_wall_features_and_wall_edge_index(full_mesh_file_path):
+    '''
+    Converts wall versions of x and edge_index to the full version by labelling the different walls and concatenating them.
+
+    Called in GraphDataset __get_item_.
+    This function loads x and edge_index from files generated by the shoebox_mesh_dataset_generation function or whatever else name you gave it.
+    When these files are saved, they're saved as dictionnaries of numpy arrays corresponding to the walls and platforms of the shoebox.
+    x and edge_index are numpy arrays of shape (n_nodes, n_features) and (2, n_edges) respectively.
+    x has 9 features : x, y, z, floor, wall, ceiling, platform, background, unknown ( the last 6 are boolean labels)
+    '''
+    with open(full_mesh_file_path, 'rb') as file: # df['mesh_file_name']
+        wall_features, wall_edge_index = pickle.load(file) # these will be numpy arrays
+
+    if isinstance(wall_features, dict) and isinstance(wall_edge_index, dict):
+        wall_names=wall_features.keys()
+
+        n_nodes={}
+        for wall, features in wall_features.items():
+            n_nodes[wall] = features.shape[0]
+
+
+        labels_one_hot={
+            'floor' :       [1,0,0,0,0,0],
+            'wall' :        [0,1,0,0,0,0],
+            'ceiling' :     [0,0,1,0,0,0],
+            'platform' :    [0,0,0,1,0,0],
+            'background' :  [0,0,0,0,1,0],
+            'unknown' :     [0,0,0,0,0,1],
+        }
+        for wall, one_hot in labels_one_hot.items():
+            labels_one_hot[wall] = np.expand_dims(np.asarray(one_hot), axis=0)
+
+        index_translation = 0
+        
+        # add one hot labels to the features
+        for wall in wall_names:
+            for label, one_hot in labels_one_hot.items():
+                # if the wall name is a substring of the label (for example: left_wall is a wall)
+                if label in wall:
+                    wall_features[wall] = np.concatenate((wall_features[wall], np.repeat(labels_one_hot[label], n_nodes[wall], axis=0)), axis=1)
+                    # When all walls are concatenated, the indexes will be wrong, so we need to translate them
+                    wall_edge_index[wall] = wall_edge_index[wall] + np.full(wall_edge_index[wall].shape, index_translation)
+                    index_translation += n_nodes[wall] # translate next by the amount of nodes in this wall as well
+
+                    break # we found the label, no need to keep looking
+        
+        
+
+        # Sanity checks
+        for wall in wall_names:
+            assert(wall_features[wall].shape[0] == n_nodes[wall])
+            assert(wall_features[wall].shape[1] == 9)
+
+        # concatenate all the walls/platforms into two big tensors
+        x = None
+        edge_index = None
+        for wall in wall_names:
+            if x is None or edge_index is None :
+                x = wall_features[wall]
+                edge_index = wall_edge_index[wall]
+            else:
+                x = np.concatenate((x, wall_features[wall]),axis=0)
+                edge_index = np.concatenate((edge_index,wall_edge_index[wall]), axis=1)
+
+        # sanity checks
+        assert(x.shape[0] == sum(n_nodes.values()))
+        assert(x.shape[1] == 9)
+        assert(edge_index.shape[0]==2)
+        assert(edge_index.shape[1]== sum([wall_edge_index[wall].shape[1] for wall in wall_names]))
+    elif isinstance(wall_features, np.ndarray) and isinstance(wall_edge_index, np.ndarray):
+        assert(x.shape[1] == 9)
+        assert(edge_index.shape[0]==2)
+    else: raise TypeError("Loading from a file which isn't a (tuple of dicts for each wall) or a (tuple of np.ndarray for all walls) !")
+    
+    return x , edge_index
+
+
 class GraphDataset(Dataset):
     '''
     An example raw datapoint from the csv file :
@@ -470,7 +567,7 @@ class GraphDataset(Dataset):
     rir_line_of_sight                                                 True
     rir_file_name                             meshdataset/rirs/rir_000.wav
     '''
-    def __init__(self, csv_file="meshdataset/shoebox_mesh_dataset.csv", filter={}, pad_in_collate=True):
+    def __init__(self, csv_file="meshdataset/shoebox_mesh_dataset.csv", filter={}, pad_in_collate=True, load_simplified_mesh=False):
         self.pad_in_collate=pad_in_collate #This option should be on. You pad when loading in the dataloader, not on preprocessing
         self.csv_file=csv_file
         self.sample_rate=None
@@ -490,7 +587,24 @@ class GraphDataset(Dataset):
         self.max_length_rir = 0
         self.preprocess(filter)
         print("Graph Dataset preprocessing done.")
-
+        
+        if load_simplified_mesh:
+            try:
+                assert('simplified_mesh_file_name' in self.data.columns)
+                x0, edge_index0 = load_wall_features_and_wall_edge_index(self.data.at[0,'simplified_mesh_file_name'])
+                x = torch.tensor(x, dtype=torch.float32)
+                edge_index = torch.tensor(edge_index, dtype=torch.float32)
+                self.data['mesh_file_name'] = self.data['simplified_mesh_file_name']
+                self.data.drop(['simplified_mesh_file_name'], axis=1, inplace=True)
+            except BaseException:
+                print("couldn't find simplified meshes, create simplified meshes? (y/n)")
+                if input()=='y':
+                    print("Run mesh_simplification.py please!")
+                    exit()
+                else:
+                    print("exiting...")
+                    exit()
+            
     def preprocess(self, filter):
         # preprocess Booleans
         self.data['rir_line_of_sight'] = self.data['rir_line_of_sight'].apply(lambda x: 1 if x else 0)
@@ -533,7 +647,7 @@ class GraphDataset(Dataset):
         # Initialize max_length_rir (this takes a long time and is not necessary if you don't pad the RIRs but...)
         if not self.pad_in_collate : self.update_max_length_of_label_rirs()
         else : # still need to update sample_rate
-            self.sample_rate, _ = read(self.data['rir_file_name'].iloc[-1])
+            self.sample_rate, _ = read(self.data.at[0,'rir_file_name'])
 
         print("length of dataset",len(self.data))
 
@@ -550,7 +664,7 @@ class GraphDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
-    
+
     def __getitem__(self, index):
         '''
         Calling GraphDataset[index] returns a tuple of tensors:
@@ -560,72 +674,24 @@ class GraphDataset(Dataset):
         - x is the feature tensor of shape (n_nodes, n_features)
         - edge_index is the edge index tensor of shape (2, n_edges)
         - The label_rir_tensor is a tensor of shape (rir_length, 1)
-        It can be used as an intermediate label for the encoder.
         - The label_origin is an integer representing the index of the peak of the RIR.
         - mic_tensor is a tensor of shape (3) representing the position of the microphone used for label RIR computation.
         - source_tensor is a tensor of shape (3) representing the position of the source used for label RIR computation.
-        - absorption_tensor is a tensor of shape (1)
-        - scattering_tensor is a tensor of shape (1)
+        - absorption_tensor is a tensor of shape (1) used for the label RIR computation
+        - scattering_tensor is a tensor of shape (1) used for the label RIR computation
         '''
         if torch.is_tensor(index):
             index = index.tolist()
         df = self.data.iloc[index]
 
         ################ Get NODE FEATURES (X) and EDGE_INDEX ####################################
-        with open(df['mesh_file_name'], 'rb') as file:
-            wall_features, wall_edge_index = pickle.load(file) # these will be numpy arrays
-
-        wall_names=wall_features.keys()
-
-        n_nodes={}
-        for wall, features in wall_features.items():
-            n_nodes[wall] = features.shape[0]
-
-        # add label 0 for floor
-        i=0
-        label_ones = np.ones((n_nodes['floor'], 1))
-        wall_features['floor'] = np.concatenate((wall_features['floor'], i*label_ones), axis=1)
-        index_translation = n_nodes['floor'] # when concatenated, indexes will be higher!
-
-        # add label 1 for ceiling
-        i+=1
-        label_ones = np.ones((n_nodes['ceiling'], 1))
-        wall_features['ceiling'] = np.concatenate((wall_features['ceiling'], i*label_ones), axis=1)
-        # properly translate the indexes in preparation for concatenation
-        wall_edge_index['ceiling'] = wall_edge_index['ceiling'] + index_translation*np.ones(wall_edge_index['ceiling'].shape)
-        index_translation += n_nodes['ceiling']
-
-        # similarly, add a different label for all other walls/platforms
-        # and properly translate the indexes in preparation for concatenation
-        for wall in wall_names:
-            if wall=='floor' or wall=='ceiling':
-                continue
-            i+=1
-            label_ones = np.ones((n_nodes[wall], 1))
-            wall_features[wall] = np.concatenate((wall_features[wall], i*label_ones), axis=1)
-            wall_edge_index[wall] = wall_edge_index[wall] + index_translation*np.ones(wall_edge_index[wall].shape)
-            index_translation += n_nodes[wall]
-
-        # concatenate all the walls/platforms into two big tensors
-        x = wall_features['floor']
-        edge_index = wall_edge_index['floor']
-        for wall in wall_names:
-            if wall=='floor':
-                continue
-            x = np.concatenate((x, wall_features[wall]),axis=0)
-            edge_index = np.concatenate((edge_index,wall_edge_index[wall]), axis=1)
-
-        # sanity checks
-        assert(x.shape[0] == sum(n_nodes.values()))
-        assert(x.shape[1] == 4)
-        assert(edge_index.shape[0]==2)
-        assert(edge_index.shape[1]== sum([wall_edge_index[wall].shape[1] for wall in wall_names]))
+        x, edge_index = load_wall_features_and_wall_edge_index(df['mesh_file_name'])
 
         x = torch.tensor(x, dtype=torch.float32)
         edge_index = torch.tensor(edge_index, dtype=torch.float32)
 
         ################ Get LABEL RIR and LABEL RIR ORIGIN ####################################
-
+        
         self.sample_rate, label_rir = read(df['rir_file_name'])
         label_rir_tensor = torch.tensor(label_rir, dtype=torch.float32)
         # find origin of RIR
@@ -638,7 +704,6 @@ class GraphDataset(Dataset):
 
         if df['room_shoebox']:
             room_dim = [max(df['vertex_arr'][0]),max(df['vertex_arr'][1]), df['room_height']]
-
 
         ################ Get MIC POS, SRC POS, ENERGY ABS, SCATTERING ####################################
 
@@ -665,23 +730,24 @@ class GraphDataset(Dataset):
     def custom_collate_fn(list_of_tuples):
         '''
         Use this in a normal torch.utils.data.DataLoader to get a batch.
-        returns (list_of_Data, rir_tensor_batch, list_of_origin, mic_tensor_batch, source_tensor_batch, absorption_tensor_batch, scattering_tensor_batch)
+        returns (list_of_Data, tuple_of_label_rir_tensors, origin_batch, mic_tensor_batch, source_tensor_batch, absorption_tensor_batch, scattering_tensor_batch)
         '''
         data_list, label_rir_tensors, origin_tensors, room_dim_tensors, mic_pos_tensors, source_pos_tensors, absorption_tensors, scattering_tensors = zip(*list_of_tuples)
 
         # create a batch vector for the graph data.        
         graph_batch=Batch.from_data_list(data_list)
 
-        # if theres any tensor which is not the same length
-        label_rir_tensors = list(label_rir_tensors)
-        if any([len(label_rir_tensors[0]) != len(label_rir_tensors[i]) for i in range(1,len(label_rir_tensors))]):
-            # pad tensors to max length before stacking
-            max_rir_length=max([len(label_rir_tensors[i]) for i in range(len(label_rir_tensors))])
-            for i in range(len(label_rir_tensors)):
-                label_rir_tensors[i] = torch.nn.functional.pad(label_rir_tensors[i], (0, max_rir_length - len(label_rir_tensors[i])))
+        # # This converts the list of tensors to a tensor batch, but its not so necessay after all
+        # # if theres any tensor which is not the same length
+        # label_rir_tensors = list(label_rir_tensors)
+        # if any([len(label_rir_tensors[0]) != len(label_rir_tensors[i]) for i in range(1,len(label_rir_tensors))]):
+        #     # pad tensors to max length before stacking
+        #     max_rir_length=max([len(label_rir_tensors[i]) for i in range(len(label_rir_tensors))])
+        #     for i in range(len(label_rir_tensors)):
+        #         label_rir_tensors[i] = torch.nn.functional.pad(label_rir_tensors[i], (0, max_rir_length - len(label_rir_tensors[i])))
 
         return (graph_batch.x, graph_batch.edge_index, graph_batch.batch,
-                torch.stack(label_rir_tensors, dim=0), torch.stack(origin_tensors, dim=0),
+                list(label_rir_tensors), torch.stack(origin_tensors, dim=0),
                 torch.stack(room_dim_tensors, dim=0), torch.stack(mic_pos_tensors, dim=0), torch.stack(source_pos_tensors, dim=0),
                 torch.stack(absorption_tensors, dim=0), torch.stack(scattering_tensors, dim=0))
 
@@ -707,7 +773,7 @@ def main():
     
     elements of the *dataset.csv that can be filtered_upon GraphDataset creation using the filter={} argument
         mesh_points_per_m2                                  int, or [int, int]
-        mesh_max_offset                                                    0.1
+        mesh_max_offset                                                  float (should be positive)
         mesh_points_per_edge                                int, or [int, int] (should be per meter)
         room_n_walls                                        int, or [int, int] (doesn't include floor and ceiling)
         room_height                                             [float, float]
@@ -719,19 +785,21 @@ def main():
         rir_max_order                                       int, or [int, int]
         rir_line_of_sight                                               1 or 0 
     '''
-    for i in range(180):
-        offset=(random.random()/3)+0.05
-        mesh_points_per_edge = random.randint(5, 20)
-        mesh_points_per_m2 = random.randint(10, 200)
-        rir_energy_absorption = random.choice([0.1,0.2,0.3,0.4,0.5])
-        rir_scattering = random.choice([0.1,0.2,0.3,0.4,0.5])
+    for i in range(200):
+        offset=(random.random()/10)+0.05
+        mesh_points_per_edge = random.randint(8, 13)
+        mesh_points_per_m2 = random.randint(10, 20)
+        rir_energy_absorption = random.random()*0.3+0.1
+        rir_scattering = 0.0
+        room_shoebox_dimensions_range = [[2, 2, 2],[10, 10, 5]]
         shoebox_mesh_dataset_generation(iterations=5, options={'plot':False,
-                                                                'mesh_points_per_m2' : mesh_points_per_m2, #200
+                                                                'mesh_points_per_m2' : mesh_points_per_m2,
                                                                 'mesh_max_offset' : offset,
                                                                 'mesh_points_per_edge' : mesh_points_per_edge,
                                                                 'rir_energy_absorption' : rir_energy_absorption,
-                                                                'rir_scattering' : rir_scattering,})
-    
+                                                                'rir_scattering' : rir_scattering,
+                                                                'room_shoebox_dimensions_range' : room_shoebox_dimensions_range,})
+
     # dataset=GraphDataset("meshdataset/shoebox_mesh_dataset.csv", filter={})
     
     # graph_data, _ , _ ,_ ,_, _, _= dataset[-3]

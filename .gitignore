@@ -2,16 +2,8 @@ archived_code
 wandb
 __pycache__
 
-rirsdataset
-rirsdatasetSimple
 meshdataset
 saved_models
 
-# These are my log files
-simple_room_dataset.csv
-complex_room_dataset.csv
-measure_time_log.csv
-room_task_log.csv
-
-open_profiler.py
-diffpool_example.py
+room_experiment_archives
+multiprocessed_encoders.py

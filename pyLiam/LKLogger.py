@@ -76,7 +76,7 @@ class LKLogger():
         df=pd.read_csv(self.filename)
         df=pd.concat([df,pd.DataFrame(dict_to_add)], ignore_index=True)
         df.to_csv(self.filename, index=False)
-        print("LKLogger: added log line to ",self.filename)
+        print("LKLogger: added log line to ",self.filename, end="\n\n")
 
     def get_df(self):
         return pd.read_csv(self.filename)

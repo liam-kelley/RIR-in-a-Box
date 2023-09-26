@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import scipy.io.wavfile
 import glob
-from LKLogger import LKLogger
+from pyLiam.LKLogger import LKLogger
 from torch.utils.data import Dataset
 import torch
 from scipy.signal import find_peaks

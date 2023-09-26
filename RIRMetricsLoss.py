@@ -176,8 +176,14 @@ def batch_RT60(batch_rir2, sample_rate, batch_origin, epsilon=0.0005, plot=False
     for idx in range(batch_size):
         int_origin=int(batch_origin[idx].item())
         tail_cut=batch_tail_cut_index[idx]
-        shortened_decay_curve=batch_decay_curve[idx, int_origin:tail_cut] # cut off silent intro and cut off tails in the batch
-        shortened_decay_curve=shortened_decay_curve/shortened_decay_curve[0] # Normalize to 1.0 HOPEFULLY
+        try:
+            shortened_decay_curve=batch_decay_curve[idx, int_origin:tail_cut] # cut off silent intro and cut off tails in the batch
+            shortened_decay_curve=shortened_decay_curve/shortened_decay_curve[0] # Normalize to 1.0 HOPEFULLY
+        except IndexError:
+            print("WARNING! INDEX ERROR IN RT60 CALCULATION. Woops")
+            print(int_origin,tail_cut)
+            shortened_decay_curve=batch_decay_curve[idx,:] # Just don't cut intro and tails in batch
+            shortened_decay_curve=shortened_decay_curve/torch.max(shortened_decay_curve) # Normalize to 1.0 brutally
         rt60max=torch.max(shortened_decay_curve.detach()).item()
         if rt60max != 1.0:
             print("WARNING! RT60 MAX IS NOT AT ORIGIN !! Woops")
@@ -281,8 +287,8 @@ def batch_ms_env_diff(batch_rir1, batch_rir2,
 ####### Class #######
 
 class RIRMetricsLoss(nn.Module):
-    def __init__(self, sample_rate=48000, lambda_param={'mrstft': 1, 'd': 1, 'c80': 1, 'rt60':1, 'center_time': 1, 'ms_env': 1},
-                 mrstft_care_about_origin=True, ms_env_filtering=False, ms_env_care_about_origin=True):
+    def __init__(self, sample_rate=48000, lambda_param={'mrstft': 1, 'd': 1, 'c80': 1, 'rt60':1, 'center_time': 1, 'ms_env': 1}, return_separate_losses=False,
+                 mrstft_care_about_origin=True, ms_env_filtering=True, ms_env_care_about_origin=True, print_info=False):
         super().__init__()
         # Simulation parameters
         self.sample_rate=sample_rate
@@ -291,12 +297,6 @@ class RIRMetricsLoss(nn.Module):
         # an initial lambda multiplication that kind of does a pre-normalization of the variances between the different losses
         self.pre_lambdas={'mrstft': 0.6, 'd': 4, 'c80': 0.015, 'rt60':5, 'center_time': 100, 'ms_env': 0.04}
 
-        # Initialize losses
-        self.which_losses=self.init_which_losses([])
-        self.loss_dict={}
-        for loss in self.which_losses:
-            self.loss_dict[loss]=[]
-        
         # Options for mrstft
         self.mrstft=None
         self.mrstft_care_about_origin=mrstft_care_about_origin
@@ -305,6 +305,15 @@ class RIRMetricsLoss(nn.Module):
         self.filters=None
         self.ms_env_filtering=ms_env_filtering
         self.ms_env_care_about_origin=ms_env_care_about_origin
+
+        # Initialize losses
+        self.which_losses=self.init_which_losses([])
+        self.loss_dict={}
+        for loss in self.which_losses:
+            self.loss_dict[loss]=[]
+
+        self.print_info=print_info
+        self.return_separate_losses=return_separate_losses
     
     def init_which_losses(self, which_losses=[]):
         '''
@@ -315,10 +324,35 @@ class RIRMetricsLoss(nn.Module):
             for loss in self.lambda_param.keys():
                 if self.lambda_param[loss] != 0:
                     which_losses.append(loss)
-        print("RIRMetrisLoss Initialized. Using losses : ", which_losses)
+        print("RIRMetrisLoss Initialized. Using losses : ", which_losses, end=' ')
+        if ('mrstft' in which_losses):
+            if self.mrstft_care_about_origin: print("with mrstft caring about origin", end=' ')
+            else: print("", end=' ')
+        if ('ms_env' in which_losses):
+            if self.ms_env_filtering: print("", end='')
+            else: print("without (Multi Filtered Envelope Sum) Filtering activated", end=' ')
+        if ('ms_env' in which_losses):
+            if self.ms_env_care_about_origin: print("", end=' ')
+            else: print("without (Multi Filtered Envelope Sum) caring about origin", end=' ')
+        print("")
         return(which_losses)
 
-    def forward(self, batch_input_rir, batch_input_origins,batch_label_rir, batch_label_origins):
+    def forward(self, batch_input_rir, batch_input_origins, batch_label_rir, batch_label_origins):
+        assert(isinstance(batch_input_rir[0], torch.Tensor))
+        if isinstance(batch_input_rir, list):
+            batch_input_rir=torch.nn.utils.rnn.pad_sequence(batch_input_rir, batch_first=True).to(batch_input_rir[0].device)
+        else:
+            assert(isinstance(batch_input_rir, torch.Tensor))
+        assert(isinstance(batch_input_origins, torch.Tensor))
+
+        assert(isinstance(batch_label_rir[0], torch.Tensor))
+        if isinstance(batch_label_rir, list):
+            batch_label_rir=torch.nn.utils.rnn.pad_sequence(batch_label_rir, batch_first=True).to(batch_label_rir[0].device)
+        else:
+            assert(isinstance(batch_label_rir, torch.Tensor))
+        assert(isinstance(batch_label_origins, torch.Tensor))
+
+        assert(len(batch_input_rir)==len(batch_label_rir) == batch_input_origins.shape[0] == batch_label_origins.shape[0])
 
         # Re-init loss_dict
         for loss in self.which_losses:
@@ -326,6 +360,7 @@ class RIRMetricsLoss(nn.Module):
 
         # Calculate mrstft loss
         if 'mrstft' in self.which_losses:
+
             #init mrstft if not already done
             if self.mrstft==None:
                 self.mrstft = auraloss.freq.MultiResolutionSTFTLoss(
@@ -339,87 +374,93 @@ class RIRMetricsLoss(nn.Module):
                     device= batch_input_rir.device,
                 )
             
+            batch_input_rir,batch_label_rir = pad_to_match_size(batch_input_rir,batch_label_rir)
             if self.mrstft_care_about_origin: x, y = truncate_to_origin_and_pad(batch_input_rir, batch_label_rir, batch_input_origins, batch_label_origins)
             else: x, y = batch_input_rir, batch_label_rir
             batch_mrstft_loss = self.mrstft( x[:,None,:], y[:,None,:] ) # Calculate batch_mrstft # Add a dimension for channels
             batch_mrstft_loss = self.pre_lambdas['mrstft'] * batch_mrstft_loss # pre lambda
             self.loss_dict['mrstft']=batch_mrstft_loss # Store
    
-        if 'rt60' in self.which_losses or 'd' in self.which_losses or \
+        # Precalculations
+        if 'ms_env' in self.which_losses or 'rt60' in self.which_losses or 'd' in self.which_losses or \
             'c80' in self.which_losses or 'center_time' in self.which_losses:
 
             # Precalculate rir^2
             batch_input_rir2=torch.pow(batch_input_rir,2)
             batch_label_rir2=torch.pow(batch_label_rir,2)
         
-            # Precalculate sum(rir^2)
-            batch_input_rir2_sum=torch.sum(batch_input_rir2, axis=1)
-            batch_label_rir2_sum=torch.sum(batch_label_rir2, axis=1)
+            if 'rt60' in self.which_losses or 'd' in self.which_losses or \
+                'c80' in self.which_losses or 'center_time' in self.which_losses:
 
-            batch_size=batch_input_rir.shape[0]
+                # Precalculate sum(rir^2)
+                batch_input_rir2_sum=torch.sum(batch_input_rir2, axis=1)
+                batch_label_rir2_sum=torch.sum(batch_label_rir2, axis=1)
 
-            # Calculate losses
-            if 'c80' in self.which_losses:
-                batch_input_c80 = batch_C80(batch_input_rir2, self.sample_rate, batch_input_origins) # Calculate batch_C80
-                batch_label_c80 = batch_C80(batch_label_rir2, self.sample_rate, batch_label_origins) # Calculate batch_C80
+        # Calculate losses
+        if 'c80' in self.which_losses:
+            batch_input_c80 = batch_C80(batch_input_rir2, self.sample_rate, batch_input_origins) # Calculate batch_C80
+            batch_label_c80 = batch_C80(batch_label_rir2, self.sample_rate, batch_label_origins) # Calculate batch_C80
 
-                batch_c80_loss = torch.abs(batch_input_c80-batch_label_c80) # Difference
-                batch_c80_loss = self.pre_lambdas['c80'] * batch_c80_loss # pre lambda
-                self.loss_dict['c80']=batch_c80_loss # Store
+            batch_c80_loss = torch.abs(batch_input_c80-batch_label_c80) # Difference
+            batch_c80_loss = self.pre_lambdas['c80'] * batch_c80_loss # pre lambda
+            self.loss_dict['c80']=batch_c80_loss # Store
 
-            if 'd' in self.which_losses:
-                batch_input_d = batch_D(batch_input_rir2, self.sample_rate, batch_input_rir2_sum, batch_input_origins) # Calculate batch_D
-                batch_label_d = batch_D(batch_label_rir2, self.sample_rate, batch_label_rir2_sum, batch_label_origins) # Calculate batch_D
+        if 'd' in self.which_losses:
+            batch_input_d = batch_D(batch_input_rir2, self.sample_rate, batch_input_rir2_sum, batch_input_origins) # Calculate batch_D
+            batch_label_d = batch_D(batch_label_rir2, self.sample_rate, batch_label_rir2_sum, batch_label_origins) # Calculate batch_D
 
-                batch_d_loss = torch.abs(batch_input_d-batch_label_d)  # Difference
-                batch_d_loss = self.pre_lambdas['d']*batch_d_loss # pre lambda
-                self.loss_dict['d']=batch_d_loss # Store
+            batch_d_loss = torch.abs(batch_input_d-batch_label_d)  # Difference
+            batch_d_loss = self.pre_lambdas['d']*batch_d_loss # pre lambda
+            self.loss_dict['d']=batch_d_loss # Store
 
-            if 'center_time' in self.which_losses:
-                batch_input_c_t = batch_center_time(batch_input_rir2, self.sample_rate, batch_input_rir2_sum, batch_input_origins) # Calculate batch_c_t
-                batch_label_c_t = batch_center_time(batch_label_rir2, self.sample_rate, batch_label_rir2_sum, batch_label_origins) # Calculate batch_c_t
+        if 'center_time' in self.which_losses:
+            batch_input_c_t = batch_center_time(batch_input_rir2, self.sample_rate, batch_input_rir2_sum, batch_input_origins) # Calculate batch_c_t
+            batch_label_c_t = batch_center_time(batch_label_rir2, self.sample_rate, batch_label_rir2_sum, batch_label_origins) # Calculate batch_c_t
 
-                batch_center_time_loss= torch.abs(batch_input_c_t-batch_label_c_t)  # Difference
-                batch_center_time_loss=self.pre_lambdas['center_time']*batch_center_time_loss # pre lambda
-                self.loss_dict['center_time']=batch_center_time_loss # Store
+            batch_center_time_loss= torch.abs(batch_input_c_t-batch_label_c_t)  # Difference
+            batch_center_time_loss=self.pre_lambdas['center_time']*batch_center_time_loss # pre lambda
+            self.loss_dict['center_time']=batch_center_time_loss # Store
 
-            if 'rt60' in self.which_losses:
-                batch_input_rt60 = batch_RT60(batch_input_rir2, self.sample_rate, batch_input_origins) # Calculate batch_RT60
-                batch_label_rt60 = batch_RT60(batch_label_rir2, self.sample_rate, batch_label_origins) # Calculate batch_RT60
-                
-                batch_rt60_loss = torch.abs(batch_input_rt60- batch_label_rt60) # Difference
-                batch_rt60_loss = self.pre_lambdas['rt60']*batch_rt60_loss # pre lambda
-                self.loss_dict['rt60']=batch_rt60_loss # Store
+        if 'rt60' in self.which_losses:
+            batch_input_rt60 = batch_RT60(batch_input_rir2, self.sample_rate, batch_input_origins) # Calculate batch_RT60
+            batch_label_rt60 = batch_RT60(batch_label_rir2, self.sample_rate, batch_label_origins) # Calculate batch_RT60
             
-            if 'ms_env' in self.which_losses:
-                if self.ms_env_care_about_origin:
-                    batch_ms_env_loss=batch_ms_env_diff(batch_input_rir2, batch_label_rir2,
-                                                        filtering=self.ms_env_filtering,
-                                                        care_about_origin=True, batch_origin1=batch_input_origins, batch_origin2=batch_label_origins)
-                else:
-                    batch_ms_env_loss=batch_ms_env_diff(batch_input_rir2, batch_label_rir2,
-                                                        filtering=self.ms_env_filtering,
-                                                        care_about_origin=False)
-                batch_ms_env_loss=self.pre_lambdas['ms_env']*batch_ms_env_loss # pre lambda
-                self.loss_dict['ms_env']=batch_ms_env_loss # store
+            batch_rt60_loss = torch.abs(batch_input_rt60- batch_label_rt60) # Difference
+            batch_rt60_loss = self.pre_lambdas['rt60']*batch_rt60_loss # pre lambda
+            self.loss_dict['rt60']=batch_rt60_loss # Store
+            
+        if 'ms_env' in self.which_losses:
+            if self.ms_env_care_about_origin:
+                batch_ms_env_loss=batch_ms_env_diff(batch_input_rir2, batch_label_rir2,
+                                                    filtering=self.ms_env_filtering,
+                                                    care_about_origin=True, batch_origin1=batch_input_origins, batch_origin2=batch_label_origins)
+            else:
+                batch_ms_env_loss=batch_ms_env_diff(batch_input_rir2, batch_label_rir2,
+                                                    filtering=self.ms_env_filtering,
+                                                    care_about_origin=False)
+            batch_ms_env_loss=self.pre_lambdas['ms_env']*batch_ms_env_loss # pre lambda
+            self.loss_dict['ms_env']=batch_ms_env_loss # store
         
         # Average batch losses
-        print("Average batch losses : ", end="")
+        if self.print_info : print("Average batch losses : ", end="")
         for loss in self.which_losses:
             if loss == 'mrstft':
-                    print(loss, self.loss_dict[loss].item(), end=" ")
+                    if self.print_info : print(loss, self.loss_dict[loss].item(), end=" ")
                     continue
             self.loss_dict[loss]=torch.mean(self.loss_dict[loss])
-            print(loss, self.loss_dict[loss].item(), end=" ")
-        print("")
+            if self.print_info : print(loss, self.loss_dict[loss].item(), end=" ")
 
-        # Get total loss
-        total_loss=torch.zeros(1, device=batch_input_rir.device)
-        for loss in self.which_losses:
-            total_loss=total_loss + self.loss_dict[loss]*self.lambda_param[loss]
+        # Returns
+        if self.return_separate_losses:
+            return self.loss_dict
+        else:    
+            # Get total loss
+            total_loss=torch.zeros(1, device=batch_input_rir.device)
+            for loss in self.which_losses:
+                total_loss=total_loss + self.loss_dict[loss]*self.lambda_param[loss]
 
-        print("total_loss",total_loss.item())
-        return total_loss
+            if self.print_info : print("\ntotal_loss",total_loss.item())
+            return total_loss
     
 ### PLOT FUNCTIONS ###
 from typing import List

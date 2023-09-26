@@ -1,11 +1,15 @@
 import time
 
 class LKTimer:
-    def __init__(self):
+    def __init__(self,print_time=True):
         self.times = {}
+        self.print_time = print_time
 
-    def time(self, key):
-        return TimerContext(self, key)
+    def time(self, key, print_time=None):
+        if print_time==None:
+            return TimerContext(self, key, print_time=self.print_time)
+        else:
+            return TimerContext(self, key, print_time=print_time)
 
     def log_time(self, key, duration):
         self.times[key]=duration
@@ -19,19 +23,20 @@ class LKTimer:
         self.times = {}
 
 class TimerContext:
-    def __init__(self, timer_logger, key):
+    def __init__(self, timer_logger, key, print_time):
         self.timer_logger = timer_logger
         self.key = key
+        self.print_time = print_time
 
     def __enter__(self):
-        print(self.key)
+        if self.print_time : print(self.key)
         self.start_time = time.time()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         end_time = time.time()
         duration = end_time - self.start_time
         self.timer_logger.log_time(self.key, duration)
-        # print(f"Block '{self.key}' executed in {duration:.4f} seconds")
+        if self.print_time : print(f"LKTimer : {duration:.4f} seconds")
 
 def main():
     # Example usage:

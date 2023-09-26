@@ -91,7 +91,7 @@ This file also has functions to plot a mesh from either an edge_index or a trian
 
 ### RIRMetricsExperiments.py
 
-Many helpful functions are in this file. It might need to be cleaned up.
+Many helpful functions are in this file. It might need to be cleaned up. The experiments might not run properly right now.
 
 I might have made the metrics in this file bug out, but they are properly implemented in RIRMetricsLoss.py.
 
