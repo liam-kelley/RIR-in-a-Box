@@ -38,7 +38,7 @@ Nvidia drivers
 Go to [this website](https://www.nvidia.com/Download/index.aspx?lang=en-us)
 and download the correct driver for your GPU.
 I had to run the driver installation while in recovery mode to not mess up my system.
-
+Restart your computer after the installation.
 
 ## Preparation
 

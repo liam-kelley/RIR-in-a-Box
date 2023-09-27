@@ -20,8 +20,8 @@ import wandb #https://wandb.ai/home
 ############################################ Config ############################################
 
 LEARNING_RATE = 4e-3
-EPOCHS = 20
-BATCH_SIZE = 2
+EPOCHS = 50
+BATCH_SIZE = 32
 DEVICE='cuda'
 
 SHOEBOXES=True
@@ -39,7 +39,7 @@ LAMBDA_MIC_SRC_VECTOR = 1
 LAMBDA_SRC_MIC_VECTOR = 1
 LAMBDA_ABSORPTION = 1
 
-rir_lambda_multiplier = 0.0
+rir_lambda_multiplier = 1.000
 LAMBDA_EDR = 250
 LAMBDA_D = 8.3
 LAMBDA_C80=500
@@ -63,12 +63,12 @@ save_path="saved_models/GraphToRIR"
 if do_wandb:
     wandb.init(
         # set the wandb project where this run will be logged
-        project="GraphToRIR10",
+        project="GraphToRIR11",
         
         # track hyperparameters and run metadata
         config={
             "learning_rate": LEARNING_RATE,
-            "architecture": "(Conv/Pool)*3, cat pooled layers, FC*2, Sigmoid",
+            "architecture": "Normal, OracleMic/OracleSrc",
             "dataset": "GraphDataset",
             "epochs": EPOCHS,
             "batch size": BATCH_SIZE,
@@ -96,12 +96,12 @@ dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_worker
 
 # models
 encoder = GraphToShoeboxEncoder(training=True).to(DEVICE)
-BoxToRIR = ShoeboxToRIR(dataset.sample_rate, max_order=RIR_MAX_ORDER).to('cpu')
+BoxToRIR = ShoeboxToRIR(dataset.sample_rate, max_order=RIR_MAX_ORDER).to(DEVICE)#.to('cpu')
 
 # Shoebox training loss modules
 shoebox=Shoebox_Loss(lambdas={"room_dim":LAMBDA_ROOM_SIZE,"mic":LAMBDA_MIC,"src":LAMBDA_SRC,
                               "mic_src_vector":LAMBDA_MIC_SRC_VECTOR,"src_mic_vector":LAMBDA_SRC_MIC_VECTOR,
-                              "absorption":1}, return_separate_losses=True).to('cpu')
+                              "absorption":1}, return_separate_losses=True).to(DEVICE)#.to('cpu')
 edr=EDC_Loss(deemphasize_early_reflections=EDR_DEEMPHASIZE_EARLY_REFLECTIONS,plot=False, edr=True).to(DEVICE)
 rirmetricsloss=RIRMetricsLoss(lambda_param={'d': 1, 'c80': 1, 'mrstft': 1}, sample_rate=dataset.sample_rate, mrstft_care_about_origin=False, return_separate_losses=True).to(DEVICE)
 
@@ -121,15 +121,15 @@ for epoch in range(EPOCHS):
         optimizer.zero_grad()
         
         with timer.time("GNN forward pass"):
-            shoebox_z_batch = encoder(x_batch.to(DEVICE), edge_index_batch.to(DEVICE) ,batch_indexes.to(DEVICE), mic_pos_batch.to(DEVICE), source_pos_batch.to(DEVICE)).to('cpu')
+            shoebox_z_batch = encoder(x_batch.to(DEVICE), edge_index_batch.to(DEVICE) ,batch_indexes.to(DEVICE), mic_pos_batch.to(DEVICE), source_pos_batch.to(DEVICE))#.to('cpu')
 
         with timer.time("Shoebox losses"):
             sig_mic_pos_batch=mic_pos_batch/room_dim_batch
             sig_source_pos_batch = source_pos_batch/room_dim_batch
-            label_shoebox_z_batch=cat((room_dim_batch, sig_mic_pos_batch, sig_source_pos_batch, unsqueeze(label_absorption_batch,dim=1)), dim=1)
+            label_shoebox_z_batch=cat((room_dim_batch, sig_mic_pos_batch, sig_source_pos_batch, unsqueeze(label_absorption_batch,dim=1)), dim=1).to(DEVICE)
 
             room_dimensions_loss, mic_loss, source_loss, mic_source_vector_loss,\
-                source_mic_vector_loss, absorption_loss = shoebox(shoebox_z_batch[:,:10].to('cpu'), label_shoebox_z_batch[:,:10]) #Shoebox loss only checks dimensions of room
+                source_mic_vector_loss, absorption_loss = shoebox(shoebox_z_batch[:,:10].to(DEVICE), label_shoebox_z_batch[:,:10].to(DEVICE)) #Shoebox loss only checks dimensions of room
             
             loss =  shoebox_lambda_multiplier * LAMBDA_ROOM_SIZE * room_dimensions_loss+\
                     shoebox_lambda_multiplier * LAMBDA_MIC * mic_loss +\
@@ -150,7 +150,7 @@ for epoch in range(EPOCHS):
 
         with timer.time("RIR losses"):
             if rir_lambda_multiplier > 0.0 :
-                edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, device=DEVICE, plot_i=plot_i).to('cpu')
+                edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, device=DEVICE, plot_i=plot_i).to(DEVICE)#.to('cpu')
                 rirml = rirmetricsloss(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
                 d_loss, c80_loss, mrstft_loss = rirml['d'], rirml['c80'], rirml['mrstft']
 
