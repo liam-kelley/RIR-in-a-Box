@@ -92,7 +92,7 @@ def _multiprocessed_loss_computations(args):
 
     edc_no_early_reflections,edc_early_reflections,d,c80,rt60, mrstft, mrstft_care_about_origin, multi_filtered_env, multi_filtered_env_care_about_origin, edr_no_early_reflections, edr_early_reflections = loss_list
 
-    torch_rir = torch_ism(room_dimensions, room_dimensions * torch.Tensor(np.random.uniform(size=3)), room_dimensions * torch.Tensor(np.random.uniform(size=3)), SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 7.1 Random positions
+    torch_rir = torch_ism(room_dimensions, room_dimensions * torch.tensor(np.random.uniform(size=3)), room_dimensions * torch.tensor(np.random.uniform(size=3)), SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 7.1 Random positions
     # new_mic_pos, new_src_pos = two_points_inside_rectangle(distance,room_dimensions) # Experiment 7.2 - Random Positions, correct distance
     # torch_rir = torch_ism(room_dimensions,torch.cat((new_mic_pos,torch.unsqueeze(mic_position[2], dim=-1))),torch.cat((new_src_pos,torch.unsqueeze(source_position[2], dim=-1))),SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 7.2 - Random Positions, correct distance
     
@@ -220,7 +220,7 @@ if __name__ == "__main__":
     source_position=torch.tensor(TARGET_SOURCE_POSITION, dtype=torch.float32, requires_grad=False, device=DEVICE)
 
     # Get label rir and origin
-    og_label_rir = torch_ism(torch.Tensor(TARGET_ROOM_DIMENSIONS).to(DEVICE),mic_position,source_position,SAMPLE_RATE, max_order=MAX_ORDER)
+    og_label_rir = torch_ism(torch.tensor(TARGET_ROOM_DIMENSIONS).to(DEVICE),mic_position,source_position,SAMPLE_RATE, max_order=MAX_ORDER)
     label_distance = torch.linalg.norm(mic_position-source_position)
     label_origin = 40 + (SAMPLE_RATE*label_distance/SOUND_SPEED)
     label_origin=torch.unsqueeze(label_origin,0)
@@ -275,7 +275,7 @@ if __name__ == "__main__":
                 edr_no_early_reflections_loss_list.append(edr_no_early_reflections_loss)
 
             # Get losses
-            shoebox_loss=shoebox_mse(room_dimensions, torch.Tensor(TARGET_ROOM_DIMENSIONS))
+            shoebox_loss=shoebox_mse(room_dimensions, torch.tensor(TARGET_ROOM_DIMENSIONS))
 
             edc_no_early_reflections_loss_mean=torch.tensor(edc_no_early_reflections_loss_list).mean()
             edc_early_reflections_loss_mean=torch.tensor(edc_early_reflections_loss_list).mean()
@@ -299,15 +299,15 @@ if __name__ == "__main__":
             
                 # center_time_loss=center_time(torch_rir,torch_origin,label_rir,label_origin)
 
-            mrstft_loss_mean=torch.Tensor(mrstft_loss_list).mean()
-            mrstft_care_about_origin_loss_mean=torch.Tensor(mrstft_care_about_origin_loss_list).mean()
-            multi_filtered_env_loss_mean=torch.Tensor(multi_filtered_env_loss_list).mean()
-            multi_filtered_env_care_about_origin_loss_mean=torch.Tensor(multi_filtered_env_care_about_origin_loss_list).mean()
+            mrstft_loss_mean=torch.tensor(mrstft_loss_list).mean()
+            mrstft_care_about_origin_loss_mean=torch.tensor(mrstft_care_about_origin_loss_list).mean()
+            multi_filtered_env_loss_mean=torch.tensor(multi_filtered_env_loss_list).mean()
+            multi_filtered_env_care_about_origin_loss_mean=torch.tensor(multi_filtered_env_care_about_origin_loss_list).mean()
            
-            mrstft_loss_min=torch.Tensor(mrstft_loss_list).min()
-            mrstft_care_about_origin_loss_min=torch.Tensor(mrstft_care_about_origin_loss_list).min()
-            multi_filtered_env_loss_min=torch.Tensor(multi_filtered_env_loss_list).min()
-            multi_filtered_env_care_about_origin_loss_min=torch.Tensor(multi_filtered_env_care_about_origin_loss_list).min()
+            mrstft_loss_min=torch.tensor(mrstft_loss_list).min()
+            mrstft_care_about_origin_loss_min=torch.tensor(mrstft_care_about_origin_loss_list).min()
+            multi_filtered_env_loss_min=torch.tensor(multi_filtered_env_loss_list).min()
+            multi_filtered_env_care_about_origin_loss_min=torch.tensor(multi_filtered_env_care_about_origin_loss_list).min()
 
             # Log losses
             log_row["shoebox_mse"]=shoebox_loss.item()

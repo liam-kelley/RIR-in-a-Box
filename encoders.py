@@ -42,6 +42,7 @@ class ShoeboxToRIR(nn.Module):
         
         shoebox_rir_batch=[]
         for i in range(batch_size):
+            print(f"getting torch ism {i}")
             shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
                                 self.sample_rate, max_order=self.max_order, absorption=absorption[i])
 

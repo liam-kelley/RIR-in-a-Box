@@ -29,9 +29,9 @@ def _get_grid_of_room_dimensions(room_h, min_size, max_size, step):
 def _rotate_point_around_point(origin_point,point_to_rotate, angle=-1.15):
     distance=torch.linalg.norm(origin_point-point_to_rotate).item()
     if origin_point.shape[0]==3:
-        new_point_pos=torch.Tensor([cos(angle)*distance,sin(angle)*distance,0]) + origin_point
+        new_point_pos=torch.tensor([cos(angle)*distance,sin(angle)*distance,0]) + origin_point
     elif origin_point.shape[0]==2:
-        new_point_pos=torch.Tensor([cos(angle)*distance,sin(angle)*distance]) + origin_point
+        new_point_pos=torch.tensor([cos(angle)*distance,sin(angle)*distance]) + origin_point
     else: raise(BaseException("points must be 2 long vector or 3 long vector"))
     return new_point_pos
 
@@ -39,7 +39,7 @@ def two_points_inside_rectangle(distance,rectangle):
     i=0
     while i < 1000:
         point1=torch.rand(2)*rectangle[:2]
-        point2_temp=point1+torch.Tensor([distance,0])
+        point2_temp=point1+torch.tensor([distance,0])
         j=0
         while j < 10:
             point2=_rotate_point_around_point(point1,point2_temp, angle=random()*2*pi)
@@ -104,7 +104,7 @@ def rooms_experiment(grid_step=3,
     source_position=torch.tensor(target_source_position, dtype=torch.float32, requires_grad=False, device=DEVICE)
     
     # Get label rir and origin
-    og_label_rir = torch_ism(torch.Tensor(target_room_dimensions),mic_position,source_position,SAMPLE_RATE, max_order=MAX_ORDER)
+    og_label_rir = torch_ism(torch.tensor(target_room_dimensions),mic_position,source_position,SAMPLE_RATE, max_order=MAX_ORDER)
     label_distance = torch.linalg.norm(mic_position-source_position)
     label_origin = 40 + (SAMPLE_RATE*label_distance/SOUND_SPEED)
     label_origin=torch.unsqueeze(label_origin,0)
@@ -157,10 +157,10 @@ def rooms_experiment(grid_step=3,
             # compute shoebox rir with these room dimensions
             # torch_rir = torch_ism(room_dimensions,mic_position,source_position,SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 2 - mic and src = Targets
             # torch_rir = torch_ism(room_dimensions,source_position,mic_position,SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 3 - mic and src switched
-            # torch_rir = torch_ism(room_dimensions,mic_position-torch.Tensor([0.5,0.5,0.5]),source_position-torch.Tensor([0.5,0.5,0.5]),SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 4.1 - Translated, same mic-src distance
+            # torch_rir = torch_ism(room_dimensions,mic_position-torch.tensor([0.5,0.5,0.5]),source_position-torch.tensor([0.5,0.5,0.5]),SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 4.1 - Translated, same mic-src distance
             # torch_rir = torch_ism(room_dimensions,mic_position,_rotate_point_around_point(mic_position,source_position),SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 4.2 - Rotated (angle -1.15 radians), same mic-src distance
-            # torch_rir = torch_ism(room_dimensions,mic_position-torch.Tensor([1,0.5,0]),source_position-torch.Tensor([0.25,0.5,0]),SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 5.1 - Translated , different mic-src distance
-            # torch_rir = torch_ism(room_dimensions,mic_position-torch.Tensor([1,0.5,0]),source_position-torch.Tensor([0.25,0.25,0]),SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 5.2 - Translated + rotated , different mic-src distance
+            # torch_rir = torch_ism(room_dimensions,mic_position-torch.tensor([1,0.5,0]),source_position-torch.tensor([0.25,0.5,0]),SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 5.1 - Translated , different mic-src distance
+            # torch_rir = torch_ism(room_dimensions,mic_position-torch.tensor([1,0.5,0]),source_position-torch.tensor([0.25,0.25,0]),SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 5.2 - Translated + rotated , different mic-src distance
             # torch_rir = torch_ism(room_dimensions,torch.rand(3)*room_dimensions,torch.rand(3)*room_dimensions,SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 6.1 - Random Positions
             new_mic_pos, new_src_pos = two_points_inside_rectangle(torch.linalg.norm(mic_position-source_position),room_dimensions) # Experiment 6.2 - Random Positions, correct distance
             torch_rir = torch_ism(room_dimensions,torch.cat((new_mic_pos,torch.unsqueeze(mic_position[2], dim=-1))),torch.cat((new_src_pos,torch.unsqueeze(source_position[2], dim=-1))),SAMPLE_RATE, max_order=MAX_ORDER) # Experiment 6.2 - Random Positions, correct distance
@@ -171,7 +171,7 @@ def rooms_experiment(grid_step=3,
             torch_origin=torch.unsqueeze(torch_origin,0)
 
             # Get losses
-            shoebox_loss=shoebox_mse(room_dimensions, torch.Tensor(target_room_dimensions))
+            shoebox_loss=shoebox_mse(room_dimensions, torch.tensor(target_room_dimensions))
             edc_loss_no_early_reflections = edc_no_early_reflections([torch_rir], torch_origin, [og_label_rir], label_origin)
             edc_loss_early_reflections = edc_early_reflections([torch_rir], torch_origin, [og_label_rir], label_origin)
             edr_loss_no_early_reflections = edr_no_early_reflections([torch_rir], torch_origin, [og_label_rir], label_origin)
@@ -297,7 +297,7 @@ def plot_rooms_experiment(logger=None, losses_to_plot=None):
         # Add mic and source positions for reference
         axs_rooms[x,y].scatter(target_source_position[0], target_source_position[1], c="red", marker='x')#, label="Target Source")
         axs_rooms[x,y].scatter(target_mic_position[0], target_mic_position[1], c="red", marker='D')#, label="Target Microphone")
-        # rotated_point=_rotate_point_around_point(torch.Tensor(target_mic_position),torch.Tensor(target_source_position)).cpu().tolist() # Use for experiment 4.2
+        # rotated_point=_rotate_point_around_point(torch.tensor(target_mic_position),torch.tensor(target_source_position)).cpu().tolist() # Use for experiment 4.2
         # axs_rooms[x,y].scatter(rotated_point[0], rotated_point[1], c="cyan", marker='x', label="Source") # Use for experiment 4.2
         # axs_rooms[x,y].scatter(target_source_position[0]-0.25, target_source_position[1]-0.25, c="cyan", marker='x', label="Source") # Use for experiments 4.1, 5.1, 5.2
         # axs_rooms[x,y].scatter(target_mic_position[0], target_mic_position[1], c="cyan", marker='D', label="Microphone") # Use for experiments 4.1, 4.2, 5.1, 5.2

@@ -14,13 +14,13 @@ class Shoebox_Loss(torch.nn.Module):
     def forward(self, proposed_z_batch, label_z_batch, plot_i=0, return_separate_losses=False):
         '''
         args:
-        proposed_z_batch: torch.Tensor. shape: (batch_size, 10)
-        label_z_batch: torch.Tensor. shape: (batch_size, 10)
+        proposed_z_batch: torch.tensor. shape: (batch_size, 10)
+        label_z_batch: torch.tensor. shape: (batch_size, 10)
         plot_i: int, used for plotting in my training script
         '''
 
-        assert(type(proposed_z_batch)==torch.Tensor)
-        assert(type(label_z_batch)==torch.Tensor)
+        assert(type(proposed_z_batch)==torch.tensor)
+        assert(type(label_z_batch)==torch.tensor)
         assert(proposed_z_batch.shape==label_z_batch.shape)
         assert(proposed_z_batch.shape[1]==10)
         # batch_size=proposed_z_batch.shape[0]
@@ -59,23 +59,23 @@ class Shoebox_Loss(torch.nn.Module):
                         [1.0,0.0,1.0],
                         [1.0,1.0,0.0],
                         [1.0,1.0,1.0]]
-        symmetries=torch.Tensor(symmetries)
-        symmetries_uhhh=torch.Tensor(symmetries_uhhh)        
+        symmetries=torch.tensor(symmetries, device=proposed_z_batch.device)
+        symmetries_uhhh=torch.tensor(symmetries_uhhh, device=proposed_z_batch.device)        
 
-        mic_loss=torch.Tensor([0.0])
-        source_loss=torch.Tensor([0.0])
-        mic_source_vector_loss=torch.Tensor([0.0])
-        source_mic_vector_loss=torch.Tensor([0.0])
+        mic_loss=torch.tensor([0.0],device=proposed_z_batch.device)
+        source_loss=torch.tensor([0.0],device=proposed_z_batch.device)
+        mic_source_vector_loss=torch.tensor([0.0],device=proposed_z_batch.device)
+        source_mic_vector_loss=torch.tensor([0.0],device=proposed_z_batch.device)
 
         for i in range(len(symmetries)):
             target_mic_pos_inverted=target_mic_pos*symmetries[i] + symmetries_uhhh[i]
             target_source_pos_inverted=target_source_pos*symmetries[i] + symmetries_uhhh[i]
             mic_source_vector_inverted=target_mic_source_vector*symmetries[i]
             source_mic_vector_inverted=target_source_mic_vector*symmetries[i]
-            # target_mic_pos_inverted=torch.Tensor([target_mic_pos[k] if symmetry[k] else 1.0-target_mic_pos[k] for k in range(3)])
-            # target_source_pos_inverted=torch.Tensor([target_source_pos[k] if symmetry[k] else 1.0-target_source_pos[k] for k in range(3)])
-            # mic_source_vector_inverted=torch.Tensor([target_mic_source_vector[k] if symmetry[k] else -target_mic_source_vector[k] for k in range(3)])
-            # source_mic_vector_inverted=torch.Tensor([target_source_mic_vector[k] if symmetry[k] else -target_source_mic_vector[k] for k in range(3)])
+            # target_mic_pos_inverted=torch.tensor([target_mic_pos[k] if symmetry[k] else 1.0-target_mic_pos[k] for k in range(3)])
+            # target_source_pos_inverted=torch.tensor([target_source_pos[k] if symmetry[k] else 1.0-target_source_pos[k] for k in range(3)])
+            # mic_source_vector_inverted=torch.tensor([target_mic_source_vector[k] if symmetry[k] else -target_mic_source_vector[k] for k in range(3)])
+            # source_mic_vector_inverted=torch.tensor([target_source_mic_vector[k] if symmetry[k] else -target_source_mic_vector[k] for k in range(3)])
 
             mic_loss=mic_loss + (proposed_mic_pos-target_mic_pos_inverted).pow(2).sum().pow(0.2)
             source_loss=source_loss + (proposed_source_pos-target_source_pos_inverted).pow(2).sum().pow(0.2)
@@ -94,7 +94,7 @@ class Shoebox_Loss(torch.nn.Module):
             return total_loss
 
 def main():
-    room_dimension=torch.Tensor([5.03,4.02,3.01])
+    room_dimension=torch.tensor([5.03,4.02,3.01])
     target_mic_pos=torch.rand(3)*room_dimension
     target_source_pos=torch.rand(3)*room_dimension
 
@@ -131,16 +131,16 @@ def main():
            # [False,False,False]
            ]
 
-        mic_loss=torch.Tensor([0.0])
-        source_loss=torch.Tensor([0.0])
-        mic_source_vector_loss=torch.Tensor([0.0])
-        source_mic_vector_loss=torch.Tensor([0.0])
+        mic_loss=torch.tensor([0.0])
+        source_loss=torch.tensor([0.0])
+        mic_source_vector_loss=torch.tensor([0.0])
+        source_mic_vector_loss=torch.tensor([0.0])
 
         for symmetry in symmetries:
-            target_mic_pos_inverted=torch.Tensor([target_mic_pos[k] if symmetry[k] else room_dimension[k]-target_mic_pos[k] for k in range(3)])
-            target_source_pos_inverted=torch.Tensor([target_source_pos[k] if symmetry[k] else room_dimension[k]-target_source_pos[k] for k in range(3)])
-            mic_source_vector_inverted=torch.Tensor([target_mic_source_vector[k] if symmetry[k] else -target_mic_source_vector[k] for k in range(3)])
-            source_mic_vector_inverted=torch.Tensor([target_source_mic_vector[k] if symmetry[k] else -target_source_mic_vector[k] for k in range(3)])
+            target_mic_pos_inverted=torch.tensor([target_mic_pos[k] if symmetry[k] else room_dimension[k]-target_mic_pos[k] for k in range(3)])
+            target_source_pos_inverted=torch.tensor([target_source_pos[k] if symmetry[k] else room_dimension[k]-target_source_pos[k] for k in range(3)])
+            mic_source_vector_inverted=torch.tensor([target_mic_source_vector[k] if symmetry[k] else -target_mic_source_vector[k] for k in range(3)])
+            source_mic_vector_inverted=torch.tensor([target_source_mic_vector[k] if symmetry[k] else -target_source_mic_vector[k] for k in range(3)])
 
             mic_loss=mic_loss + torch.abs(proposed_mic_pos-target_mic_pos_inverted).pow(2).sum().pow(0.2)
             source_loss=source_loss + torch.abs(proposed_source_pos-target_source_pos_inverted).pow(2).sum().pow(0.2)
