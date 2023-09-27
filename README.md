@@ -9,7 +9,7 @@ sudo apt install build-essential
 sudo apt install git
 ```
 
-Setup your ssh key.
+Setup your ssh key to clone this repository
 
 ```bash
 git clone git@github.com:liam-kelley/RIR-in-a-Box.git
@@ -34,6 +34,29 @@ python -m pip install librosa auraloss torch-geometric
 python -m pip install pymeshlab matplotlib pandas wandb pandas shapely pyroomacoustics
 ```
 
+Nvidia drivers
+Go to [this website](https://www.nvidia.com/Download/index.aspx?lang=en-us)
+and download the correct driver for your GPU.
+I had to run the driver installation while in recovery mode to not mess up my system.
+
+
 ## Preparation
 
-To be written soon.
+Shoebox MeshDataset generation.
+
+```bash
+mkdir meshdataset
+cd meshdataset
+mkdir rirs
+mkdir meshes
+cd ..
+```
+
+You can then use the shoebox_mesh_dataset_generation function from the mesh_dataset.py file to generate a dataset of shoebox meshes and RIRs.
+Example usage is in the main function from mesh_dataset.py
+
+```bash
+python mesh_dataset.py
+```
+
+It sometimes bugs and freezes a bit. Please kill it and restart it if it does.
