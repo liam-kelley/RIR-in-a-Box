@@ -14,13 +14,13 @@ class Shoebox_Loss(torch.nn.Module):
     def forward(self, proposed_z_batch, label_z_batch, plot_i=0, return_separate_losses=False):
         '''
         args:
-        proposed_z_batch: torch.tensor. shape: (batch_size, 10)
-        label_z_batch: torch.tensor. shape: (batch_size, 10)
+        proposed_z_batch: torch.Tensor. shape: (batch_size, 10)
+        label_z_batch: torch.Tensor. shape: (batch_size, 10)
         plot_i: int, used for plotting in my training script
         '''
 
-        assert(type(proposed_z_batch)==torch.tensor)
-        assert(type(label_z_batch)==torch.tensor)
+        assert(type(proposed_z_batch)==torch.Tensor)
+        assert(type(label_z_batch)==torch.Tensor)
         assert(proposed_z_batch.shape==label_z_batch.shape)
         assert(proposed_z_batch.shape[1]==10)
         # batch_size=proposed_z_batch.shape[0]
