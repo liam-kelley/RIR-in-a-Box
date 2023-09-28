@@ -12,11 +12,6 @@ from torch_geometric.nn import global_max_pool as gmp
 from torch_geometric.nn import global_mean_pool as gap
 
 from compute_rir_v2 import torch_ism
-from compute_batch_rir_v2 import batch_simulate_rir_ism
-
-import torch.multiprocessing as multiprocessing
-
-from pyLiam.LKTimer import LKTimer
 
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=48000, max_order=10, ):
@@ -37,32 +32,27 @@ class ShoeboxToRIR(nn.Module):
         '''
         batch_size=input.shape[0]
 
+        og_device=input.device
+
+        input=input.to('cpu')
+
         room_dimensions = input[:, 0:3]  # (batch_size, 3)
-        mic_position = (input[:, 3:6]*room_dimensions).unsqueeze(1)  # (batch_size, 1, 3)
+        mic_position = input[:, 3:6]*room_dimensions  # (batch_size, 1, 3)
         source_position = input[:, 6:9]*room_dimensions  # (batch_size, 3)
         if force_absorption is not None: absorption = force_absorption  # (batch_size, 1, 6)
-        else: absorption = input[:, 9].unsqueeze(1).unsqueeze(2).expand(-1,-1,6)  # (batch_size, n_bands=1, 6)
-
-        timer = LKTimer(print_time=True)
-
-        with timer.time("Batch simulate rir"):
-            shoebox_rir_batch=batch_simulate_rir_ism(room_dimensions,mic_position,source_position, absorption,
-                                                self.max_order, self.sample_rate)
+        else: absorption = input[:, 9] # (batch_size)
             
-        with timer.time("simulate rir with a for loop"):
-            batch_size=room_dimensions.shape[0]
-            shoebox_rir_batch=[]
-            for i in range(batch_size):
-                print(f"ism {i}", end='\r')
-                shoebox_rir=torch_ism(room_dimensions[i].to('cpu'),mic_position.squeeze(1)[i].to('cpu'),source_position[i].to('cpu'),
-                                    self.sample_rate, max_order=self.max_order, absorption=input[i, 9].to('cpu'))
-
-                shoebox_rir_batch.append(shoebox_rir.to(input.device))
-            print("")
-            # stack(shoebox_rir_batch) # shoebox_rir isn't same length each time, so can't stack, using list instead
+        shoebox_rir_batch=[]
+        for i in range(batch_size):
+            print(f"ism {i}", end='\r')
+            shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
+                                self.sample_rate, max_order=self.max_order, absorption=absorption[i])
+            shoebox_rir_batch.append(shoebox_rir.to(og_device))
+        print("")
+        # stack(shoebox_rir_batch) # shoebox_rir isn't same length each time, so can't stack, using list instead
 
         # Get torch origins
-        torch_distances = norm(mic_position[:,0,:]-source_position, dim=1)
+        torch_distances = norm(mic_position-source_position, dim=1)
         shoebox_origin_batch = 40 + (self.sample_rate*torch_distances/self.sound_speed) # 40 is delay_filter_length: int = 81 // 2
 
         return shoebox_rir_batch, shoebox_origin_batch
