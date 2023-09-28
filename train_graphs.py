@@ -21,7 +21,7 @@ import wandb #https://wandb.ai/home
 
 LEARNING_RATE = 4e-3
 EPOCHS = 50
-BATCH_SIZE = 8
+BATCH_SIZE =  10
 DEVICE='cuda'
 
 SHOEBOXES=True
@@ -103,7 +103,7 @@ rirmetricsloss=RIRMetricsLoss(lambda_param={'d': 1, 'c80': 1, 'mrstft': 1}, samp
 optimizer = optim.Adam(encoder.parameters(), lr=LEARNING_RATE)
 
 # utility
-timer = LKTimer(print_time=True)
+timer = LKTimer(print_time=False)
 edr_loss, d_loss, c80_loss, mrstft_loss = tensor([0.0]), tensor([0.0]), tensor([0.0]), tensor([0.0])
 
 # Training

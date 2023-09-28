@@ -9,8 +9,9 @@ from typing import Optional, Tuple, Union
 
 import torch
 from torch import Tensor
+from torch.nn.functional import pad
 
-# Untouched function from torch implementation # I HAD A GLITCH! ?? in the torch where.
+# Untouched function from torch implementation
 def _hann(x: torch.Tensor, T: int):
     """Compute the Hann window where the values are truncated based on window length.
     torch.hann_window can only sample window function at integer points, the method is to sample
@@ -119,8 +120,7 @@ def _validate_inputs(
         # absorption = absorption
     return absorption
 
-# Fixed a glitch from the original implementation where the attenuation was not squared?
-# This makes Pytorch and Pyroomacoustics agree on the attenuation. (see demo in main())
+
 def _compute_image_sources(
     room: torch.Tensor,
     source: torch.Tensor,
@@ -191,11 +191,17 @@ def _add_all_mini_irs_together(mini_irs, delay_i, rir_length,delay_filter_length
         does what torch.ops.torchaudio._simulate_rir does, but is backpropagatable
         returns an rir of shape (rir_length)
         '''
+
+        pad_left = delay_i
+        pad_right = rir_length - delay_filter_length - pad_left
+        pad_left=pad_left.to("cpu")
+        pad_right=pad_right.to("cpu")
+
         rir = torch.zeros(rir_length, device=mini_irs.device) # I am just assuming n_mics=1 for now because thats what I need
         for i in range(mini_irs.shape[1]): # for each image source
-            mini_ir_start = delay_i[i]
-            mini_ir_end = mini_ir_start + delay_filter_length
-            rir[mini_ir_start:mini_ir_end] += mini_irs[0,i,0,:]
+            
+            rir = rir + pad(mini_irs[0,i,0,:], (pad_left[i],pad_right[i]))
+
         return rir
 
 # Modified to be backpropagatable (removed the C code)
@@ -268,14 +274,14 @@ def simulate_rir_ism(
 
     # # separate delays in integer / frac part 
     delay = dist * sample_rate / sound_speed  # time to delay in samples (fractionnal delay) (n_image_source, n_mics=1)
-    delay_i = torch.ceil(delay)  # integer part (n_image_source, n_mics=1)
-    
+    delay_i = torch.ceil(delay.detach()).int()  # integer part (n_image_source, n_mics=1)
+
     # compute the shorts IRs corresponding to each image source
     mini_irs = img_src_att[..., None] * _frac_delay(delay, delay_i, delay_filter_length)[None, ...] # (n_band=1, n_image_source, n_mics=1, delay_filter_length)
     rir_length = int(delay_i.max() + mini_irs.shape[-1]) # full length of the rir signal
-    
+
     # sum up rir signals of all image sources into one waveform.
-    rir = _add_all_mini_irs_together(mini_irs, delay_i.type(torch.int32), rir_length,delay_filter_length) # (rir_length) # I am just assuming n_mics=1 for now
+    rir = _add_all_mini_irs_together(mini_irs, delay_i, rir_length,delay_filter_length) # (rir_length) # I am just assuming n_mics=1 for now
     
     # I'm just not doing multi-band processing for now
     # look up torchaudio.prototype.functional.simulate_rir_ism if you're interested
@@ -321,22 +327,6 @@ def torch_ism(room_dimensions: torch.Tensor,
         return_imgs_and_att_for_demo=return_imgs_and_att_for_demo,
     )
     return torch_rir
-
-# def multiprocessing_torch_ism(room_dimensions: torch.Tensor,
-#               mic_position : torch.Tensor,
-#               source_position : torch.Tensor,
-#               sample_rate : float, max_order : int = 10,
-#               absorption : float = 0.3):
-#     '''Forward pass through my backpropagatable pytorch ism implementation'''
-#     torch_rir = simulate_rir_ism(
-#         room_dimensions ,
-#         mic_position,
-#         source_position[None,:],
-#         max_order=max_order,
-#         absorption=absorption,
-#         sample_rate=float(sample_rate)
-#     )
-#     return torch_rir
 
 def main():
     '''demo'''
