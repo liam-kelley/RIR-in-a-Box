@@ -21,7 +21,7 @@ import wandb #https://wandb.ai/home
 
 LEARNING_RATE = 4e-3
 EPOCHS = 50
-BATCH_SIZE =  4
+BATCH_SIZE =  32
 DEVICE='cuda'
 
 SHOEBOXES=True
@@ -103,7 +103,7 @@ rirmetricsloss=RIRMetricsLoss(lambda_param={'d': 1, 'c80': 1, 'mrstft': 1}, samp
 optimizer = optim.Adam(encoder.parameters(), lr=LEARNING_RATE)
 
 # utility
-timer = LKTimer(print_time=False)
+timer = LKTimer(print_time=True)
 edr_loss, d_loss, c80_loss, mrstft_loss = tensor([0.0]), tensor([0.0]), tensor([0.0]), tensor([0.0])
 
 # Training
@@ -118,6 +118,10 @@ for epoch in range(EPOCHS):
         source_pos_batch=source_pos_batch.to(DEVICE)
         room_dim_batch=room_dim_batch.to(DEVICE)
         label_absorption_batch=label_absorption_batch.to(DEVICE)
+
+        for i in range(len(label_rir_batch)):
+            label_rir_batch[i]=label_rir_batch[i].to(DEVICE)
+        label_origin_batch=label_origin_batch.to(DEVICE)
 
         optimizer.zero_grad()
         
@@ -149,16 +153,16 @@ for epoch in range(EPOCHS):
             if rir_lambda_multiplier > 0.0 :
                 shoebox_rir_batch, shoebox_origin_batch = BoxToRIR(shoebox_z_batch) # shoebox_rir_batch is a list of tensors (batch_size, rir_lengths(i)), shoebox_origin_batch is a (batch_size) tensor)
 
-        # with timer.time("RIR losses"):
-        #     if rir_lambda_multiplier > 0.0 :
-        #         edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, device=DEVICE, plot_i=plot_i).to(DEVICE)#.to('cpu')
-        #         rirml = rirmetricsloss(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
-        #         d_loss, c80_loss, mrstft_loss = rirml['d'], rirml['c80'], rirml['mrstft']
+        with timer.time("RIR losses"):
+            if rir_lambda_multiplier > 0.0 :
+                edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, device=DEVICE, plot_i=plot_i)
+                rirml = rirmetricsloss(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+                d_loss, c80_loss, mrstft_loss = rirml['d'], rirml['c80'], rirml['mrstft']
 
-        #         loss = loss + rir_lambda_multiplier * LAMBDA_EDR * edr_loss \
-        #             + rir_lambda_multiplier * LAMBDA_D * d_loss \
-        #             + rir_lambda_multiplier * LAMBDA_C80 * c80_loss \
-        #             + rir_lambda_multiplier * LAMBDA_MRSTFT * mrstft_loss
+                loss = loss + rir_lambda_multiplier * LAMBDA_EDR * edr_loss
+                loss = loss + rir_lambda_multiplier * LAMBDA_D * d_loss \
+                            + rir_lambda_multiplier * LAMBDA_C80 * c80_loss \
+                            + rir_lambda_multiplier * LAMBDA_MRSTFT * mrstft_loss
 
         with timer.time("Computing backward"):
             loss.backward()

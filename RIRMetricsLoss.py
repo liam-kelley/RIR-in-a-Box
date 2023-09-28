@@ -4,9 +4,11 @@ import math
 import auraloss
 import torch.nn as nn
 
+from typing import Union
+
 ####### C80 and D Utility #######
 
-def batch_cut_before_and_after_index(batch_tensor, batch_indexes, cut_severity=1.0, return_after=True):
+def batch_cut_before_and_after_index(batch_tensor : torch.Tensor, batch_indexes : torch.Tensor, cut_severity=1.0, return_after=True):
     '''
     Cuts a batch_tensor before and after specific batch_indexes.
     '''
@@ -14,10 +16,10 @@ def batch_cut_before_and_after_index(batch_tensor, batch_indexes, cut_severity=1
     assert(batch_tensor.shape[0]==batch_indexes.shape[0])
 
     arange=torch.arange(batch_tensor.shape[1],device=batch_tensor.device)
-    batch_arange=arange.repeat(batch_tensor.shape[0], 1)
+    batch_arange=arange.unsqueeze(0).expand(batch_tensor.shape[0], -1)
 
-    batch_indexes=batch_indexes.repeat(batch_tensor.shape[1], 1).transpose(0,1)
-    
+    batch_indexes=batch_indexes.unsqueeze(1).expand(-1,batch_tensor.shape[1])  # repeat(batch_tensor.shape[1], 1).transpose(0,1)
+
     batch_cut_after_index=torch.sigmoid((batch_arange-batch_indexes)*cut_severity)
     batch_cut_before_index=1-batch_cut_after_index
     
@@ -48,6 +50,8 @@ def truncate_to_origin_and_pad(batch_rir1_enveloppe, batch_rir2_enveloppe, batch
 
     origin_truncated_list1=[]
     origin_truncated_list2=[]
+    batch_origin1.to('cpu')
+    batch_origin2.to('cpu')
     for i in range(batch_rir1_enveloppe.shape[0]):
         item1=batch_origin1[i].item()
         item2=batch_origin2[i].item()
@@ -337,20 +341,15 @@ class RIRMetricsLoss(nn.Module):
         print("")
         return(which_losses)
 
-    def forward(self, batch_input_rir, batch_input_origins, batch_label_rir, batch_label_origins):
-        assert(isinstance(batch_input_rir[0], torch.Tensor))
+    def forward(self, batch_input_rir : Union[list,torch.Tensor], batch_input_origins : torch.Tensor,
+                      batch_label_rir : Union[list,torch.Tensor], batch_label_origins : torch.Tensor):
         if isinstance(batch_input_rir, list):
+            assert(isinstance(batch_input_rir[0], torch.Tensor))
             batch_input_rir=torch.nn.utils.rnn.pad_sequence(batch_input_rir, batch_first=True).to(batch_input_rir[0].device)
-        else:
-            assert(isinstance(batch_input_rir, torch.Tensor))
-        assert(isinstance(batch_input_origins, torch.Tensor))
 
-        assert(isinstance(batch_label_rir[0], torch.Tensor))
         if isinstance(batch_label_rir, list):
+            assert(isinstance(batch_label_rir[0], torch.Tensor))
             batch_label_rir=torch.nn.utils.rnn.pad_sequence(batch_label_rir, batch_first=True).to(batch_label_rir[0].device)
-        else:
-            assert(isinstance(batch_label_rir, torch.Tensor))
-        assert(isinstance(batch_label_origins, torch.Tensor))
 
         assert(len(batch_input_rir)==len(batch_label_rir) == batch_input_origins.shape[0] == batch_label_origins.shape[0])
 

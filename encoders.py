@@ -30,28 +30,29 @@ class ShoeboxToRIR(nn.Module):
         shoebox_rir_batch (list of tensors), shoebox_origin_batch (tensor)
         shapes B * variable length, B
         '''
-        batch_size=input.shape[0]
-
+        # device management
         og_device=input.device
+        # input=input.to('cpu')
 
-        input=input.to('cpu')
-
+        # Get shoebox parameters
         room_dimensions = input[:, 0:3]  # (batch_size, 3)
         mic_position = input[:, 3:6]*room_dimensions  # (batch_size, 1, 3)
         source_position = input[:, 6:9]*room_dimensions  # (batch_size, 3)
         if force_absorption is not None: absorption = force_absorption  # (batch_size, 1, 6)
         else: absorption = input[:, 9] # (batch_size)
-            
+        
+        # Get shoebox rirs
+        # shoebox_rir isn't same length each time, so can't stack, using list instead
         shoebox_rir_batch=[]
-        for i in range(batch_size):
+        for i in range(input.shape[0]):
             print(f"ism {i}", end='\r')
             shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
                                 self.sample_rate, max_order=self.max_order, absorption=absorption[i])
-            shoebox_rir_batch.append(shoebox_rir.to(og_device))
+            shoebox_rir_batch.append(shoebox_rir)#.to(og_device))
         print("")
-        # stack(shoebox_rir_batch) # shoebox_rir isn't same length each time, so can't stack, using list instead
 
         # Get torch origins
+        # torch_distances = norm(mic_position.to(og_device)-source_position.to(og_device), dim=1)
         torch_distances = norm(mic_position-source_position, dim=1)
         shoebox_origin_batch = 40 + (self.sample_rate*torch_distances/self.sound_speed) # 40 is delay_filter_length: int = 81 // 2
 
