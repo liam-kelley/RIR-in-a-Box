@@ -14,11 +14,13 @@ from torch_geometric.nn import global_mean_pool as gap
 from compute_rir_v2 import torch_ism
 
 class ShoeboxToRIR(nn.Module):
-    def __init__(self,sample_rate=48000, max_order=10, ):
+    def __init__(self,sample_rate=48000, max_order=10):
         super().__init__()
         self.sample_rate=sample_rate
         self.sound_speed=343
         self.max_order=max_order
+        self.batch_size=None
+        self.streams=None
 
     def forward(self, input : torch.Tensor, force_absorption=None):
         '''
@@ -30,9 +32,16 @@ class ShoeboxToRIR(nn.Module):
         shoebox_rir_batch (list of tensors), shoebox_origin_batch (tensor)
         shapes B * variable length, B
         '''
-        # device management
-        og_device=input.device
-        # input=input.to('cpu')
+        batch_size=input.shape[0]
+
+        # Create streams once for multiprocessing
+        if (self.batch_size is None or self.batch_size != batch_size) and input.device != 'cpu':
+            self.batch_size=batch_size
+            self.streams = []
+            for _ in range(batch_size):
+                s = torch.cuda.Stream(device=input.device)
+                self.streams.append(s)
+            print("Created streams")
 
         # Get shoebox parameters
         room_dimensions = input[:, 0:3]  # (batch_size, 3)
@@ -43,13 +52,27 @@ class ShoeboxToRIR(nn.Module):
         
         # Get shoebox rirs
         # shoebox_rir isn't same length each time, so can't stack, using list instead
-        shoebox_rir_batch=[]
-        for i in range(input.shape[0]):
-            print(f"ism {i}", end='\r')
-            shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
-                                self.sample_rate, max_order=self.max_order, absorption=absorption[i])
-            shoebox_rir_batch.append(shoebox_rir)#.to(og_device))
-        print("")
+        
+        if torch.cuda.is_available() and input.device.type == 'cuda':
+            shoebox_rir_batch=[None]*batch_size
+            for i, s in enumerate(self.streams):
+                with torch.cuda.stream(s):
+                    shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
+                                        self.sample_rate, max_order=self.max_order, absorption=absorption[i])
+                    shoebox_rir_batch[i]=shoebox_rir
+                    print(f"i did ism {i}")
+            print('waiting for streams to finish...', end=' ')
+            torch.cuda.synchronize()
+            print('Done')
+
+        else:
+            shoebox_rir_batch=[]
+            for i in range(batch_size):
+                print(f"ism {i}", end='\r')
+                shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
+                                    self.sample_rate, max_order=self.max_order, absorption=absorption[i])
+                shoebox_rir_batch.append(shoebox_rir)#.to(og_device))
+            print("")
 
         # Get torch origins
         # torch_distances = norm(mic_position.to(og_device)-source_position.to(og_device), dim=1)
