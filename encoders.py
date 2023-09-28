@@ -53,11 +53,12 @@ class ShoeboxToRIR(nn.Module):
             batch_size=room_dimensions.shape[0]
             shoebox_rir_batch=[]
             for i in range(batch_size):
-                print(f"getting torch ism {i}")
+                print(f"ism {i}", end='\r')
                 shoebox_rir=torch_ism(room_dimensions[i].to('cpu'),mic_position.squeeze(1)[i].to('cpu'),source_position[i].to('cpu'),
                                     self.sample_rate, max_order=self.max_order, absorption=input[i, 9].to('cpu'))
 
                 shoebox_rir_batch.append(shoebox_rir.to(input.device))
+            print("")
             # stack(shoebox_rir_batch) # shoebox_rir isn't same length each time, so can't stack, using list instead
 
         # Get torch origins

@@ -21,7 +21,7 @@ import wandb #https://wandb.ai/home
 
 LEARNING_RATE = 4e-3
 EPOCHS = 50
-BATCH_SIZE =  10
+BATCH_SIZE =  32
 DEVICE='cuda'
 
 SHOEBOXES=True
