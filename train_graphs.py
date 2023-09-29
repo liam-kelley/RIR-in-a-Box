@@ -17,11 +17,13 @@ from pyLiam.LKTimer import LKTimer
 
 import wandb #https://wandb.ai/home
 
+import torch.autograd.profiler as profiler
+
 ############################################ Config ############################################
 
 LEARNING_RATE = 4e-3
 EPOCHS = 50
-BATCH_SIZE =  32
+BATCH_SIZE =  8
 DEVICE='cuda'
 
 SHOEBOXES=True
@@ -153,6 +155,11 @@ for epoch in range(EPOCHS):
             if rir_lambda_multiplier > 0.0 :
                 shoebox_rir_batch, shoebox_origin_batch = BoxToRIR(shoebox_z_batch) # shoebox_rir_batch is a list of tensors (batch_size, rir_lengths(i)), shoebox_origin_batch is a (batch_size) tensor)
 
+        shoebox_rir_batch_list=[]
+        for i in range(shoebox_rir_batch.shape[0]):
+            shoebox_rir_batch_list.append(shoebox_rir_batch[i])
+        shoebox_rir_batch=shoebox_rir_batch_list
+
         with timer.time("RIR losses"):
             if rir_lambda_multiplier > 0.0 :
                 edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, device=DEVICE, plot_i=plot_i)
@@ -167,6 +174,11 @@ for epoch in range(EPOCHS):
         with timer.time("Computing backward"):
             loss.backward()
             optimizer.step()
+        # with profiler.profile(record_shapes=True) as prof:
+        #     with profiler.record_function("backward_pass"):
+        #         loss.backward()
+        #         optimizer.step()
+        # print(prof.key_averages().table(sort_by="self_cpu_time_total"))
 
         empty_cache()
 

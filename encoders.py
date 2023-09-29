@@ -12,7 +12,10 @@ from torch_geometric.nn import global_max_pool as gmp
 from torch_geometric.nn import global_mean_pool as gap
 
 from compute_rir_v2 import torch_ism
+from compute_batch_rir_v2 import batch_simulate_rir_ism
 
+from pyLiam.LKTimer import LKTimer
+timer=LKTimer(print_time=True)
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=48000, max_order=10):
         super().__init__()
@@ -34,52 +37,48 @@ class ShoeboxToRIR(nn.Module):
         '''
         batch_size=input.shape[0]
 
-        # Create streams once for multiprocessing
-        if (self.batch_size is None or self.batch_size != batch_size) and input.device != 'cpu':
-            self.batch_size=batch_size
-            self.streams = []
-            for _ in range(batch_size):
-                s = torch.cuda.Stream(device=input.device)
-                self.streams.append(s)
-            print("Created streams")
-
         # Get shoebox parameters
         room_dimensions = input[:, 0:3]  # (batch_size, 3)
         mic_position = input[:, 3:6]*room_dimensions  # (batch_size, 1, 3)
         source_position = input[:, 6:9]*room_dimensions  # (batch_size, 3)
         if force_absorption is not None: absorption = force_absorption  # (batch_size, 1, 6)
         else: absorption = input[:, 9] # (batch_size)
-        
-        # Get shoebox rirs
-        # shoebox_rir isn't same length each time, so can't stack, using list instead
-        
-        if torch.cuda.is_available() and input.device.type == 'cuda':
-            shoebox_rir_batch=[None]*batch_size
-            for i, s in enumerate(self.streams):
-                with torch.cuda.stream(s):
-                    shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
-                                        self.sample_rate, max_order=self.max_order, absorption=absorption[i])
-                    shoebox_rir_batch[i]=shoebox_rir
-                    print(f"i did ism {i}")
-            print('waiting for streams to finish...', end=' ')
-            torch.cuda.synchronize()
-            print('Done')
 
-        else:
-            shoebox_rir_batch=[]
-            for i in range(batch_size):
-                print(f"ism {i}", end='\r')
-                shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
-                                    self.sample_rate, max_order=self.max_order, absorption=absorption[i])
-                shoebox_rir_batch.append(shoebox_rir)#.to(og_device))
-            print("")
+        self.max_order=8
+
+        # # Simple for loop
+        # with timer.time("for loop rir"):
+        #     shoebox_rir_batch_1=[]
+        #     for i in range(batch_size):
+        #         # print(f"ism {i}", end='\r')
+        #         shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
+        #                             self.sample_rate, max_order=self.max_order, absorption=absorption[i])
+        #         shoebox_rir_batch_1.append(shoebox_rir)#.to(og_device))
+        #     # print("")
+        # shoebox_rir_batch_1=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch_1, batch_first=True, padding_value=0.0)
+
+        # # Maybe faster batch simulate rir
+        with timer.time("Batch simulate rir"):
+            shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position,
+                                                    absorption.unsqueeze(1).unsqueeze(2).expand(-1,-1,6),
+                                                    self.max_order, self.sample_rate)
+
+        
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.plot(shoebox_rir_batch_1.detach().abs().sum(dim=0).cpu().numpy(), alpha=0.5)
+        # plt.plot(shoebox_rir_batch_2.detach().abs().sum(dim=0).cpu().numpy(), alpha=0.5)
+        # plt.plot(abs(shoebox_rir_batch_1.detach().abs().sum(dim=0).cpu().numpy()-shoebox_rir_batch_2.detach().abs().sum(dim=0).cpu().numpy()), alpha=0.5)
+        # plt.show()
+        # print("difference",torch.abs(shoebox_rir_batch_1-shoebox_rir_batch_2).sum())
+
 
         # Get torch origins
         # torch_distances = norm(mic_position.to(og_device)-source_position.to(og_device), dim=1)
         torch_distances = norm(mic_position-source_position, dim=1)
         shoebox_origin_batch = 40 + (self.sample_rate*torch_distances/self.sound_speed) # 40 is delay_filter_length: int = 81 // 2
 
-        return shoebox_rir_batch, shoebox_origin_batch
+        return shoebox_rir_batch_2, shoebox_origin_batch
 
 
 class GraphToShoeboxEncoder(nn.Module):
