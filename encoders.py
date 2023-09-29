@@ -44,7 +44,7 @@ class ShoeboxToRIR(nn.Module):
         if force_absorption is not None: absorption = force_absorption  # (batch_size, 1, 6)
         else: absorption = input[:, 9] # (batch_size)
 
-        self.max_order=8
+        # self.max_order=8
 
         # # Simple for loop
         # with timer.time("for loop rir"):

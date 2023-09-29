@@ -28,7 +28,7 @@ DEVICE='cuda'
 
 SHOEBOXES=True
 
-RIR_MAX_ORDER = 15 # dataset max order is 15
+RIR_MAX_ORDER = 8 # dataset max order is 15
 
 EDR_DEEMPHASIZE_EARLY_REFLECTIONS=True
 MRSTFT_CARE_ABOUT_ORIGIN=False
@@ -180,7 +180,7 @@ for epoch in range(EPOCHS):
         #         optimizer.step()
         # print(prof.key_averages().table(sort_by="self_cpu_time_total"))
 
-        empty_cache()
+        # empty_cache()
 
         # for key, value in {"shoebox": intermediate_shoebox_loss,"edr": edr_loss, "d": d_loss, "c80": c80_loss, "mrstft": mrstft_loss}.items():
         #     if value != None:
