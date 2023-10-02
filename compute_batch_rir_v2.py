@@ -265,16 +265,24 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     # compute distances between image sources and microphones
     vec = batch_img_location[:,:, None, :] - batch_mic_position[:, None, :, :]
     batch_dist = torch.linalg.norm(vec, dim=-1)  # (batch_size, n_image_source, n_mics=1)
+    del vec
     batch_delay = batch_dist * sample_rate / sound_speed  # (fractionnal delay) (batch_size, n_image_source, n_mics=1)
 
     #attenuate image sources
     batch_img_src_att = batch_att[..., None] / batch_dist[:, None, ...]  # (batch_size, n_band=1, n_image_source, n_mics=1)
+    del batch_dist, batch_att
 
     ##### NEW IDEA ###########
     batch_img_src_att = batch_img_src_att.squeeze() # (batch_size, n_image_source)
     batch_delay = batch_delay.squeeze() # (batch_size, n_image_source)
 
-    rir_length = torch.ceil(batch_delay.detach().max()).int() + delay_filter_length # full length of the rir signal
+    if output_length is not None:
+        rir_length = output_length
+    else:
+        rir_length = torch.ceil(batch_delay.detach().max()).int() + delay_filter_length
+
+    if rir_length > 24000: # for memory reasons, with rir max order 14, I can't go above 29000, with 15 I can't go above 24000
+        rir_length = 24000
 
     # if output_length is not None:
     #     if output_length > rir.shape[-1]:
@@ -282,21 +290,23 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     #     else:
     #         rir = rir[..., :output_length]
 
-    my_arange_tensor=torch.arange(rir_length, device=batch_delay.device)-40
-    my_arange_tensor=my_arange_tensor.unsqueeze(0).unsqueeze(2).expand(batch_delay.shape[0], -1, batch_delay.shape[1]) # (batch_size, rir_length, n_image_source)
-    my_arange_tensor = my_arange_tensor - batch_delay.unsqueeze(1).expand(-1,my_arange_tensor.shape[1],-1) # (batch_size, rir_length, n_image_source)
-
+    my_arange_tensor = torch.arange(rir_length, device=batch_delay.device)-40
+    my_arange_tensor = my_arange_tensor.unsqueeze(0).unsqueeze(2).expand(batch_delay.shape[0], -1, batch_delay.shape[1]) # (batch_size, rir_length, n_image_source)
+    my_arange_tensor.add(-batch_delay.unsqueeze(1).expand(-1,my_arange_tensor.shape[1],-1)) # (batch_size, rir_length, n_image_source)
+    del batch_delay
     hann_tensor=torch.where(torch.abs(my_arange_tensor) <= 40,
                             0.5 * (1 + torch.cos(2 * math.pi * my_arange_tensor / 40)),
                             my_arange_tensor.new_zeros(1)) # (batch_size, rir_length, n_image_source)
+    batch_indiv_IRS = torch.special.sinc(my_arange_tensor) * hann_tensor # (batch_size, rir_length, n_image_source)
+    del my_arange_tensor, hann_tensor
+    batch_rir = torch.einsum('bri,bi->br', batch_indiv_IRS, batch_img_src_att) # (batch_size, rir_length)
+    return batch_rir # (batch_size, rir_length)
+    
     # #Sinc with mask
     # mask = hann_tensor != 0
     # sinc_tensor=torch.zeros_like(my_arange_tensor)
     # sinc_tensor[mask]=torch.special.sinc(my_arange_tensor[mask]) # (batch_size, rir_length, n_image_source)
     # Sinc without mask
-    sinc_tensor=torch.special.sinc(my_arange_tensor)
-    batch_indiv_IRS = sinc_tensor * hann_tensor # (batch_size, rir_length, n_image_source)
-    batch_rir = torch.einsum('bri,bi->br', batch_indiv_IRS, batch_img_src_att) # (batch_size, rir_length)
     ##### NEW IDEA END ###########
 
     # batch_delay_i = torch.ceil(batch_delay.detach()).int()  # integer part (batch_size, n_image_source, n_mics=1)

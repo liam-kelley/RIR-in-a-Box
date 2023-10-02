@@ -44,8 +44,6 @@ class ShoeboxToRIR(nn.Module):
         if force_absorption is not None: absorption = force_absorption  # (batch_size, 1, 6)
         else: absorption = input[:, 9] # (batch_size)
 
-        # self.max_order=8
-
         # # Simple for loop
         # with timer.time("for loop rir"):
         #     shoebox_rir_batch_1=[]
@@ -58,8 +56,7 @@ class ShoeboxToRIR(nn.Module):
         # shoebox_rir_batch_1=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch_1, batch_first=True, padding_value=0.0)
 
         # # Maybe faster batch simulate rir
-        with timer.time("Batch simulate rir"):
-            shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position,
+        shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position,
                                                     absorption.unsqueeze(1).unsqueeze(2).expand(-1,-1,6),
                                                     self.max_order, self.sample_rate)
 
