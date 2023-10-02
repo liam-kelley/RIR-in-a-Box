@@ -4,6 +4,7 @@ import os
 
 from mesh_dataset import GraphDataset, plot_mesh_from_edge_index_batch
 from torch.utils.data import DataLoader
+from torch.utils.checkpoint import checkpoint
 from encoders import ShoeboxToRIR, GraphToShoeboxEncoder
 
 # from torch.nn import MSELoss
@@ -23,7 +24,7 @@ import torch.autograd.profiler as profiler
 
 LEARNING_RATE = 4e-3
 EPOCHS = 50
-BATCH_SIZE =  16
+BATCH_SIZE =  9
 DEVICE='cuda'
 
 SHOEBOXES=True
@@ -47,12 +48,18 @@ LAMBDA_D = 8.3
 LAMBDA_C80=500
 LAMBDA_MRSTFT=1.25
 
-do_wandb=False
+do_wandb=True
 
 plot=False
 plot_every=50
 if plot: plot_i=0
 else: plot_i=1
+
+print("BATCH_SIZE = ", BATCH_SIZE)
+print("LEARNING_RATE = ", LEARNING_RATE)
+print("EPOCHS = ", EPOCHS)
+print("DEVICE = ", DEVICE)
+print("wandb = ",do_wandb)
 
 ################################################################################################
 
@@ -107,7 +114,7 @@ rirmetricsloss=RIRMetricsLoss(lambda_param={'d': 1, 'c80': 1, 'mrstft': 1},
 optimizer = optim.Adam(encoder.parameters(), lr=LEARNING_RATE)
 
 # utility
-timer = LKTimer(print_time=True)
+timer = LKTimer(print_time=False)
 edr_loss, d_loss, c80_loss, mrstft_loss = tensor([0.0]), tensor([0.0]), tensor([0.0]), tensor([0.0])
 
 # Training
@@ -155,50 +162,32 @@ for epoch in range(EPOCHS):
 
         with timer.time("Getting pytorch rir"):
             if rir_lambda_multiplier > 0.0 :
-                shoebox_rir_batch, shoebox_origin_batch = BoxToRIR(shoebox_z_batch) # shoebox_rir_batch is a list of tensors (batch_size, rir_lengths(i)) , shoebox_origin_batch is a (batch_size) tensor)
+                shoebox_rir_batch, shoebox_origin_batch = checkpoint(BoxToRIR,shoebox_z_batch) # shoebox_rir_batch is a list of tensors (batch_size, rir_lengths(i)) , shoebox_origin_batch is a (batch_size) tensor)
         del shoebox_z_batch
-
-        breakpoint()
 
         with timer.time("RIR losses"):
             if rir_lambda_multiplier > 0.0 :
-                # edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, plot_i=plot_i)
-                rirml = rirmetricsloss(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+                edr_loss = checkpoint(edr,shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, plot_i)
+                rirml = checkpoint(rirmetricsloss, shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
                 d_loss, c80_loss, mrstft_loss = rirml['d'], rirml['c80'], rirml['mrstft']
 
-                # loss = loss + rir_lambda_multiplier * LAMBDA_EDR * edr_loss
+                loss = loss + rir_lambda_multiplier * LAMBDA_EDR * edr_loss
                 loss = loss + rir_lambda_multiplier * LAMBDA_D * d_loss \
                             + rir_lambda_multiplier * LAMBDA_C80 * c80_loss \
                             + rir_lambda_multiplier * LAMBDA_MRSTFT * mrstft_loss
-            
+                
         del shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch
+        del rirml, edr_loss, d_loss, c80_loss, mrstft_loss
 
-        breakpoint()
+        # import torch
+        # print(torch.cuda.memory_summary(device='cuda', abbreviated=False))
+        # breakpoint()
 
         with timer.time("Computing backward"):
             loss.backward()
             # for name, param in encoder.named_parameters():
             #     print(name, param.grad)
             optimizer.step()
-
-        # with profiler.profile(record_shapes=True) as prof:
-        #     with profiler.record_function("backward_pass"):
-        #         loss.backward()
-        #         optimizer.step()
-        # print(prof.key_averages().table(sort_by="self_cpu_time_total"))
-
-        # empty_cache()
-
-        # for key, value in {"shoebox": intermediate_shoebox_loss,"edr": edr_loss, "d": d_loss, "c80": c80_loss, "mrstft": mrstft_loss}.items():
-        #     if value != None:
-        #         print(key, value.item(), end=" , ")
-        # print("\nTotal loss :",loss.item())
-
-        """Log gradients and weights of the model."""
-        # if do_wandb:
-            # for name, param in encoder.named_parameters():
-            #     wandb.log({f'gradient_{name}': wandb.Histogram(param.grad.detach().cpu().numpy())})
-                # wandb.log({f'weight_{name}': wandb.Histogram(param.data)})
 
         if do_wandb:
             wandb.log({"Epoch": epoch+1, "total loss": loss.item()})

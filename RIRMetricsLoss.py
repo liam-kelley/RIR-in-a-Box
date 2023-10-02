@@ -348,7 +348,7 @@ class RIRMetricsLoss(nn.Module):
 
         if isinstance(batch_input_rir, list):
             assert(isinstance(batch_input_rir[0], torch.Tensor))
-            batch_input_rir=torch.nn.utils.rnn.pad_sequence(batch_input_rir, batch_first=True).to(device)
+            batch_input_rir=torch.nn.utils.rnn.pad_sequence(batch_input_rir, batch_first=True)[:14000,:].to(device)
 
         if isinstance(batch_label_rir, list):
             assert(isinstance(batch_label_rir[0], torch.Tensor))
@@ -451,6 +451,10 @@ class RIRMetricsLoss(nn.Module):
                     continue
             self.loss_dict[loss]=torch.mean(self.loss_dict[loss])
             if self.print_info : print(loss, self.loss_dict[loss].item(), end=" ")
+
+        # Cleanup
+        del batch_input_rir, batch_label_rir, batch_input_origins, batch_label_origins
+        del batch_input_rir2, batch_label_rir2, batch_input_rir2_sum, batch_label_rir2_sum
 
         # Returns
         if self.return_separate_losses:

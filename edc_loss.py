@@ -48,6 +48,13 @@ class EDC_Loss(torch.nn.Module):
 
         shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(new_shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
         label_rir_batch=torch.nn.utils.rnn.pad_sequence(new_label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
+        
+        # Free memory
+        for i in range(batch_size):
+            new_shoebox_rir_batch[i] = None
+            new_label_rir_batch[i] = None
+        del new_shoebox_rir_batch
+        del new_label_rir_batch
 
         if self.edr:
             # compute stft magnitude on 7 bands (nfft//2 + 1)
@@ -69,6 +76,7 @@ class EDC_Loss(torch.nn.Module):
         else: sb_normalizer=shoebox_rir_batch[:,-1].unsqueeze(1) ; label_normalizer=label_rir_batch[:,-1].unsqueeze(1)
         shoebox_rir_batch=shoebox_rir_batch/sb_normalizer
         label_rir_batch=label_rir_batch/label_normalizer
+        del sb_normalizer, label_normalizer
 
         # pad to same length
         if shoebox_rir_batch.shape[-1] < label_rir_batch.shape[-1]:
@@ -87,6 +95,7 @@ class EDC_Loss(torch.nn.Module):
             get_rid_of_early_reflections=get_rid_of_early_reflections/len(get_rid_of_early_reflections)
             shoebox_rir_batch[..., -len(get_rid_of_early_reflections):] =   shoebox_rir_batch[..., -len(get_rid_of_early_reflections):]*get_rid_of_early_reflections[..., :shoebox_rir_batch.shape[-1]]
             label_rir_batch[..., -len(get_rid_of_early_reflections):] =   label_rir_batch[..., -len(get_rid_of_early_reflections):]*get_rid_of_early_reflections[..., :shoebox_rir_batch.shape[-1]]
+            del get_rid_of_early_reflections
 
             if self.plot and not self.edr and plot_i%self.plot_every ==0:
                 plt.plot(torch.flip(shoebox_rir_batch[0].cpu().detach(),dims=[0]).numpy(), c='darkblue', alpha=1)
@@ -105,4 +114,6 @@ class EDC_Loss(torch.nn.Module):
             plt.show()
 
         loss=self.mse(shoebox_rir_batch, label_rir_batch) / self.loss_division
+        del shoebox_rir_batch, label_rir_batch
+        
         return loss

@@ -10,6 +10,7 @@ from typing import Optional, Tuple, Union
 import torch
 from torch import Tensor
 from torch.nn.functional import pad
+from torch.utils.checkpoint import checkpoint
 
 from pyLiam.LKTimer import LKTimer
 timer=LKTimer()
@@ -131,15 +132,16 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
 
     if output_length is not None: rir_length = output_length
     else: rir_length = torch.ceil(batch_delay.detach().max()).int() + delay_filter_length
+    if rir_length > 11000: # for memory reasons, with rir max order 14, I can't go above 29000, with 15 I can't go above 11000
+        rir_length = 11000
 
-    if rir_length > 14000: # for memory reasons, with rir max order 14, I can't go above 29000, with 15 I can't go above 14000
-        rir_length = 14000
-
+    # create delay tensor
     my_arange_tensor = torch.arange(rir_length, device=batch_delay.device)-40
     my_arange_tensor = my_arange_tensor.unsqueeze(0).unsqueeze(2).expand(batch_delay.shape[0], -1, batch_delay.shape[1]) # (batch_size, rir_length, n_image_source)
     my_arange_tensor = my_arange_tensor-batch_delay.unsqueeze(1).expand(-1,my_arange_tensor.shape[1],-1) # (batch_size, rir_length, n_image_source)
     del batch_delay
 
+    # create hann window tensor
     hann_tensor=torch.where(torch.abs(my_arange_tensor) <= delay_filter_length//2,
                             0.5 * (1 + torch.cos(math.pi * my_arange_tensor / (delay_filter_length//2))),
                             my_arange_tensor.new_zeros(1)) # (batch_size, rir_length, n_image_source)
