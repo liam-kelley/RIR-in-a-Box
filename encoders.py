@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from typing import Optional
 
 from torch_geometric.nn import GCNConv, GraphConv, TopKPooling
 from torch_geometric.nn import global_max_pool as gmp
@@ -16,6 +17,7 @@ from compute_batch_rir_v2 import batch_simulate_rir_ism
 
 from pyLiam.LKTimer import LKTimer
 timer=LKTimer(print_time=True)
+
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=48000, max_order=10):
         super().__init__()
@@ -25,15 +27,15 @@ class ShoeboxToRIR(nn.Module):
         self.batch_size=None
         self.streams=None
 
-    def forward(self, input : torch.Tensor, force_absorption=None):
+    def forward(self, input : torch.Tensor, force_absorption : Optional[torch.Tensor] = None):
         '''
-        inputs
-        input = an embedding kind of like room_dimensions (3) (exp), mic_position (3) (sigmoid), source_position (3) (sigmoid), absorption (1) (sigmoid)
-        shape B*10 or B*[9,10] if force_absorption=float
+        Args:
+            input (torch.Tensor) : shoebox parameters. shape B * 10. (Room_dimensions (3) [0.0,+inf], mic_position (3) [0.0,1.0], source_position (3) [0.0,1.0], absorption (3) [0.0,1.0])
+            force_absorption
 
-        outputs
-        shoebox_rir_batch (list of tensors), shoebox_origin_batch (tensor)
-        shapes B * variable length, B
+        Returns:
+            shoebox_rir_batch (list of torch.Tensor): batch of rir. shape (batch_size, rir_length*)
+            shoebox_origin_batch (tensor) : shape B
         '''
         batch_size=input.shape[0]
 
@@ -71,7 +73,6 @@ class ShoeboxToRIR(nn.Module):
 
 
         # Get torch origins
-        # torch_distances = norm(mic_position.to(og_device)-source_position.to(og_device), dim=1)
         torch_distances = norm(mic_position-source_position, dim=1)
         shoebox_origin_batch = 40 + (self.sample_rate*torch_distances/self.sound_speed) # 40 is delay_filter_length: int = 81 // 2
 
