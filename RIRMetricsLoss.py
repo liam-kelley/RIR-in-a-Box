@@ -343,13 +343,16 @@ class RIRMetricsLoss(nn.Module):
 
     def forward(self, batch_input_rir : Union[list,torch.Tensor], batch_input_origins : torch.Tensor,
                       batch_label_rir : Union[list,torch.Tensor], batch_label_origins : torch.Tensor):
+        device=batch_input_origins.device
+        batch_label_origins=batch_label_origins.to(device)
+
         if isinstance(batch_input_rir, list):
             assert(isinstance(batch_input_rir[0], torch.Tensor))
-            batch_input_rir=torch.nn.utils.rnn.pad_sequence(batch_input_rir, batch_first=True).to(batch_input_rir[0].device)
+            batch_input_rir=torch.nn.utils.rnn.pad_sequence(batch_input_rir, batch_first=True).to(device)
 
         if isinstance(batch_label_rir, list):
             assert(isinstance(batch_label_rir[0], torch.Tensor))
-            batch_label_rir=torch.nn.utils.rnn.pad_sequence(batch_label_rir, batch_first=True).to(batch_label_rir[0].device)
+            batch_label_rir=torch.nn.utils.rnn.pad_sequence(batch_label_rir, batch_first=True).to(device)
 
         assert(len(batch_input_rir)==len(batch_label_rir) == batch_input_origins.shape[0] == batch_label_origins.shape[0])
 

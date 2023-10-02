@@ -46,31 +46,10 @@ class ShoeboxToRIR(nn.Module):
         if force_absorption is not None: absorption = force_absorption  # (batch_size, 1, 6)
         else: absorption = input[:, 9] # (batch_size)
 
-        # # Simple for loop
-        # with timer.time("for loop rir"):
-        #     shoebox_rir_batch_1=[]
-        #     for i in range(batch_size):
-        #         # print(f"ism {i}", end='\r')
-        #         shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
-        #                             self.sample_rate, max_order=self.max_order, absorption=absorption[i])
-        #         shoebox_rir_batch_1.append(shoebox_rir)#.to(og_device))
-        #     # print("")
-        # shoebox_rir_batch_1=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch_1, batch_first=True, padding_value=0.0)
-
-        # # Maybe faster batch simulate rir
+        # Maybe faster batch simulate rir
         shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position,
                                                     absorption.unsqueeze(1).unsqueeze(2).expand(-1,-1,6),
-                                                    self.max_order, self.sample_rate)
-
-        
-        # import matplotlib.pyplot as plt
-        # plt.figure()
-        # plt.plot(shoebox_rir_batch_1.detach().abs().sum(dim=0).cpu().numpy(), alpha=0.5)
-        # plt.plot(shoebox_rir_batch_2.detach().abs().sum(dim=0).cpu().numpy(), alpha=0.5)
-        # plt.plot(abs(shoebox_rir_batch_1.detach().abs().sum(dim=0).cpu().numpy()-shoebox_rir_batch_2.detach().abs().sum(dim=0).cpu().numpy()), alpha=0.5)
-        # plt.show()
-        # print("difference",torch.abs(shoebox_rir_batch_1-shoebox_rir_batch_2).sum())
-
+                                                    self.max_order, self.sample_rate)        
 
         # Get torch origins
         torch_distances = norm(mic_position-source_position, dim=1)

@@ -1,5 +1,6 @@
 import torch
 import matplotlib.pyplot as plt
+from typing import Union
 
 class EDC_Loss(torch.nn.Module):
     def __init__(self, deemphasize_early_reflections=True,plot=False, plot_every=2, edr=False):
@@ -16,7 +17,7 @@ class EDC_Loss(torch.nn.Module):
         if self.deemphasize_early_reflections: print(" with deemphasized early reflections")
         else: print("")
     
-    def forward(self, shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, device='cpu', plot_i=0):
+    def forward(self, shoebox_rir_batch : Union[list,torch.Tensor], shoebox_origin_batch : torch.Tensor, label_rir_batch : Union[list,torch.Tensor], label_origin_batch : torch.Tensor, plot_i=0):
         '''
         args:
             shoebox_rir_batch: list of torch.Tensor, each tensor is a shoebox rir
@@ -26,12 +27,8 @@ class EDC_Loss(torch.nn.Module):
             device: str, device to use
             plot_i: int, used for plotting in my training script
         '''
-        assert(type(shoebox_rir_batch)==list)
-        assert(type(shoebox_rir_batch[0])==torch.Tensor)
-        assert(type(shoebox_origin_batch)==torch.Tensor)
-        assert(type(label_rir_batch)==list)
-        assert(type(label_rir_batch[0])==torch.Tensor)
-        assert(type(label_origin_batch)==torch.Tensor)
+        if isinstance(shoebox_rir_batch, list): assert(type(shoebox_rir_batch[0])==torch.Tensor)
+        if isinstance(label_rir_batch, list): assert(type(label_rir_batch[0])==torch.Tensor)
         assert(len(shoebox_rir_batch)==len(label_rir_batch) == shoebox_origin_batch.shape[0] == label_origin_batch.shape[0])
         batch_size=shoebox_origin_batch.shape[0]
 
@@ -49,8 +46,8 @@ class EDC_Loss(torch.nn.Module):
                 plt.plot(abs(new_shoebox_rir_batch[0].cpu().detach().numpy()) / max(abs(new_shoebox_rir_batch[0].cpu().detach().numpy())), c='blue', alpha=0.3)
                 plt.plot(abs(new_label_rir_batch[0].cpu().detach().numpy()) / max(abs(new_label_rir_batch[0].cpu().detach().numpy())), c='darkorange', alpha=0.3)
 
-        shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(new_shoebox_rir_batch, batch_first=True).to(device)
-        label_rir_batch=torch.nn.utils.rnn.pad_sequence(new_label_rir_batch, batch_first=True).to(device)
+        shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(new_shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
+        label_rir_batch=torch.nn.utils.rnn.pad_sequence(new_label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
 
         if self.edr:
             # compute stft magnitude on 7 bands (nfft//2 + 1)
@@ -69,16 +66,15 @@ class EDC_Loss(torch.nn.Module):
         
         # normalize
         if self.edr : sb_normalizer=shoebox_rir_batch[...,-1,None] ; label_normalizer=label_rir_batch[...,-1,None]
-        else: sb_normalizer=shoebox_rir_batch[...,-1] ; label_normalizer=label_rir_batch[...,-1]
-        # print(shoebox_rir_batch.shape,sb_normalizer.shape)
+        else: sb_normalizer=shoebox_rir_batch[:,-1].unsqueeze(1) ; label_normalizer=label_rir_batch[:,-1].unsqueeze(1)
         shoebox_rir_batch=shoebox_rir_batch/sb_normalizer
         label_rir_batch=label_rir_batch/label_normalizer
 
         # pad to same length
         if shoebox_rir_batch.shape[-1] < label_rir_batch.shape[-1]:
-            shoebox_rir_batch = torch.nn.functional.pad(shoebox_rir_batch, (label_rir_batch.shape[-1]-shoebox_rir_batch.shape[-1], 0))
+            shoebox_rir_batch = torch.nn.functional.pad(shoebox_rir_batch, (label_rir_batch.shape[-1]-shoebox_rir_batch.shape[-1], 0)) # padding from the beginning because we flipped
         elif shoebox_rir_batch.shape[-1] > label_rir_batch.shape[-1]:
-            label_rir_batch = torch.nn.functional.pad(label_rir_batch, (shoebox_rir_batch.shape[-1]-label_rir_batch.shape[-1], 0))
+            label_rir_batch = torch.nn.functional.pad(label_rir_batch, (shoebox_rir_batch.shape[-1]-label_rir_batch.shape[-1], 0)) # padding from the beginning because we flipped
 
         if self.plot and not self.edr and plot_i%self.plot_every ==0:
             if self.deemphasize_early_reflections: ls=':'

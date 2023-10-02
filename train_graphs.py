@@ -98,20 +98,24 @@ BoxToRIR = ShoeboxToRIR(dataset.sample_rate, max_order=RIR_MAX_ORDER).to(DEVICE)
 shoebox=Shoebox_Loss(lambdas={"room_dim":LAMBDA_ROOM_SIZE,"mic":LAMBDA_MIC,"src":LAMBDA_SRC,
                               "mic_src_vector":LAMBDA_MIC_SRC_VECTOR,"src_mic_vector":LAMBDA_SRC_MIC_VECTOR,
                               "absorption":1}, return_separate_losses=True).to(DEVICE)#.to('cpu')
-edr=EDC_Loss(deemphasize_early_reflections=EDR_DEEMPHASIZE_EARLY_REFLECTIONS,plot=False, edr=True).to(DEVICE)
-rirmetricsloss=RIRMetricsLoss(lambda_param={'d': 1, 'c80': 1, 'mrstft': 1}, sample_rate=dataset.sample_rate, mrstft_care_about_origin=False, return_separate_losses=True).to(DEVICE)
+edr=EDC_Loss(deemphasize_early_reflections=EDR_DEEMPHASIZE_EARLY_REFLECTIONS,plot=False, edr=False).to(DEVICE)
+rirmetricsloss=RIRMetricsLoss(lambda_param={'d': 1, 'c80': 1, 'mrstft': 1},
+                              sample_rate=dataset.sample_rate, mrstft_care_about_origin=False,
+                              return_separate_losses=True).to(DEVICE)
 
 # optimizer
 optimizer = optim.Adam(encoder.parameters(), lr=LEARNING_RATE)
 
 # utility
-timer = LKTimer(print_time=False)
+timer = LKTimer(print_time=True)
 edr_loss, d_loss, c80_loss, mrstft_loss = tensor([0.0]), tensor([0.0]), tensor([0.0]), tensor([0.0])
 
 # Training
 for epoch in range(EPOCHS):
     for x_batch, edge_index_batch, batch_indexes, label_rir_batch, label_origin_batch,\
         room_dim_batch, mic_pos_batch, source_pos_batch, label_absorption_batch, _ in tqdm(dataloader, desc="Epoch "+str(epoch+1)+ " completion"):
+
+        optimizer.zero_grad()
 
         x_batch=x_batch.to(DEVICE)
         edge_index_batch=edge_index_batch.to(DEVICE)
@@ -121,8 +125,6 @@ for epoch in range(EPOCHS):
         room_dim_batch=room_dim_batch.to(DEVICE)
         label_absorption_batch=label_absorption_batch.to(DEVICE)
 
-        optimizer.zero_grad()
-        
         with timer.time("GNN forward pass"):
             shoebox_z_batch = encoder(x_batch, edge_index_batch ,batch_indexes, mic_pos_batch, source_pos_batch)#.to('cpu')
 
@@ -151,42 +153,34 @@ for epoch in range(EPOCHS):
             encoder.plot_intermediate_shoeboxes(shoebox_z_batch, label_shoebox_z_batch, show=True)
         del label_shoebox_z_batch,  room_dim_batch, source_pos_batch, mic_pos_batch, label_absorption_batch
 
-        # memory saving
-        # for aloss in [room_dimensions_loss, mic_loss, source_loss, mic_source_vector_loss, source_mic_vector_loss, absorption_loss]:
-        #     aloss = aloss.cpu()
-
         with timer.time("Getting pytorch rir"):
             if rir_lambda_multiplier > 0.0 :
-                shoebox_rir_batch, shoebox_origin_batch = BoxToRIR(shoebox_z_batch) # shoebox_rir_batch is a list of tensors (batch_size, rir_lengths(i)), shoebox_origin_batch is a (batch_size) tensor)
+                shoebox_rir_batch, shoebox_origin_batch = BoxToRIR(shoebox_z_batch) # shoebox_rir_batch is a list of tensors (batch_size, rir_lengths(i)) , shoebox_origin_batch is a (batch_size) tensor)
+        del shoebox_z_batch
 
-        del shoebox_z_batch, shoebox_rir_batch, shoebox_origin_batch 
+        breakpoint()
 
-        # import time
-        # time.sleep(8)
+        with timer.time("RIR losses"):
+            if rir_lambda_multiplier > 0.0 :
+                # edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, plot_i=plot_i)
+                rirml = rirmetricsloss(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+                d_loss, c80_loss, mrstft_loss = rirml['d'], rirml['c80'], rirml['mrstft']
 
-        # for i in range(len(label_rir_batch)):
-        #     label_rir_batch[i]=label_rir_batch[i].to(DEVICE)
-        # label_origin_batch=label_origin_batch.to(DEVICE)
+                # loss = loss + rir_lambda_multiplier * LAMBDA_EDR * edr_loss
+                loss = loss + rir_lambda_multiplier * LAMBDA_D * d_loss \
+                            + rir_lambda_multiplier * LAMBDA_C80 * c80_loss \
+                            + rir_lambda_multiplier * LAMBDA_MRSTFT * mrstft_loss
+            
+        del shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch
 
-        # shoebox_rir_batch_list=[]
-        # for i in range(shoebox_rir_batch.shape[0]):
-        #     shoebox_rir_batch_list.append(shoebox_rir_batch[i])
-        # shoebox_rir_batch=shoebox_rir_batch_list
-
-        # with timer.time("RIR losses"):
-        #     if rir_lambda_multiplier > 0.0 :
-        #         edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, device=DEVICE, plot_i=plot_i)
-        #         rirml = rirmetricsloss(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
-        #         d_loss, c80_loss, mrstft_loss = rirml['d'], rirml['c80'], rirml['mrstft']
-
-        #         loss = loss + rir_lambda_multiplier * LAMBDA_EDR * edr_loss
-        #         loss = loss + rir_lambda_multiplier * LAMBDA_D * d_loss \
-        #                     + rir_lambda_multiplier * LAMBDA_C80 * c80_loss \
-        #                     + rir_lambda_multiplier * LAMBDA_MRSTFT * mrstft_loss
+        breakpoint()
 
         with timer.time("Computing backward"):
             loss.backward()
+            # for name, param in encoder.named_parameters():
+            #     print(name, param.grad)
             optimizer.step()
+
         # with profiler.profile(record_shapes=True) as prof:
         #     with profiler.record_function("backward_pass"):
         #         loss.backward()
