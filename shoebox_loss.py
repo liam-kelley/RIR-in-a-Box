@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 class Shoebox_Loss(torch.nn.Module):
-    def __init__(self, lambdas={"room_dim":1,"mic":1,"src":1,"mic_src_vector":1,"src_mic_vector":1,"absorption":1}, return_separate_losses=False):
+    def __init__(self, lambdas={"room_dim":1,"mic":1,"src":1,"mic_src_vector":1,"src_mic_vector":1,"mic_source_distance":1,"absorption":1}, return_separate_losses=False):
         super().__init__()
         self.mse=torch.nn.MSELoss()
         self.lambdas=lambdas
@@ -39,6 +39,10 @@ class Shoebox_Loss(torch.nn.Module):
 
         # Get room dimensions loss
         room_dimensions_loss=self.mse(proposed_room_dimensions, target_room_dimensions)
+        # Get Mic-Src distance loss
+        mic_source_distance=torch.linalg.norm(proposed_mic_pos-proposed_source_pos, dim=1)
+        target_mic_source_distance=torch.linalg.norm(target_mic_pos-target_source_pos, dim=1)
+        mic_source_distance_loss=self.mse(mic_source_distance, target_mic_source_distance)
         # Get absorptions loss
         absorption_loss=self.mse(proposed_absorption, target_absorption)
 
@@ -83,13 +87,14 @@ class Shoebox_Loss(torch.nn.Module):
             source_mic_vector_loss=source_mic_vector_loss + (proposed_mic_pos-(target_source_pos+source_mic_vector_inverted)).pow(2).sum().pow(0.2)
 
         if self.return_separate_losses or return_separate_losses :
-            return room_dimensions_loss, mic_loss, source_loss, mic_source_vector_loss, source_mic_vector_loss, absorption_loss
+            return room_dimensions_loss, mic_loss, source_loss, mic_source_vector_loss, source_mic_vector_loss, mic_source_distance_loss, absorption_loss
         else:
             total_loss= room_dimensions_loss * self.lambdas["room_dim"]+\
                         mic_loss * self.lambdas["mic"]+\
                         source_loss * self.lambdas["src"]+\
                         mic_source_vector_loss * self.lambdas["mic_src_vector"]+\
                         source_mic_vector_loss * self.lambdas["src_mic_vector"]+\
+                        mic_source_distance_loss * self.lambdas["mic_src_distance"]+\
                         absorption_loss * self.lambdas["absorption"]
             return total_loss
 
