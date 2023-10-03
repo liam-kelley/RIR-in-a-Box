@@ -28,6 +28,17 @@ def _batch_validate_inputs(room: torch.Tensor, mic_array: torch.Tensor, source: 
     NUM_WALL = 6 # Shoebox room
     assert absorption.shape == (batch_size, 1, NUM_WALL), f"Absorption must be a 3D Tensor of shape (batch_size, 1, n_walls=6). Found {absorption.shape}."
 
+    try:
+        assert not torch.isnan(room).any(), "NaNs detected in room tensor"
+        assert not torch.isnan(source).any(), "NaNs detected in source tensor"
+        assert not torch.isnan(mic_array).any(), "NaNs detected in mic_array tensor"
+    except AssertionError as e:
+        print("room",room)
+        print("source",source)
+        print("mic_array",mic_array)
+        raise e
+
+
 def _batch_compute_image_sources(
     room: torch.Tensor,
     source: torch.Tensor,
@@ -123,7 +134,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     batch_delay = batch_dist * sample_rate / sound_speed  # (fractionnal delay) (batch_size, n_image_source, n_mics=1)
 
     #attenuate image sources
-    batch_img_src_att = batch_att[..., None] / batch_dist[:, None, ...]  # (batch_size, n_band=1, n_image_source, n_mics=1)
+    epsilon = 1e-10
+    batch_img_src_att = batch_att[..., None] / (batch_dist[:, None, ...] + epsilon) # (batch_size, n_band=1, n_image_source, n_mics=1)
     del batch_dist, batch_att
 
     ##### NEW IDEA ###########
@@ -132,8 +144,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
 
     if output_length is not None: rir_length = output_length
     else: rir_length = torch.ceil(batch_delay.detach().max()).int() + delay_filter_length
-    if rir_length > 11000: # for memory reasons, with rir max order 14, I can't go above 29000, with 15 I can't go above 11000
-        rir_length = 11000
+    if rir_length > 6000: # for memory reasons, with rir max order 15, batch_size 9 and sample rate 48000 I can't go above 11000 (0.229 seconds)
+        rir_length = 6000 # for memory reasons, with rir max order 15, batch_size 16 and sample rate 16000 I can't go above 6000 (0.393 seconds)
 
     # create delay tensor
     my_arange_tensor = torch.arange(rir_length, device=batch_delay.device)-40

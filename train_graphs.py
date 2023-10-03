@@ -11,7 +11,7 @@ from encoders import ShoeboxToRIR, GraphToShoeboxEncoder
 from shoebox_loss import Shoebox_Loss
 from edc_loss import EDC_Loss
 from RIRMetricsLoss import RIRMetricsLoss
-from torch import cat,stack, unsqueeze, Tensor, tensor , save as model_save
+from torch import cat,stack, unsqueeze, Tensor, tensor , isnan, save as model_save
 from torch.cuda import empty_cache
 
 from pyLiam.LKTimer import LKTimer
@@ -24,7 +24,7 @@ import torch.autograd.profiler as profiler
 
 LEARNING_RATE = 4e-3
 EPOCHS = 50
-BATCH_SIZE =  9
+BATCH_SIZE =  16
 DEVICE='cuda'
 
 SHOEBOXES=True
@@ -48,7 +48,7 @@ LAMBDA_D = 8.3
 LAMBDA_C80=500
 LAMBDA_MRSTFT=1.25
 
-do_wandb=True
+do_wandb=False
 
 plot=False
 plot_every=50
@@ -95,11 +95,13 @@ if do_wandb:
 
 # data
 dataset=GraphDataset("meshdataset/shoebox_mesh_dataset.csv", filter={})
+print(f"Dataset sample_rate = {dataset.sample_rate}")
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=1, collate_fn=GraphDataset.custom_collate_fn)
 
 # models
 encoder = GraphToShoeboxEncoder(training=True).to(DEVICE)
 BoxToRIR = ShoeboxToRIR(dataset.sample_rate, max_order=RIR_MAX_ORDER).to(DEVICE)#.to('cpu') # This doesn't train, it just computes the RIRs
+
 
 # Shoebox training loss modules
 shoebox=Shoebox_Loss(lambdas={"room_dim":LAMBDA_ROOM_SIZE,"mic":LAMBDA_MIC,"src":LAMBDA_SRC,
@@ -154,6 +156,10 @@ for epoch in range(EPOCHS):
                     shoebox_lambda_multiplier * LAMBDA_MIC_SRC_VECTOR * mic_source_vector_loss +\
                     shoebox_lambda_multiplier * LAMBDA_SRC_MIC_VECTOR * source_mic_vector_loss +\
                     shoebox_lambda_multiplier * LAMBDA_ABSORPTION * absorption_loss
+        
+        losses = [room_dimensions_loss, mic_loss, source_loss,
+                  mic_source_vector_loss, source_mic_vector_loss, absorption_loss]
+        for i in range(len(losses)): losses[i] = losses[i].detach().cpu()
 
         if plot and plot_i%plot_every == 0 :
             print("Plotting intermediate shoeboxes")
@@ -162,31 +168,29 @@ for epoch in range(EPOCHS):
 
         with timer.time("Getting pytorch rir"):
             if rir_lambda_multiplier > 0.0 :
-                shoebox_rir_batch, shoebox_origin_batch = checkpoint(BoxToRIR,shoebox_z_batch) # shoebox_rir_batch is a list of tensors (batch_size, rir_lengths(i)) , shoebox_origin_batch is a (batch_size) tensor)
+                shoebox_rir_batch, shoebox_origin_batch = BoxToRIR(shoebox_z_batch) # shoebox_rir_batch is a list of tensors (batch_size, rir_lengths(i)) , shoebox_origin_batch is a (batch_size) tensor)
         del shoebox_z_batch
 
         with timer.time("RIR losses"):
             if rir_lambda_multiplier > 0.0 :
-                edr_loss = checkpoint(edr,shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, plot_i)
-                rirml = checkpoint(rirmetricsloss, shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+                edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, plot_i)
+                rirml = rirmetricsloss(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
                 d_loss, c80_loss, mrstft_loss = rirml['d'], rirml['c80'], rirml['mrstft']
-
                 loss = loss + rir_lambda_multiplier * LAMBDA_EDR * edr_loss
                 loss = loss + rir_lambda_multiplier * LAMBDA_D * d_loss \
                             + rir_lambda_multiplier * LAMBDA_C80 * c80_loss \
                             + rir_lambda_multiplier * LAMBDA_MRSTFT * mrstft_loss
-                
         del shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch
-        del rirml, edr_loss, d_loss, c80_loss, mrstft_loss
+        del rirml
+        losses = [edr_loss, d_loss, c80_loss, mrstft_loss]
+        for i in range(len(losses)): losses[i] = losses[i].detach().cpu()
 
-        # import torch
-        # print(torch.cuda.memory_summary(device='cuda', abbreviated=False))
-        # breakpoint()
+        if isnan(loss).any():
+            print("Skipping this batch due to NaN loss!")
+            continue 
 
         with timer.time("Computing backward"):
             loss.backward()
-            # for name, param in encoder.named_parameters():
-            #     print(name, param.grad)
             optimizer.step()
 
         if do_wandb:
