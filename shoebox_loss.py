@@ -47,7 +47,7 @@ class Shoebox_Loss(torch.nn.Module):
         absorption_loss=self.mse(proposed_absorption, target_absorption)
 
         # Get mic and src losses which can have symmetries
-        symmetries  =  [[ 1, 1, 1],
+        symmetries_xyz_direction  =  [[ 1, 1, 1],
                         [ 1, 1,-1],
                         [ 1,-1, 1],
                         [-1, 1, 1],
@@ -55,7 +55,7 @@ class Shoebox_Loss(torch.nn.Module):
                         [-1, 1,-1],
                         [-1,-1, 1],
                         [-1,-1,-1]]
-        symmetries_uhhh=[[0.0,0.0,0.0],
+        symmetries_xyz_startpos=[[0.0,0.0,0.0],
                         [0.0,0.0,1.0],
                         [0.0,1.0,0.0],
                         [1.0,0.0,0.0],
@@ -63,28 +63,32 @@ class Shoebox_Loss(torch.nn.Module):
                         [1.0,0.0,1.0],
                         [1.0,1.0,0.0],
                         [1.0,1.0,1.0]]
-        symmetries=torch.tensor(symmetries, device=proposed_z_batch.device)
-        symmetries_uhhh=torch.tensor(symmetries_uhhh, device=proposed_z_batch.device)        
+        symmetries_xyz_direction=torch.tensor(symmetries_xyz_direction, device=proposed_z_batch.device)
+        symmetries_xyz_startpos=torch.tensor(symmetries_xyz_startpos, device=proposed_z_batch.device)        
 
         mic_loss=torch.tensor([0.0],device=proposed_z_batch.device)
         source_loss=torch.tensor([0.0],device=proposed_z_batch.device)
         mic_source_vector_loss=torch.tensor([0.0],device=proposed_z_batch.device)
         source_mic_vector_loss=torch.tensor([0.0],device=proposed_z_batch.device)
 
-        for i in range(len(symmetries)):
-            target_mic_pos_inverted=target_mic_pos*symmetries[i] + symmetries_uhhh[i]
-            target_source_pos_inverted=target_source_pos*symmetries[i] + symmetries_uhhh[i]
-            mic_source_vector_inverted=target_mic_source_vector*symmetries[i]
-            source_mic_vector_inverted=target_source_mic_vector*symmetries[i]
+        scaler_mic=1/(torch.abs(target_mic_pos-torch.tensor([0.5,0.5,0.5]))*2 + 1e-10)
+        scaler_src=1/(torch.abs(target_source_pos-torch.tensor([0.5,0.5,0.5]))*2 + 1e-10)
+        scaler_vector=1/(torch.linalg.norm(target_source_pos,target_mic_pos)+ 1e-10)
+
+        for i in range(len(symmetries_xyz_direction)):
+            target_mic_pos_inverted=target_mic_pos*symmetries_xyz_direction[i] + symmetries_xyz_startpos[i]
+            target_source_pos_inverted=target_source_pos*symmetries_xyz_direction[i] + symmetries_xyz_startpos[i]
+            mic_source_vector_inverted=target_mic_source_vector*symmetries_xyz_direction[i]
+            source_mic_vector_inverted=target_source_mic_vector*symmetries_xyz_direction[i]
             # target_mic_pos_inverted=torch.tensor([target_mic_pos[k] if symmetry[k] else 1.0-target_mic_pos[k] for k in range(3)])
             # target_source_pos_inverted=torch.tensor([target_source_pos[k] if symmetry[k] else 1.0-target_source_pos[k] for k in range(3)])
             # mic_source_vector_inverted=torch.tensor([target_mic_source_vector[k] if symmetry[k] else -target_mic_source_vector[k] for k in range(3)])
             # source_mic_vector_inverted=torch.tensor([target_source_mic_vector[k] if symmetry[k] else -target_source_mic_vector[k] for k in range(3)])
 
-            mic_loss=mic_loss + (proposed_mic_pos-target_mic_pos_inverted).pow(2).sum().pow(0.2)
-            source_loss=source_loss + (proposed_source_pos-target_source_pos_inverted).pow(2).sum().pow(0.2)
-            mic_source_vector_loss=mic_source_vector_loss + (proposed_source_pos-(target_mic_pos+mic_source_vector_inverted)).pow(2).sum().pow(0.2)
-            source_mic_vector_loss=source_mic_vector_loss + (proposed_mic_pos-(target_source_pos+source_mic_vector_inverted)).pow(2).sum().pow(0.2)
+            mic_loss=mic_loss + (scaler_mic*(proposed_mic_pos-target_mic_pos_inverted)).pow(2).sum().pow(0.2)
+            source_loss=source_loss + (scaler_src*(proposed_source_pos-target_source_pos_inverted)).pow(2).sum().pow(0.2)
+            mic_source_vector_loss=mic_source_vector_loss + (scaler_vector*(proposed_source_pos-(target_mic_pos+mic_source_vector_inverted))).pow(2).sum().pow(0.2)
+            source_mic_vector_loss=source_mic_vector_loss + (scaler_vector*(proposed_mic_pos-(target_source_pos+source_mic_vector_inverted))).pow(2).sum().pow(0.2)
 
         if self.return_separate_losses or return_separate_losses :
             return room_dimensions_loss, mic_loss, source_loss, mic_source_vector_loss, source_mic_vector_loss, mic_source_distance_loss, absorption_loss
