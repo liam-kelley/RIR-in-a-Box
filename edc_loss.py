@@ -74,8 +74,8 @@ class EDC_Loss(torch.nn.Module):
         # normalize
         if self.edr : sb_normalizer=shoebox_rir_batch[...,-1,None] ; label_normalizer=label_rir_batch[...,-1,None]
         else: sb_normalizer=shoebox_rir_batch[:,-1].unsqueeze(1) ; label_normalizer=label_rir_batch[:,-1].unsqueeze(1)
-        shoebox_rir_batch=shoebox_rir_batch/sb_normalizer
-        label_rir_batch=label_rir_batch/label_normalizer
+        shoebox_rir_batch=shoebox_rir_batch/(sb_normalizer+1e-8)
+        label_rir_batch=label_rir_batch/(label_normalizer+1e-8)
         del sb_normalizer, label_normalizer
 
         # pad to same length

@@ -136,6 +136,11 @@ for epoch in range(EPOCHS):
 
         with timer.time("GNN forward pass"):
             shoebox_z_batch = encoder(x_batch, edge_index_batch ,batch_indexes, mic_pos_batch, source_pos_batch)#.to('cpu')
+        
+        # check for NaNs in encoder output
+        if isnan(shoebox_z_batch).any():
+            print("Skipping this batch due to NaN shoebox z batch!")
+            continue
 
         if plot and plot_i%plot_every == 0 :
             print("plotting Input mesh")
@@ -146,10 +151,8 @@ for epoch in range(EPOCHS):
             sig_mic_pos_batch=mic_pos_batch/room_dim_batch
             sig_source_pos_batch = source_pos_batch/room_dim_batch
             label_shoebox_z_batch=cat((room_dim_batch, sig_mic_pos_batch, sig_source_pos_batch, unsqueeze(label_absorption_batch,dim=1)), dim=1)
-
             room_dimensions_loss, mic_loss, source_loss, mic_source_vector_loss,\
                 source_mic_vector_loss, absorption_loss = shoebox(shoebox_z_batch[:,:10], label_shoebox_z_batch[:,:10]) #Shoebox loss only checks dimensions of room
-            
             loss =  shoebox_lambda_multiplier * LAMBDA_ROOM_SIZE * room_dimensions_loss+\
                     shoebox_lambda_multiplier * LAMBDA_MIC * mic_loss +\
                     shoebox_lambda_multiplier * LAMBDA_SRC * source_loss +\
@@ -157,9 +160,9 @@ for epoch in range(EPOCHS):
                     shoebox_lambda_multiplier * LAMBDA_SRC_MIC_VECTOR * source_mic_vector_loss +\
                     shoebox_lambda_multiplier * LAMBDA_ABSORPTION * absorption_loss
         
-        losses = [room_dimensions_loss, mic_loss, source_loss,
+        losses1 = [room_dimensions_loss, mic_loss, source_loss,
                   mic_source_vector_loss, source_mic_vector_loss, absorption_loss]
-        for i in range(len(losses)): losses[i] = losses[i].detach().cpu()
+        for i in range(len(losses1)): losses1[i] = losses1[i].detach().cpu()
 
         if plot and plot_i%plot_every == 0 :
             print("Plotting intermediate shoeboxes")
@@ -171,6 +174,14 @@ for epoch in range(EPOCHS):
                 shoebox_rir_batch, shoebox_origin_batch = BoxToRIR(shoebox_z_batch) # shoebox_rir_batch is a list of tensors (batch_size, rir_lengths(i)) , shoebox_origin_batch is a (batch_size) tensor)
         del shoebox_z_batch
 
+        # check for NaNs in rir batch and origin
+        if isnan(shoebox_rir_batch).any():
+            print("Skipping this batch due to NaN shoebox_rir_batch!")
+            continue
+        if isnan(shoebox_origin_batch).any():
+            print("Skipping this batch due to NaN rirs shoebox_origin_batch!")
+            continue
+
         with timer.time("RIR losses"):
             if rir_lambda_multiplier > 0.0 :
                 edr_loss = edr(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch, plot_i)
@@ -180,13 +191,24 @@ for epoch in range(EPOCHS):
                 loss = loss + rir_lambda_multiplier * LAMBDA_D * d_loss \
                             + rir_lambda_multiplier * LAMBDA_C80 * c80_loss \
                             + rir_lambda_multiplier * LAMBDA_MRSTFT * mrstft_loss
+        
         del shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch
         del rirml
-        losses = [edr_loss, d_loss, c80_loss, mrstft_loss]
-        for i in range(len(losses)): losses[i] = losses[i].detach().cpu()
+        losses2 = [edr_loss, d_loss, c80_loss, mrstft_loss]
+        for i in range(len(losses2)): losses2[i] = losses2[i].detach().cpu()
 
+        # check for NaNs in losses
         if isnan(loss).any():
             print("Skipping this batch due to NaN loss!")
+            losses = {"room_dimensions_loss": room_dimensions_loss, "mic_loss": mic_loss, "source_loss": source_loss,
+                      "mic_source_vector_loss": mic_source_vector_loss, "source_mic_vector_loss": source_mic_vector_loss,
+                      "absorption_loss": absorption_loss, "edr_loss": edr_loss, "d_loss": d_loss, "c80_loss": c80_loss,
+                      "mrstft_loss": mrstft_loss}
+            for loss_name, loss in losses.items():
+                print(loss_name, loss)
+            for name, param in encoder.named_parameters():
+                if param.requires_grad and param.grad is not None:
+                    print(name, param.grad.data.sum())
             continue 
 
         with timer.time("Computing backward"):

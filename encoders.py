@@ -81,6 +81,7 @@ class GraphToShoeboxEncoder(nn.Module):
         self.lin1 = torch.nn.Linear(192, 64)
         self.lin2 = torch.nn.Linear(64, 10)
         self.lin3 = torch.nn.Linear(16, 10) # Optionnal : only if oracle mic pos and src pos are given
+        self.softplus = torch.nn.Softplus()
         # OUT : 3d Shoebox dims, 3d mic position, 3d source position, 1 absorption
 
     def forward(self, x, edge_index, batch=None, batch_oracle_mic_pos=None, batch_oracle_src_pos=None):
@@ -97,6 +98,14 @@ class GraphToShoeboxEncoder(nn.Module):
         shoebox_rir_batch, shoebox_origin_batch
         shapes B * 24000, B
         '''
+        # Check for NaNs or infs in inputs
+        assert not torch.isnan(x).any(), "NaNs detected in input 'x'"
+        assert not torch.isinf(x).any(), "Infs detected in input 'x'"
+        assert not torch.isnan(edge_index).any(), "NaNs detected in input 'edge_index'"
+        assert not torch.isinf(edge_index).any(), "Infs detected in input 'edge_index'"
+        if batch is not None:
+            assert not torch.isnan(batch).any(), "NaNs detected in input 'batch'"
+            assert not torch.isinf(batch).any(), "Infs detected in input 'batch'"
 
         # Convolutional layer
         x = F.relu(self.conv1(x, edge_index))
@@ -130,9 +139,10 @@ class GraphToShoeboxEncoder(nn.Module):
             x = torch.cat([x, batch_oracle_mic_pos, batch_oracle_src_pos], dim=1)
             x = self.lin3(x)
         
-        # This is always the final activation layer.
-        x[:,0:3] = torch.exp(x[:,0:3])
-        x[:,3:10] = torch.sigmoid(x[:,3:10])
+        # This is always the final activation layer, constraining the dimensions.
+        softplus_output = self.softplus(x[:,0:3])
+        sigmoid_output = torch.sigmoid(x[:,3:10])
+        x = torch.cat((softplus_output, sigmoid_output), dim=1)
 
         return x
 
