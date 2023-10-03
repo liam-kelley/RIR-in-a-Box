@@ -17,6 +17,7 @@ from complex_room_dataset import get_an_inside_point, get_an_inside_array, check
                                     check_direct_line_of_sight, convert_lists_to_str
 import random
 import glob
+import os
 from scipy.io.wavfile import write
 from torch_geometric.data import Data
 from torch_geometric.data import Batch
@@ -261,9 +262,9 @@ def shoebox_mesh_dataset_generate_rir_and_mesh(options, log_row):
     while room_dim[0]*room_dim[1]*room_dim[2] < options['room_min_volume'] or room_dim[0]*room_dim[1] < options['room_min_floor_area']:
         room_dim = np.random.uniform(options['room_shoebox_dimensions_range'][0],options['room_shoebox_dimensions_range'][1], size=3)
         counter+=1
-        if counter>100:
+        if counter>1000:
             print("couldn't find a room with enough volume or floor area")
-            return log_row
+            raise Exception("couldn't find a room with enough volume or floor area")
     
     room_polygon=Polygon([[0,0], [room_dim[0],0], [room_dim[0],room_dim[1]], [0, room_dim[1]] ] )
 
@@ -296,6 +297,7 @@ def shoebox_mesh_dataset_generate_rir_and_mesh(options, log_row):
     mic_array=np.transpose(np.asarray([mic_array[0].tolist()+[mic_height]]))
 
     # Ensure they're far away enough from each other and far enough from walls
+    counter=0
     while np.linalg.norm(source_pos - mic_array) < options['min_source_mic_distance'] or \
         (not check_points_polygon_distances(room_polygon, [source_pos[:2],mic_array[:2]], options['min_source_wall_distance'])) :
         # put source and mic inside the room again until prerequisites are met
@@ -306,6 +308,10 @@ def shoebox_mesh_dataset_generate_rir_and_mesh(options, log_row):
         source_pos += [source_height]
         mic_array=np.transpose(mic_array)
         mic_array=np.transpose(np.asarray([mic_array[0].tolist()+[mic_height]]))
+        counter+=1
+        if counter>1000:
+            print("couldn't find a source and mic far enough from each other or from walls")
+            raise Exception("couldn't find a source and mic far enough from each other or from walls")
     
     # Compute RIR    
     room.add_source(source_pos)
@@ -323,6 +329,7 @@ def shoebox_mesh_dataset_generate_rir_and_mesh(options, log_row):
         else:
             index=0
             rir_file_name = "meshdataset/rirs/rir_000000.wav"
+        if not os.path.exists("meshdataset/rirs"): os.makedirs("meshdataset/rirs")
         write(rir_file_name, options['rir_sample_rate'], rir)
         print("RIR saved as " + rir_file_name)
     else:
@@ -385,6 +392,7 @@ def shoebox_mesh_dataset_generate_rir_and_mesh(options, log_row):
         else:
             index=0
             mesh_file_name = "meshdataset/meshes/mesh_000000.meshpkl"
+        if not os.path.exists("meshdataset/meshes"): os.makedirs("meshdataset/meshes")
         with open(mesh_file_name, 'wb') as file:
             pickle.dump((wall_vertices,wall_edge_index),file)
         print("mesh saved as " + mesh_file_name)
@@ -448,7 +456,7 @@ def shoebox_mesh_dataset_generation(dataset_name="meshdataset/shoebox_mesh_datas
         'room_min_volume' :               10,
         'rir_energy_absorption' :         0.1,
         'rir_scattering' :                0.1,
-        'rir_sample_rate' :               48000,
+        'rir_sample_rate' :               16000,
         'rir_max_order' :                 15,
         'min_source_mic_distance' :       1,
         'min_source_wall_distance' :      1,
@@ -464,9 +472,24 @@ def shoebox_mesh_dataset_generation(dataset_name="meshdataset/shoebox_mesh_datas
     logger=LKLogger(filename=dataset_name, columns_for_a_new_log_file = empty_log_row.keys())
 
     # Iterate generation
+    errors=0
     for _ in range(iterations):
-        log_row=shoebox_mesh_dataset_generate_rir_and_mesh(options, empty_log_row)
-        logger.add_line_to_log(log_row)
+        try:
+            log_row=shoebox_mesh_dataset_generate_rir_and_mesh(options, empty_log_row)
+            logger.add_line_to_log(log_row)
+        except Exception as e:
+            print("Exception occured during generation, skipping this datapoint")
+            print(e)
+            errors+=1
+            continue
+    
+    print("Generation complete")
+    print(f"Dataset size : {len(logger.get_df())}")
+    print(f"Failed generations : {errors}")
+    print("Generation parameters :")
+    for key, value in options.items():
+        print(f"    {key} : {value}")
+
 
 def load_wall_features_and_wall_edge_index(full_mesh_file_path):
     '''

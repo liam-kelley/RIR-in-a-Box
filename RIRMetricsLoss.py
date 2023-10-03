@@ -122,7 +122,7 @@ def batch_C80(batch_rir2, sample_rate, batch_origin, cut_severity=0.05):
     lower_integral=torch.sum(batch_before_80ms, dim=1)
     top_integral=torch.sum(batch_after_80ms, dim=1)
     
-    return 10*torch.log10((top_integral/lower_integral)+torch.ones_like(lower_integral))
+    return 10*torch.log10((top_integral/(lower_integral + 1e-10))+torch.ones_like(lower_integral))
 
 def batch_D(batch_rir2, sample_rate, batch_rir2_sum, batch_origin, cut_severity=0.05):
     '''
@@ -192,7 +192,7 @@ def batch_RT60(batch_rir2, sample_rate, batch_origin, epsilon=0.0005, plot=False
         if rt60max != 1.0:
             print("WARNING! RT60 MAX IS NOT AT ORIGIN !! Woops")
             print("max : ",rt60max)
-        log_decay_curve = -torch.log(shortened_decay_curve)
+        log_decay_curve = -torch.log(torch.clamp(shortened_decay_curve, min=1e-10))
 
         # Get all the betas and average them
         times_samples=torch.arange(tail_cut-int_origin, device=batch_rir2.device)
@@ -200,7 +200,7 @@ def batch_RT60(batch_rir2, sample_rate, batch_origin, epsilon=0.0005, plot=False
         betas=log_decay_curve[1:]/times_seconds[1:]
         regressed_beta=torch.median(betas) # median is more robust to outliers!!
     
-        rt60=6/regressed_beta
+        rt60=6/(regressed_beta+1e-10)
 
         if plot:
             print("regressed beta",regressed_beta)
@@ -343,13 +343,16 @@ class RIRMetricsLoss(nn.Module):
 
     def forward(self, batch_input_rir : Union[list,torch.Tensor], batch_input_origins : torch.Tensor,
                       batch_label_rir : Union[list,torch.Tensor], batch_label_origins : torch.Tensor):
+        device=batch_input_origins.device
+        batch_label_origins=batch_label_origins.to(device)
+
         if isinstance(batch_input_rir, list):
             assert(isinstance(batch_input_rir[0], torch.Tensor))
-            batch_input_rir=torch.nn.utils.rnn.pad_sequence(batch_input_rir, batch_first=True).to(batch_input_rir[0].device)
+            batch_input_rir=torch.nn.utils.rnn.pad_sequence(batch_input_rir, batch_first=True)[:14000,:].to(device)
 
         if isinstance(batch_label_rir, list):
             assert(isinstance(batch_label_rir[0], torch.Tensor))
-            batch_label_rir=torch.nn.utils.rnn.pad_sequence(batch_label_rir, batch_first=True).to(batch_label_rir[0].device)
+            batch_label_rir=torch.nn.utils.rnn.pad_sequence(batch_label_rir, batch_first=True).to(device)
 
         assert(len(batch_input_rir)==len(batch_label_rir) == batch_input_origins.shape[0] == batch_label_origins.shape[0])
 
@@ -448,6 +451,10 @@ class RIRMetricsLoss(nn.Module):
                     continue
             self.loss_dict[loss]=torch.mean(self.loss_dict[loss])
             if self.print_info : print(loss, self.loss_dict[loss].item(), end=" ")
+
+        # Cleanup
+        del batch_input_rir, batch_label_rir, batch_input_origins, batch_label_origins
+        del batch_input_rir2, batch_label_rir2, batch_input_rir2_sum, batch_label_rir2_sum
 
         # Returns
         if self.return_separate_losses:

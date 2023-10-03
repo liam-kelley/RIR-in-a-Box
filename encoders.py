@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from typing import Optional
 
 from torch_geometric.nn import GCNConv, GraphConv, TopKPooling
 from torch_geometric.nn import global_max_pool as gmp
@@ -16,6 +17,7 @@ from compute_batch_rir_v2 import batch_simulate_rir_ism
 
 from pyLiam.LKTimer import LKTimer
 timer=LKTimer(print_time=True)
+
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=48000, max_order=10):
         super().__init__()
@@ -25,15 +27,15 @@ class ShoeboxToRIR(nn.Module):
         self.batch_size=None
         self.streams=None
 
-    def forward(self, input : torch.Tensor, force_absorption=None):
+    def forward(self, input : torch.Tensor, force_absorption : Optional[torch.Tensor] = None):
         '''
-        inputs
-        input = an embedding kind of like room_dimensions (3) (exp), mic_position (3) (sigmoid), source_position (3) (sigmoid), absorption (1) (sigmoid)
-        shape B*10 or B*[9,10] if force_absorption=float
+        Args:
+            input (torch.Tensor) : shoebox parameters. shape B * 10. (Room_dimensions (3) [0.0,+inf], mic_position (3) [0.0,1.0], source_position (3) [0.0,1.0], absorption (3) [0.0,1.0])
+            force_absorption
 
-        outputs
-        shoebox_rir_batch (list of tensors), shoebox_origin_batch (tensor)
-        shapes B * variable length, B
+        Returns:
+            shoebox_rir_batch (list of torch.Tensor): batch of rir. shape (batch_size, rir_length*)
+            shoebox_origin_batch (tensor) : shape B
         '''
         batch_size=input.shape[0]
 
@@ -44,37 +46,12 @@ class ShoeboxToRIR(nn.Module):
         if force_absorption is not None: absorption = force_absorption  # (batch_size, 1, 6)
         else: absorption = input[:, 9] # (batch_size)
 
-        # self.max_order=8
-
-        # # Simple for loop
-        # with timer.time("for loop rir"):
-        #     shoebox_rir_batch_1=[]
-        #     for i in range(batch_size):
-        #         # print(f"ism {i}", end='\r')
-        #         shoebox_rir=torch_ism(room_dimensions[i],mic_position[i],source_position[i],
-        #                             self.sample_rate, max_order=self.max_order, absorption=absorption[i])
-        #         shoebox_rir_batch_1.append(shoebox_rir)#.to(og_device))
-        #     # print("")
-        # shoebox_rir_batch_1=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch_1, batch_first=True, padding_value=0.0)
-
-        # # Maybe faster batch simulate rir
-        with timer.time("Batch simulate rir"):
-            shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position,
+        # Maybe faster batch simulate rir
+        shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position,
                                                     absorption.unsqueeze(1).unsqueeze(2).expand(-1,-1,6),
-                                                    self.max_order, self.sample_rate)
-
-        
-        # import matplotlib.pyplot as plt
-        # plt.figure()
-        # plt.plot(shoebox_rir_batch_1.detach().abs().sum(dim=0).cpu().numpy(), alpha=0.5)
-        # plt.plot(shoebox_rir_batch_2.detach().abs().sum(dim=0).cpu().numpy(), alpha=0.5)
-        # plt.plot(abs(shoebox_rir_batch_1.detach().abs().sum(dim=0).cpu().numpy()-shoebox_rir_batch_2.detach().abs().sum(dim=0).cpu().numpy()), alpha=0.5)
-        # plt.show()
-        # print("difference",torch.abs(shoebox_rir_batch_1-shoebox_rir_batch_2).sum())
-
+                                                    self.max_order, self.sample_rate)        
 
         # Get torch origins
-        # torch_distances = norm(mic_position.to(og_device)-source_position.to(og_device), dim=1)
         torch_distances = norm(mic_position-source_position, dim=1)
         shoebox_origin_batch = 40 + (self.sample_rate*torch_distances/self.sound_speed) # 40 is delay_filter_length: int = 81 // 2
 
@@ -104,6 +81,7 @@ class GraphToShoeboxEncoder(nn.Module):
         self.lin1 = torch.nn.Linear(192, 64)
         self.lin2 = torch.nn.Linear(64, 10)
         self.lin3 = torch.nn.Linear(16, 10) # Optionnal : only if oracle mic pos and src pos are given
+        self.softplus = torch.nn.Softplus()
         # OUT : 3d Shoebox dims, 3d mic position, 3d source position, 1 absorption
 
     def forward(self, x, edge_index, batch=None, batch_oracle_mic_pos=None, batch_oracle_src_pos=None):
@@ -120,6 +98,14 @@ class GraphToShoeboxEncoder(nn.Module):
         shoebox_rir_batch, shoebox_origin_batch
         shapes B * 24000, B
         '''
+        # Check for NaNs or infs in inputs
+        assert not torch.isnan(x).any(), "NaNs detected in input 'x'"
+        assert not torch.isinf(x).any(), "Infs detected in input 'x'"
+        assert not torch.isnan(edge_index).any(), "NaNs detected in input 'edge_index'"
+        assert not torch.isinf(edge_index).any(), "Infs detected in input 'edge_index'"
+        if batch is not None:
+            assert not torch.isnan(batch).any(), "NaNs detected in input 'batch'"
+            assert not torch.isinf(batch).any(), "Infs detected in input 'batch'"
 
         # Convolutional layer
         x = F.relu(self.conv1(x, edge_index))
@@ -153,9 +139,10 @@ class GraphToShoeboxEncoder(nn.Module):
             x = torch.cat([x, batch_oracle_mic_pos, batch_oracle_src_pos], dim=1)
             x = self.lin3(x)
         
-        # This is always the final activation layer.
-        x[:,0:3] = torch.exp(x[:,0:3])
-        x[:,3:10] = torch.sigmoid(x[:,3:10])
+        # This is always the final activation layer, constraining the dimensions.
+        softplus_output = self.softplus(x[:,0:3])
+        sigmoid_output = torch.sigmoid(x[:,3:10])
+        x = torch.cat((softplus_output, sigmoid_output), dim=1)
 
         return x
 
