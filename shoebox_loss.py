@@ -23,7 +23,8 @@ class Shoebox_Loss(torch.nn.Module):
         assert(type(label_z_batch)==torch.Tensor)
         assert(proposed_z_batch.shape==label_z_batch.shape)
         assert(proposed_z_batch.shape[1]==10)
-        # batch_size=proposed_z_batch.shape[0]
+        batch_size=proposed_z_batch.shape[0]
+        device=proposed_z_batch.device
 
         proposed_room_dimensions=proposed_z_batch[:,:3]
         proposed_mic_pos=proposed_z_batch[:,3:6]
@@ -63,17 +64,19 @@ class Shoebox_Loss(torch.nn.Module):
                         [1.0,0.0,1.0],
                         [1.0,1.0,0.0],
                         [1.0,1.0,1.0]]
-        symmetries_xyz_direction=torch.tensor(symmetries_xyz_direction, device=proposed_z_batch.device)
-        symmetries_xyz_startpos=torch.tensor(symmetries_xyz_startpos, device=proposed_z_batch.device)        
+        symmetries_xyz_direction=torch.tensor(symmetries_xyz_direction, device=device)
+        symmetries_xyz_startpos=torch.tensor(symmetries_xyz_startpos, device=device)        
 
-        mic_loss=torch.tensor([0.0],device=proposed_z_batch.device)
-        source_loss=torch.tensor([0.0],device=proposed_z_batch.device)
-        mic_source_vector_loss=torch.tensor([0.0],device=proposed_z_batch.device)
-        source_mic_vector_loss=torch.tensor([0.0],device=proposed_z_batch.device)
+        mic_loss=torch.tensor([0.0],device=device)
+        source_loss=torch.tensor([0.0],device=device)
+        mic_source_vector_loss=torch.tensor([0.0],device=device)
+        source_mic_vector_loss=torch.tensor([0.0],device=device)
 
-        scaler_mic=1/(torch.abs(target_mic_pos-torch.tensor([0.5,0.5,0.5]))*2 + 1e-10)
-        scaler_src=1/(torch.abs(target_source_pos-torch.tensor([0.5,0.5,0.5]))*2 + 1e-10)
-        scaler_vector=1/(torch.linalg.norm(target_source_pos,target_mic_pos)+ 1e-10)
+        mid_point_batch=torch.tensor([[0.5,0.5,0.5]],device=device).expand(batch_size,-1)
+
+        scaler_mic=1/(torch.abs(target_mic_pos-mid_point_batch)*2 + 1e-10)
+        scaler_src=1/(torch.abs(target_source_pos-mid_point_batch)*2 + 1e-10)
+        scaler_vector=1/(torch.linalg.norm(target_source_pos-target_mic_pos, keepdim=True, dim=-1)+ 1e-10)
 
         for i in range(len(symmetries_xyz_direction)):
             target_mic_pos_inverted=target_mic_pos*symmetries_xyz_direction[i] + symmetries_xyz_startpos[i]

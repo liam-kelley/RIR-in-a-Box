@@ -22,8 +22,8 @@ import torch.autograd.profiler as profiler
 
 ############################################ Config ############################################
 
-LEARNING_RATE = 4e-3
-EPOCHS = 10
+LEARNING_RATE = 1e-3
+EPOCHS = 25
 BATCH_SIZE =  16
 DEVICE='cuda'
 
@@ -31,32 +31,32 @@ SHOEBOXES=True
 
 RIR_MAX_ORDER = 15 # dataset max order is 15
 
-EDR_DEEMPHASIZE_EARLY_REFLECTIONS=True
-MRSTFT_CARE_ABOUT_ORIGIN=False
+EDR_DEEMPHASIZE_EARLY_REFLECTIONS=True # very important. EDR also has significant performance improvements.
+MRSTFT_CARE_ABOUT_ORIGIN=True
 
 
 # OVERALL_LAMBDA_SHOEBOX = 1.0
-# LAMBDA_ROOM_SIZE = 0.125
+# LAMBDA_ROOM_SIZE = 1 # 0.125
 # LAMBDA_MIC = 5
 # LAMBDA_SRC = 5
 # LAMBDA_MIC_SRC_VECTOR = 10
 # LAMBDA_SRC_MIC_VECTOR = 10
 # LAMBDA_MIC_SRC_DISTANCE = 25
 # LAMBDA_ABSORPTION = 1
-OVERALL_LAMBDA_SHOEBOX = 1.0
-LAMBDA_ROOM_SIZE = 1
+OVERALL_LAMBDA_SHOEBOX = 1
+LAMBDA_ROOM_SIZE = 100 # 0.3 # 0.125
 LAMBDA_MIC = 5
 LAMBDA_SRC = 5
-LAMBDA_MIC_SRC_VECTOR = 10
-LAMBDA_SRC_MIC_VECTOR = 10
-LAMBDA_MIC_SRC_DISTANCE = 25
-LAMBDA_ABSORPTION = 1
+LAMBDA_MIC_SRC_VECTOR = 0
+LAMBDA_SRC_MIC_VECTOR = 0
+LAMBDA_MIC_SRC_DISTANCE = 25 # Seemingly no effect on convergence.
+LAMBDA_ABSORPTION = 100 # 1
 
-OVERALL_LAMBDA_RIR = 1
-LAMBDA_EDR = 250
+OVERALL_LAMBDA_RIR = 1.0
+LAMBDA_EDR = 400 # 250
 LAMBDA_D = 0 # 8.3
 LAMBDA_C80 = 500
-LAMBDA_MRSTFT = 1.25*5
+LAMBDA_MRSTFT = 6.25
 
 do_wandb=True
 
@@ -119,7 +119,7 @@ shoebox=Shoebox_Loss(lambdas={"room_dim":LAMBDA_ROOM_SIZE,"mic":LAMBDA_MIC,"src"
                               "mic_src_vector":LAMBDA_MIC_SRC_VECTOR,"src_mic_vector":LAMBDA_SRC_MIC_VECTOR,
                               "mic_src_distance":LAMBDA_MIC_SRC_DISTANCE, "absorption":1},
                               return_separate_losses=True).to(DEVICE)#.to('cpu')
-edr=EDC_Loss(deemphasize_early_reflections=EDR_DEEMPHASIZE_EARLY_REFLECTIONS,plot=False, edr=False).to(DEVICE)
+edr=EDC_Loss(deemphasize_early_reflections=EDR_DEEMPHASIZE_EARLY_REFLECTIONS,plot=False, edr=True).to(DEVICE)
 rirmetricsloss=RIRMetricsLoss(lambda_param={'d': 1, 'c80': 1, 'mrstft': 1},
                               sample_rate=dataset.sample_rate, mrstft_care_about_origin=False,
                               return_separate_losses=True).to(DEVICE)
@@ -241,6 +241,25 @@ for epoch in range(EPOCHS):
         if plot : plot_i+=1
 
     print(f"Epoch: {epoch+1}, Loss: {loss.item()}")
+    if epoch == 5:
+        LAMBDA_ROOM_SIZE = 0.3
+        LAMBDA_ABSORPTION = 1
+        LAMBDA_MRSTFT = 13.5
+        LEARNING_RATE/=2
+    elif epoch == 10:
+        LAMBDA_MIC = 1
+        LAMBDA_SRC = 1
+        LAMBDA_MIC_SRC_DISTANCE = 5
+        LAMBDA_EDR = 600
+        LAMBDA_C80 = 750
+        LEARNING_RATE/=2
+    elif epoch == 15:
+        LAMBDA_MIC = 0
+        LAMBDA_SRC = 0
+        LAMBDA_MIC_SRC_DISTANCE = 0
+        LAMBDA_EDR = 800
+        LAMBDA_C80 = 1000
+        LEARNING_RATE/=2
 
 if do_wandb:
     # finish the wandb run
