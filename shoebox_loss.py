@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 class Shoebox_Loss(torch.nn.Module):
-    def __init__(self, lambdas={"room_dim":1,"mic":1,"src":1,"mic_src_vector":1,"src_mic_vector":1,"absorption":1}, return_separate_losses=False):
+    def __init__(self, lambdas={"room_dim":1,"mic":1,"src":1,"mic_src_vector":1,"src_mic_vector":1,"mic_source_distance":1,"absorption":1}, return_separate_losses=False):
         super().__init__()
         self.mse=torch.nn.MSELoss()
         self.lambdas=lambdas
@@ -23,7 +23,8 @@ class Shoebox_Loss(torch.nn.Module):
         assert(type(label_z_batch)==torch.Tensor)
         assert(proposed_z_batch.shape==label_z_batch.shape)
         assert(proposed_z_batch.shape[1]==10)
-        # batch_size=proposed_z_batch.shape[0]
+        batch_size=proposed_z_batch.shape[0]
+        device=proposed_z_batch.device
 
         proposed_room_dimensions=proposed_z_batch[:,:3]
         proposed_mic_pos=proposed_z_batch[:,3:6]
@@ -39,6 +40,10 @@ class Shoebox_Loss(torch.nn.Module):
 
         # Get room dimensions loss
         room_dimensions_loss=self.mse(proposed_room_dimensions, target_room_dimensions)
+        # Get Mic-Src distance loss
+        mic_source_distance=torch.linalg.norm(proposed_mic_pos-proposed_source_pos, dim=1)
+        target_mic_source_distance=torch.linalg.norm(target_mic_pos-target_source_pos, dim=1)
+        mic_source_distance_loss=self.mse(mic_source_distance, target_mic_source_distance)
         # Get absorptions loss
         absorption_loss=self.mse(proposed_absorption, target_absorption)
 
@@ -59,17 +64,19 @@ class Shoebox_Loss(torch.nn.Module):
                         [1.0,0.0,1.0],
                         [1.0,1.0,0.0],
                         [1.0,1.0,1.0]]
-        symmetries_xyz_direction=torch.tensor(symmetries_xyz_direction, device=proposed_z_batch.device)
-        symmetries_xyz_startpos=torch.tensor(symmetries_xyz_startpos, device=proposed_z_batch.device)        
+        symmetries_xyz_direction=torch.tensor(symmetries_xyz_direction, device=device)
+        symmetries_xyz_startpos=torch.tensor(symmetries_xyz_startpos, device=device)        
 
-        mic_loss=torch.tensor([0.0],device=proposed_z_batch.device)
-        source_loss=torch.tensor([0.0],device=proposed_z_batch.device)
-        mic_source_vector_loss=torch.tensor([0.0],device=proposed_z_batch.device)
-        source_mic_vector_loss=torch.tensor([0.0],device=proposed_z_batch.device)
+        mic_loss=torch.tensor([0.0],device=device)
+        source_loss=torch.tensor([0.0],device=device)
+        mic_source_vector_loss=torch.tensor([0.0],device=device)
+        source_mic_vector_loss=torch.tensor([0.0],device=device)
 
-        scaler_mic=1/(torch.abs(target_mic_pos-torch.tensor([0.5,0.5,0.5]))*2 + 1e-10)
-        scaler_src=1/(torch.abs(target_source_pos-torch.tensor([0.5,0.5,0.5]))*2 + 1e-10)
-        scaler_vector=1/(torch.linalg.norm(target_source_pos,target_mic_pos)+ 1e-10)
+        mid_point_batch=torch.tensor([[0.5,0.5,0.5]],device=device).expand(batch_size,-1)
+
+        scaler_mic=1/(torch.abs(target_mic_pos-mid_point_batch)*2 + 1e-10)
+        scaler_src=1/(torch.abs(target_source_pos-mid_point_batch)*2 + 1e-10)
+        scaler_vector=1/(torch.linalg.norm(target_source_pos-target_mic_pos, keepdim=True, dim=-1)+ 1e-10)
 
         for i in range(len(symmetries_xyz_direction)):
             target_mic_pos_inverted=target_mic_pos*symmetries_xyz_direction[i] + symmetries_xyz_startpos[i]
@@ -87,13 +94,14 @@ class Shoebox_Loss(torch.nn.Module):
             source_mic_vector_loss=source_mic_vector_loss + (scaler_vector*(proposed_mic_pos-(target_source_pos+source_mic_vector_inverted))).pow(2).sum().pow(0.2)
 
         if self.return_separate_losses or return_separate_losses :
-            return room_dimensions_loss, mic_loss, source_loss, mic_source_vector_loss, source_mic_vector_loss, absorption_loss
+            return room_dimensions_loss, mic_loss, source_loss, mic_source_vector_loss, source_mic_vector_loss, mic_source_distance_loss, absorption_loss
         else:
             total_loss= room_dimensions_loss * self.lambdas["room_dim"]+\
                         mic_loss * self.lambdas["mic"]+\
                         source_loss * self.lambdas["src"]+\
                         mic_source_vector_loss * self.lambdas["mic_src_vector"]+\
                         source_mic_vector_loss * self.lambdas["src_mic_vector"]+\
+                        mic_source_distance_loss * self.lambdas["mic_src_distance"]+\
                         absorption_loss * self.lambdas["absorption"]
             return total_loss
 

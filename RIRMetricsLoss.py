@@ -366,11 +366,15 @@ class RIRMetricsLoss(nn.Module):
             #init mrstft if not already done
             if self.mrstft==None:
                 self.mrstft = auraloss.freq.MultiResolutionSTFTLoss(
-                    fft_sizes=[1024, 2048, 8192],
-                    hop_sizes=[256, 512, 2048],
-                    win_lengths=[1024, 2048, 8192],
+                    # fft_sizes=[1024, 2048, 8192], # 48000 sample rate
+                    # hop_sizes=[256, 512, 2048],
+                    # win_lengths=[1024, 2048, 8192],
+                    fft_sizes = [256, 512, 1024], # 16000 sample rate
+                    hop_sizes = [64, 128, 256],
+                    win_lengths = [256, 512, 1024],
                     scale="mel",
-                    n_bins=128,
+                    # n_bins=128,
+                    n_bins=36,
                     sample_rate=self.sample_rate,
                     perceptual_weighting=True,
                     device= batch_input_rir.device,
