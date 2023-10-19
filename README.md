@@ -32,6 +32,7 @@ conda install pytorch-scatter -c pyg
 which python
 python -m pip install librosa auraloss torch-geometric
 python -m pip install pymeshlab matplotlib pandas wandb pandas shapely pyroomacoustics
+python -m pip install pymeshfix trimesh pyglet
 ```
 
 Nvidia drivers
