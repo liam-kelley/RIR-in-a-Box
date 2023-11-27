@@ -78,8 +78,11 @@ class GraphToShoeboxEncoder(nn.Module):
         self.conv3 = GCNConv(in_channels=32, out_channels=32)
         self.pool3 = TopKPooling(in_channels=32, ratio=0.6)
 
-        self.lin1 = torch.nn.Linear(192, 64)
-        self.lin2 = torch.nn.Linear(64, 10)
+        # self.lin1 = torch.nn.Linear(192, 64)
+        # self.lin2 = torch.nn.Linear(64, 10)
+        # self.lin3 = torch.nn.Linear(16, 10) # Optionnal : only if oracle mic pos and src pos are given
+        self.lin1 = torch.nn.Linear(64, 16)
+        self.lin2 = torch.nn.Linear(16, 10)
         self.lin3 = torch.nn.Linear(16, 10) # Optionnal : only if oracle mic pos and src pos are given
         self.softplus = torch.nn.Softplus()
         # OUT : 3d Shoebox dims, 3d mic position, 3d source position, 1 absorption

@@ -147,7 +147,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     if rir_length > 6000: # for memory reasons, with rir max order 15, batch_size 9 and sample rate 48000 I can't go above 11000 (0.229 seconds)
         rir_length = 6000 # for memory reasons, with rir max order 15, batch_size 16 and sample rate 16000 I can't go above 6000 (0.393 seconds)
 
-    # create delay tensor
+    # create translated arange tensor
     my_arange_tensor = torch.arange(rir_length, device=batch_delay.device)-40
     my_arange_tensor = my_arange_tensor.unsqueeze(0).unsqueeze(2).expand(batch_delay.shape[0], -1, batch_delay.shape[1]) # (batch_size, rir_length, n_image_source)
     my_arange_tensor = my_arange_tensor-batch_delay.unsqueeze(1).expand(-1,my_arange_tensor.shape[1],-1) # (batch_size, rir_length, n_image_source)
