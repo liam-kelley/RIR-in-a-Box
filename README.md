@@ -1,6 +1,8 @@
-# RIR-in-a-Box V.0.2
+# RIR-in-a-Box V.0.3
 
 ## Installation
+
+This has not been fully tested again.
 
 From a completely clean Ubuntu 20.04 installation
 
