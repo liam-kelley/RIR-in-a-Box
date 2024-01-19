@@ -1,3 +1,7 @@
+'''
+This script has been deprecated in favor of MicSrcConfLoss_Test.py and shoebox_losses.py
+'''
+
 import torch
 from torch.nn import MSELoss
 import matplotlib.pyplot as plt

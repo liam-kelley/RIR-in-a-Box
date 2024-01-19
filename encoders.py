@@ -12,14 +12,14 @@ from torch_geometric.nn import GCNConv, GraphConv, TopKPooling
 from torch_geometric.nn import global_max_pool as gmp
 from torch_geometric.nn import global_mean_pool as gap
 
-from compute_rir_v2 import torch_ism
+# from compute_rir_v2 import torch_ism
 from compute_batch_rir_v2 import batch_simulate_rir_ism
 
 from pyLiam.LKTimer import LKTimer
 timer=LKTimer(print_time=True)
 
 class ShoeboxToRIR(nn.Module):
-    def __init__(self,sample_rate=48000, max_order=10):
+    def __init__(self,sample_rate=16000, max_order=10):
         super().__init__()
         self.sample_rate=sample_rate
         self.sound_speed=343
@@ -45,6 +45,11 @@ class ShoeboxToRIR(nn.Module):
         source_position = input[:, 6:9]*room_dimensions  # (batch_size, 3)
         if force_absorption is not None: absorption = force_absorption  # (batch_size, 1, 6)
         else: absorption = input[:, 9] # (batch_size)
+
+        # print(f"room_dimensions: {room_dimensions.shape} {room_dimensions}")
+        # print(f"mic_position: {mic_position.shape} {mic_position}")
+        # print(f"source_position: {source_position.shape} {source_position}")
+        # print(f"absorption: {absorption.shape} {absorption}")
 
         # Maybe faster batch simulate rir
         shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position,
