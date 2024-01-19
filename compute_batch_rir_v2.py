@@ -96,6 +96,7 @@ def _batch_compute_image_sources(
 
     return batch_img_loc, batch_att
 
+
 def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
                            batch_mic_position : torch.Tensor,
                            batch_source_position : torch.Tensor,
@@ -139,8 +140,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     del batch_dist, batch_att
 
     ##### NEW IDEA ###########
-    batch_img_src_att = batch_img_src_att.squeeze() # (batch_size, n_image_source)
-    batch_delay = batch_delay.squeeze() # (batch_size, n_image_source)
+    batch_img_src_att = batch_img_src_att.squeeze(dim=(1,3)) # (batch_size, n_image_source)
+    batch_delay = batch_delay.squeeze(dim=2) # (batch_size, n_image_source)
 
     if output_length is not None: rir_length = output_length
     else: rir_length = torch.ceil(batch_delay.detach().max()).int() + delay_filter_length
