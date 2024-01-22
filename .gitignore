@@ -2,6 +2,7 @@ archived_code
 wandb
 __pycache__
 
+GWA_Dataset_small
 meshdataset
 saved_models
 
