@@ -346,7 +346,7 @@ class MRSTFT_Loss(RIRLoss):
 
 class AcousticianMetrics_Loss(RIRLoss):
     def __init__(self, sample_rate=16000, synchronize_DP=True, crop_to_same_length=True, normalize_dp=False, frequency_wise=False,
-                 normalize_total_energy=False, pad_to_same_length=False):
+                 normalize_total_energy=False, pad_to_same_length=False, MeanAroundMedian_pruning=True):
         super().__init__()
 
         self.mse=torch.nn.MSELoss(reduction='mean')
@@ -362,6 +362,7 @@ class AcousticianMetrics_Loss(RIRLoss):
         if self.pad_to_same_length == self.crop_to_same_length:
             print("pad_to_same_length and crop_to_same_length can't be both True or both False. Defaulting to crop.")
             self.pad_to_same_length, self.crop_to_same_length = False, True
+        self.MeanAroundMedian_pruning=MeanAroundMedian_pruning
 
         # Options print
         print("AcousticianMetrics_Loss Initialized", end='')
@@ -371,6 +372,7 @@ class AcousticianMetrics_Loss(RIRLoss):
         if self.frequency_wise: print(" with frequency-wise decay curves (EDR)", end='')
         if self.normalize_total_energy: print(" with total energy normalization", end='')
         if self.pad_to_same_length: print(" with RIR padding to same length", end='')
+        if self.MeanAroundMedian_pruning: print(" with MeanAroundMedian pruning", end='')
         print(".")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
@@ -488,18 +490,17 @@ class AcousticianMetrics_Loss(RIRLoss):
 
         del batch_input_edc, batch_label_edc, batch_input_times_seconds, batch_label_times_seconds
 
-        # Used to use median instead of mean, but median is not differentiable. Now I'm using a 'robust differentiable' (?) median.
-        # input_variance = torch.var(input_betas.detach()[batch_input_regression_mask[:,1:]], dim=-1)
-        # label_variance = torch.var(label_betas.detach()[batch_label_regression_mask[:,1:]], dim=-1)
-        input_variance = torch.var(input_betas.detach(), dim=-1)
-        label_variance = torch.var(label_betas.detach(), dim=-1)
-        input_std = torch.pow(input_variance, 0.5).unsqueeze(-1).expand_as(input_betas)
-        label_std = torch.pow(label_variance, 0.5).unsqueeze(-1).expand_as(label_betas)
-        del input_variance, label_variance
-        input_median = torch.median(input_betas.detach(), dim=-1)[0].unsqueeze(-1).expand_as(input_betas)
-        label_median = torch.median(label_betas.detach(), dim=-1)[0].unsqueeze(-1).expand_as(label_betas)
-        input_betas=input_betas[torch.abs(input_betas.detach()-input_median) < 2*input_std]
-        label_betas=label_betas[torch.abs(label_betas.detach()-label_median) < 2*label_std]
+        # Used to use median instead of mean, but median is not differentiable. Now I'm using a "Mean Around Median".
+        if self.MeanAroundMedian_pruning:
+            input_variance = torch.var(input_betas.detach(), dim=-1)
+            label_variance = torch.var(label_betas.detach(), dim=-1)
+            input_std = torch.pow(input_variance, 0.5).unsqueeze(-1).expand_as(input_betas)
+            label_std = torch.pow(label_variance, 0.5).unsqueeze(-1).expand_as(label_betas)
+            del input_variance, label_variance
+            input_median = torch.median(input_betas.detach(), dim=-1)[0].unsqueeze(-1).expand_as(input_betas)
+            label_median = torch.median(label_betas.detach(), dim=-1)[0].unsqueeze(-1).expand_as(label_betas)
+            input_betas=input_betas[torch.abs(input_betas.detach()-input_median) < 2*input_std]
+            label_betas=label_betas[torch.abs(label_betas.detach()-label_median) < 2*label_std]
         input_regressed_beta = torch.mean(input_betas, dim=-1)
         label_regressed_beta = torch.mean(label_betas, dim=-1)
     
