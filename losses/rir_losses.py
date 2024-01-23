@@ -494,8 +494,8 @@ class AcousticianMetrics_Loss(RIRLoss):
         if self.MeanAroundMedian_pruning:
             input_variance = torch.var(input_betas.detach(), dim=-1)
             label_variance = torch.var(label_betas.detach(), dim=-1)
-            input_std = torch.pow(input_variance, 0.5).unsqueeze(-1).expand_as(input_betas)
-            label_std = torch.pow(label_variance, 0.5).unsqueeze(-1).expand_as(label_betas)
+            input_std = torch.sqrt(input_variance).unsqueeze(-1).expand_as(input_betas)
+            label_std = torch.sqrt(label_variance).unsqueeze(-1).expand_as(label_betas)
             del input_variance, label_variance
             input_median = torch.median(input_betas.detach(), dim=-1)[0].unsqueeze(-1).expand_as(input_betas)
             label_median = torch.median(label_betas.detach(), dim=-1)[0].unsqueeze(-1).expand_as(label_betas)
