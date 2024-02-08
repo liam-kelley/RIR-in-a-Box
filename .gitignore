@@ -14,3 +14,5 @@ aip-archive.py
 HLobj
 
 gwaMAManalysis
+
+ValidationDataset/audio_recordings/*
