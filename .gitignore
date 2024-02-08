@@ -16,3 +16,4 @@ HLobj
 gwaMAManalysis
 
 ValidationDataset/audio_recordings/*
+ValidationDataset/deconvolved_audio_recs/*
