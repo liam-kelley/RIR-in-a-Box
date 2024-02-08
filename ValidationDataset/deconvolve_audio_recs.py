@@ -20,6 +20,7 @@ _, inverse_tapered_sweep, _ , _ = get_validation_sweep()
 audio_files = glob.glob(os.path.join(path_rec, "*.wav"))
 print(f"Working on {len(audio_files)} audio files.")
 
+mylist=[]
 for file_path in tqdm(audio_files):
     # Load audio
     audio, samplerate = sf.read(file_path)
@@ -27,6 +28,9 @@ for file_path in tqdm(audio_files):
     for i, channel in enumerate(np.transpose(audio)):
         # Apply FFT convolution
         ir = sig.fftconvolve(channel, inverse_tapered_sweep, mode='same')
+
+        # normalize according to max of all validation set (224.23300737839364)
+        ir=ir/225
         
         # Construct the output file path
         base_name = "rir10x_" + str(os.path.basename(file_path))[22:-4] + f"_channel{i}.wav"
