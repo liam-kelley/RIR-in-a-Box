@@ -5,11 +5,15 @@ It contains 55 audio recordings of 10 ESS each.
 It also contains 30 room meshes recorded on the HoloLens of 1 room configuration with 3 different recording methods.
 I'll ask Diego/Arie/Fujita to record extra room meshes for the other room configuration.
 
-(Info checked 08/02/2024)
+(Info checked 09/02/2024)
 
-## Details
+## General info
 
-### All configurations
+### All validation configurations
+
+This totals up to 481 configurations.
+For every mesh Diego/Arie/Fuijta :'\) records with the confroom closed, we'll add 35 configurations.
+For every mesh Diego/Arie/Fuijta :'\) records with the confroom open, we'll add 42 configurations.
 
 | Room Configuration | Source Position          | Listener Position | Corresponding Meshes                                               |
 |--------------------|--------------------------|-------------------|--------------------------------------------------------------------|
@@ -19,11 +23,11 @@ I'll ask Diego/Arie/Fujita to record extra room meshes for the other room config
 | Confroom Closed    | Src B (Far Corner)       | Point 1-7         | /                                                                  |
 | Confroom Closed    | Src B (Close Corner)     | Point 1-7         | /                                                                  |
 | Confroom Open      | Src B (Close Corner)     | Point 1-2, 4-6    | Walk around both rooms 0-4, Walk around rooms sequential 0-11     |
-| Confroom Open      | Src B (Close Corner)     | Point 7           | Walk around both rooms 0-4, Walk around rooms sequential 0-11, Looking Around Seated Conference room open 0 - 13 |
+| Confroom Open      | Src B (Close Corner)     | Point 7           | Walk around both rooms 0-4, Walk around rooms sequential 0-11, Looking Around Seated Conference room open 0 - 12 |
 | Confroom Open      | Src A (Door)             | Point 1-6         | Walk around both rooms 0-4, Walk around rooms sequential 0-11     |
-| Confroom Open      | Src A (Door)             | Point 7           | Walk around both rooms 0-4, Walk around rooms sequential 0-11, Looking Around Seated Conference room open 0 - 13 |
+| Confroom Open      | Src A (Door)             | Point 7           | Walk around both rooms 0-4, Walk around rooms sequential 0-11, Looking Around Seated Conference room open 0 - 12 |
 | Confroom Open      | Src C (Open Door)        | Point 1-6         | Walk around both rooms 0-4, Walk around rooms sequential 0-11     |
-| Confroom Open      | Src C (Open Door)        | Point 7           | Walk around both rooms 0-4, Walk around rooms sequential 0-11, Looking Around Seated Conference room open 0 - 13 |
+| Confroom Open      | Src C (Open Door)        | Point 7           | Walk around both rooms 0-4, Walk around rooms sequential 0-11, Looking Around Seated Conference room open 0 - 12 |
 | Confroom Open      | Src C (Open Door)        | Point 8           | Walk around both rooms 0-4, Walk around rooms sequential 0-11     |
 | Confroom Open      | Src A (Open Door)        | Point 1-5         | Walk around both rooms 0-4, Walk around rooms sequential 0-11     |
 
