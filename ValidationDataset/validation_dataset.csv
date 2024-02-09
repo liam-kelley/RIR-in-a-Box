@@ -1,55 +1,55 @@
-RoomConfiguration,MeshesWalkBoth,MeshesWalkSequential,MeshesSeated,SrcName,SrcX,SrcY,SrcZ,SrcOrientatedTowards,SrcOrientedTowardsPointX,SrcOrientedTowardsPointY,SrcOrientedTowardsPointZ,MicName,MicX,MicY,MicZ,MicOrientation
-Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 1,0.87,-1,1.75,x+
-Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 2,1.59,-1.73,1.75,x+
-Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 3,1.18,-2.52,1.75,x+
-Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 4,2.43,-2.52,1.75,x+
-Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 5,2.92,-0.8,1.75,x+
-Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 6,4.89,-1.26,1.75,x+
-Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 7,2.73,-2.36,1.25,y+
-ConfroomClosed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 1,0.87,-1,1.75,x+
-Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 2,1.59,-1.73,1.75,x+
-Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 3,1.18,-2.52,1.75,x+
-Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 4,2.43,-2.52,1.75,x+
-Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 5,2.92,-0.8,1.75,x+
-Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 6,4.89,-1.26,1.75,x+
-Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 7,2.73,-2.36,1.25,y+
-Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 1,0.87,-1,1.75,x+
-Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 2,1.59,-1.73,1.75,x+
-Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 3,1.18,-2.52,1.75,x+
-Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 4,2.43,-2.52,1.75,x+
-Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 5,2.92,-0.8,1.75,x+
-Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 6,4.89,-1.26,1.75,x+
-Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 7,2.73,-2.36,1.25,y+
-Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 1,0.87,-1,1.75,x+
-Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 2,1.59,-1.73,1.75,x+
-Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 3,1.18,-2.52,1.75,x+
-Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 4,2.43,-2.52,1.75,x+
-Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 5,2.92,-0.8,1.75,x+
-Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 6,4.89,-1.26,1.75,x+
-Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 7,2.73,-2.36,1.25,y+
-Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 1,0.87,-1,1.75,x+
-Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 2,1.59,-1.73,1.75,x+
-Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 3,1.18,-2.52,1.75,x+
-Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 4,2.43,-2.52,1.75,x+
-Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 5,2.92,-0.8,1.75,x+
-Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 6,4.89,-1.26,1.75,x+
-Confroom Open,1,1,1,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 7,2.73,-2.36,1.25,y+
-Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 1,0.87,-1,1.75,x+
-Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 2,1.59,-1.73,1.75,x+
-Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 3,1.18,-2.52,1.75,x+
-Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 4,2.43,-2.52,1.75,x+
-Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 5,2.92,-0.8,1.75,x+
-Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 1,0.87,-1,1.75,x+
-Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 2,1.59,-1.73,1.75,x+
-Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 4,2.43,-2.52,1.75,x+
-Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 5,2.92,-0.8,1.75,x+
-Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 6,4.89,-1.26,1.75,x+
-Confroom Open,1,1,1,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 7,2.73,-2.36,1.25,y+
-Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 1,0.87,-1,1.75,x+
-Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 2,1.59,-1.73,1.75,x+
-Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 3,1.18,-2.52,1.75,x+
-Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 4,2.43,-2.52,1.75,x+
-Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 5,2.92,-0.8,1.75,x+
-Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 6,4.89,-1.26,1.75,x+
-Confroom Open,1,1,1,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 7,2.73,-2.36,1.25,y+
-Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 8,4.29,-3.46,1.75,x+
+audio_file_path,RoomConfiguration,MeshesWalkBoth,MeshesWalkSequential,MeshesSeated,SrcName,SrcX,SrcY,SrcZ,SrcOrientatedTowards,SrcOrientedTowardsPointX,SrcOrientedTowardsPointY,SrcOrientedTowardsPointZ,MicName,MicX,MicY,MicZ,MicOrientation
+./audio_recordings/audio_pos1_confroomclosed_srcAclosecorner.wav,Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 1,0.87,-1,1.75,x+
+./audio_recordings/audio_pos1_confroomclosed_srcAdoor.wav,Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 1,0.87,-1,1.75,x+
+./audio_recordings/audio_pos1_confroomclosed_srcBclosecorner.wav,Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 1,0.87,-1,1.75,x+
+./audio_recordings/audio_pos1_confroomclosed_srcBfarcorner.wav,Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 1,0.87,-1,1.75,x+
+./audio_recordings/audio_pos1_confroomopen_srcAdoor.wav,Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 1,0.87,-1,1.75,x+
+./audio_recordings/audio_pos1_confroomopen_srcAopendoor.wav,Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 1,0.87,-1,1.75,x+
+./audio_recordings/audio_pos1_confroomopen_srcBclosecorner.wav,Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 1,0.87,-1,1.75,x+
+./audio_recordings/audio_pos1_confroomopen_srcCopendoor.wav,Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 1,0.87,-1,1.75,x+
+./audio_recordings/audio_pos2_confroomclosed_srcAclosecorner.wav,Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 2,1.59,-1.73,1.75,x+
+./audio_recordings/audio_pos2_confroomclosed_srcAdoor.wav,Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 2,1.59,-1.73,1.75,x+
+./audio_recordings/audio_pos2_confroomclosed_srcBclosecorner.wav,Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 2,1.59,-1.73,1.75,x+
+./audio_recordings/audio_pos2_confroomclosed_srcBfarcorner.wav,Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 2,1.59,-1.73,1.75,x+
+./audio_recordings/audio_pos2_confroomopen_srcAdoor.wav,Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 2,1.59,-1.73,1.75,x+
+./audio_recordings/audio_pos2_confroomopen_srcAopendoor.wav,Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 2,1.59,-1.73,1.75,x+
+./audio_recordings/audio_pos2_confroomopen_srcBclosecorner.wav,Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 2,1.59,-1.73,1.75,x+
+./audio_recordings/audio_pos2_confroomopen_srcCopendoor.wav,Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 2,1.59,-1.73,1.75,x+
+./audio_recordings/audio_pos3_confroomclosed_srcAclosecorner.wav,Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 3,1.18,-2.52,1.75,x+
+./audio_recordings/audio_pos3_confroomclosed_srcAdoor.wav,Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 3,1.18,-2.52,1.75,x+
+./audio_recordings/audio_pos3_confroomclosed_srcBclosecorner.wav,Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 3,1.18,-2.52,1.75,x+
+./audio_recordings/audio_pos3_confroomclosed_srcBfarcorner.wav,Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 3,1.18,-2.52,1.75,x+
+./audio_recordings/audio_pos3_confroomopen_srcAdoor.wav,Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 3,1.18,-2.52,1.75,x+
+./audio_recordings/audio_pos3_confroomopen_srcAopendoor.wav,Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 3,1.18,-2.52,1.75,x+
+./audio_recordings/audio_pos3_confroomopen_srcCopendoor.wav,Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 3,1.18,-2.52,1.75,x+
+./audio_recordings/audio_pos4_confroomclosed_srcAclosecorner.wav,Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 4,2.43,-2.52,1.75,x+
+./audio_recordings/audio_pos4_confroomclosed_srcAdoor.wav,Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 4,2.43,-2.52,1.75,x+
+./audio_recordings/audio_pos4_confroomclosed_srcBclosecorner.wav,Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 4,2.43,-2.52,1.75,x+
+./audio_recordings/audio_pos4_confroomclosed_srcBfarcorner.wav,Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 4,2.43,-2.52,1.75,x+
+./audio_recordings/audio_pos4_confroomopen_srcAdoor.wav,Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 4,2.43,-2.52,1.75,x+
+./audio_recordings/audio_pos4_confroomopen_srcAopendoor.wav,Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 4,2.43,-2.52,1.75,x+
+./audio_recordings/audio_pos4_confroomopen_srcBclosecorner.wav,Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 4,2.43,-2.52,1.75,x+
+./audio_recordings/audio_pos4_confroomopen_srcCopendoor.wav,Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 4,2.43,-2.52,1.75,x+
+./audio_recordings/audio_pos5_confroomclosed_srcAclosecorner.wav,Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 5,2.92,-0.8,1.75,x+
+./audio_recordings/audio_pos5_confroomclosed_srcAdoor.wav,Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 5,2.92,-0.8,1.75,x+
+./audio_recordings/audio_pos5_confroomclosed_srcBclosecorner.wav,Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 5,2.92,-0.8,1.75,x+
+./audio_recordings/audio_pos5_confroomclosed_srcBfarcorner.wav,Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 5,2.92,-0.8,1.75,x+
+./audio_recordings/audio_pos5_confroomopen_srcAdoor.wav,Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 5,2.92,-0.8,1.75,x+
+./audio_recordings/audio_pos5_confroomopen_srcAopendoor.wav,Confroom Open,1,1,0,Src A (Open Door),4.55,-2.33,1.18,Open door,4.29,-3.46,1.18,Point 5,2.92,-0.8,1.75,x+
+./audio_recordings/audio_pos5_confroomopen_srcBclosecorner.wav,Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 5,2.92,-0.8,1.75,x+
+./audio_recordings/audio_pos5_confroomopen_srcCopendoor.wav,Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 5,2.92,-0.8,1.75,x+
+./audio_recordings/audio_pos6_confroomclosed_srcAclosecorner.wav,Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 6,4.89,-1.26,1.75,x+
+./audio_recordings/audio_pos6_confroomclosed_srcAdoor.wav,Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 6,4.89,-1.26,1.75,x+
+./audio_recordings/audio_pos6_confroomclosed_srcBclosecorner.wav,Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 6,4.89,-1.26,1.75,x+
+./audio_recordings/audio_pos6_confroomclosed_srcBfarcorner.wav,Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 6,4.89,-1.26,1.75,x+
+./audio_recordings/audio_pos6_confroomopen_srcAdoor.wav,Confroom Open,1,1,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 6,4.89,-1.26,1.75,x+
+./audio_recordings/audio_pos6_confroomopen_srcBclosecorner.wav,Confroom Open,1,1,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 6,4.89,-1.26,1.75,x+
+./audio_recordings/audio_pos6_confroomopen_srcCopendoor.wav,Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 6,4.89,-1.26,1.75,x+
+./audio_recordings/audio_pos7_confroomclosed_srcAclosecorner.wav,Confroom Closed,0,0,0,Src A (Close Corner),4.55,-2.33,1.18,Close corner,6.25,-3.5,1.18,Point 7,2.73,-2.36,1.25,y+
+./audio_recordings/audio_pos7_confroomclosed_srcAdoor.wav,Confroom Closed,0,0,0,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 7,2.73,-2.36,1.25,y+
+./audio_recordings/audio_pos7_confroomclosed_srcBclosecorner.wav,Confroom Closed,0,0,0,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 7,2.73,-2.36,1.25,y+
+./audio_recordings/audio_pos7_confroomclosed_srcBfarcorner.wav,Confroom Closed,0,0,0,Src B (Far Corner),3.94,-1.24,1.18,Far corner,0.09,-3.52,1.18,Point 7,2.73,-2.36,1.25,y+
+./audio_recordings/audio_pos7_confroomopen_srcAdoor.wav,Confroom Open,1,1,1,Src A (Door),4.55,-2.33,1.18,Door,0,-0.79,1.18,Point 7,2.73,-2.36,1.25,y+
+./audio_recordings/audio_pos7_confroomopen_srcBclosecorner.wav,Confroom Open,1,1,1,Src B (Close Corner),3.94,-1.24,1.18,Close corner,6.25,-3.5,1.18,Point 7,2.73,-2.36,1.25,y+
+./audio_recordings/audio_pos7_confroomopen_srcCopendoor.wav,Confroom Open,1,1,1,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 7,2.73,-2.36,1.25,y+
+./audio_recordings/audio_pos8_confroomopen_srcCopendoor.wav,Confroom Open,1,1,0,Src C (Open Door),4.78,-5.79,1.18,Open door,4.29,-3.46,1.18,Point 8,4.29,-3.46,1.75,x+

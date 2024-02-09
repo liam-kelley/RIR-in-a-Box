@@ -33,7 +33,7 @@ for file_path in tqdm(audio_files):
         ir=ir/225
         
         # Construct the output file path
-        base_name = "rir10x_" + str(os.path.basename(file_path))[22:-4] + f"_channel{i}.wav"
+        base_name = "rir10x_" + str(os.path.basename(file_path))[6:-4] + f"_channel{i}.wav"
         output_path = os.path.join(path_audio_conv, base_name)
         
         # Save the deconvolved audio
