@@ -8,9 +8,10 @@ It also contains 30 room meshes recorded on the HoloLens of 1 (**TODO** : 2) roo
 
 ## Get the dataset
 
-Google drive link:
-Meshes : https://drive.google.com/file/d/1Osjo7_5wMymeYnLfUGxSQ-48IKE6BQWU/view?usp=sharing
-Audio recordings : https://drive.google.com/file/d/1K_uXD34227BVivoc8Y-_ChDBJ1Amqf09/view?usp=sharing 
+Google drive links:
+
+- [Meshes](https://drive.google.com/file/d/1Osjo7_5wMymeYnLfUGxSQ-48IKE6BQWU/view?usp=sharing)
+- [Audio recordingshtt](ps://drive.google.com/file/d/1K_uXD34227BVivoc8Y-_ChDBJ1Amqf09/view?usp=sharing)
 
 ## Information
 
