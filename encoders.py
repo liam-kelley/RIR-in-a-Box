@@ -14,7 +14,7 @@ from torch_geometric.nn import global_mean_pool as gap
 
 from compute_batch_rir_v2 import batch_simulate_rir_ism
 
-from baseline_encoders import MESH_NET
+from mesh2ir_meshnet import MESH_NET, data_for_meshnet
 
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=16000, max_order=10):
@@ -96,9 +96,7 @@ class MeshToShoebox(nn.Module):
         self.softplus = torch.nn.Softplus()
 
     def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos):
-        # need to do the inverse of this to have the meshnet read the data.
-        x, edge_index, batch = data.pos, data.edge_index, data.batch
-        del x, edge_index, batch
+        data = data_for_meshnet(x, edge_index, batch) # the pretrained mesh_net we use uses a data struct for input data.
         x = self.meshnet(data)
         
         x = torch.cat(batch_oracle_mic_pos, batch_oracle_src_pos, dim=1)
