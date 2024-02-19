@@ -14,6 +14,8 @@ from torch_geometric.nn import global_mean_pool as gap
 
 from compute_batch_rir_v2 import batch_simulate_rir_ism
 
+from baseline_encoders import MESH_NET
+
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=16000, max_order=10):
         super().__init__()
@@ -21,7 +23,6 @@ class ShoeboxToRIR(nn.Module):
         self.sound_speed=343
         self.max_order=max_order
         self.batch_size=None
-        self.streams=None
 
     def forward(self, input : torch.Tensor, force_absorption : Optional[torch.Tensor] = None):
         '''
@@ -55,11 +56,73 @@ class ShoeboxToRIR(nn.Module):
 
         return shoebox_rir_batch_2, shoebox_toa_batch
 
+class MeshToShoebox(nn.Module):
+    '''
+    MODEL 1: (GNN + 2-layer MLP)
+     -> concatenate mic pos and src pos
+     -> 2-layer MLP
+     -> (3 room dim + 3 absorption) embedding.
+     -> LOSS: Sample 4 random msconf in that room, and mean the losses on the 4 RIR.
+    '''
+    '''
+    MODEL 2: (GNN + 2-layer MLP)
+     -> concatenate mic pos and src pos
+     -> 2-layer MLP
+     -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.
+     -> LOSS: on RIR
+    '''
+    '''
+    MODEL 3: MODEL 1 (pre-trained?)
+    -> Concatenate mic pos and src pos again 
+    -> 3-layer MLP 
+    -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.  
+    -> LOSS: on RIR
+    '''
+    def __init__(self, meshnet=None, model=1):
+        super().__init__()
+        assert(model in [1,2,3])
+        self.model=model
+
+        if meshnet == None: self.meshnet = MESH_NET()
+        else: self.meshnet = meshnet # for loading a pretrained meshnet
+
+        self.lin3 = torch.nn.Linear(8, 32)
+        if self.model in [1,3] : self.lin4 = torch.nn.Linear(32, 6)
+        elif self.model == 2 : self.lin4 = torch.nn.Linear(32, 12)
+        if self.model == 3 :
+            self.lin5 == torch.nn.Linear(12, 32)
+            self.lin6 == torch.nn.Linear(32, 6)
+
+        self.softplus = torch.nn.Softplus()
+
+    def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos):
+        # need to do the inverse of this to have the meshnet read the data.
+        x, edge_index, batch = data.pos, data.edge_index, data.batch
+        del x, edge_index, batch
+        x = self.meshnet(data)
+        
+        x = torch.cat(batch_oracle_mic_pos, batch_oracle_src_pos, dim=1)
+        x = F.relu(self.lin3(x))
+        x = self.lin4(x)
+
+        softplus_output = self.softplus(x[:,0:3])
+        if self.model in [1,3] : sigmoid_output = torch.sigmoid(x[:,3:6])
+        if self.model==2 : sigmoid_output = torch.sigmoid(x[:,3:12])
+        x = torch.cat((softplus_output, sigmoid_output), dim=1)
+
+        if self.model in [1,2]: return(x)
+
+        if self.model == 3 :
+            x = torch.cat(batch_oracle_mic_pos, batch_oracle_src_pos, dim=1)
+            x = F.relu(self.lin5(x))
+            x = torch.sigmoid(self.lin6(x))
+            return(x)
+
 
 class GraphToShoeboxEncoder(nn.Module):
     '''
     used example https://github.com/pyg-team/pytorch_geometric/blob/master/examples/proteins_topk_pool.py
-    As of right now, very similar the mesh encoder from MESH2IR
+    As of right now, very similar the mesh encoder from MESH2IR.
     '''
     def __init__(self,training=False):
         super().__init__()
