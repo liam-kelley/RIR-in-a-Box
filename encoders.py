@@ -1,11 +1,7 @@
 import torch.nn as nn
-from numpy import concatenate
-from torch import stack
 from torch.linalg import norm
 import torch
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 from typing import Optional
 
 from torch_geometric.nn import GCNConv, GraphConv, TopKPooling
@@ -80,12 +76,15 @@ class MeshToShoebox(nn.Module):
     '''
     def __init__(self, meshnet=None, model=1):
         super().__init__()
+        # Model type
         assert(model in [1,2,3])
         self.model=model
 
+        # Load (pretrained) mesh net
         if meshnet == None: self.meshnet = MESH_NET()
         else: self.meshnet = meshnet # for loading a pretrained meshnet
 
+        # Linear layers
         self.lin3 = torch.nn.Linear(8, 32)
         if self.model in [1,3] : self.lin4 = torch.nn.Linear(32, 6)
         elif self.model == 2 : self.lin4 = torch.nn.Linear(32, 12)
@@ -93,6 +92,7 @@ class MeshToShoebox(nn.Module):
             self.lin5 == torch.nn.Linear(12, 32)
             self.lin6 == torch.nn.Linear(32, 6)
 
+        # Activation
         self.softplus = torch.nn.Softplus()
 
     def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos):
