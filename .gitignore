@@ -1,19 +1,15 @@
+__pycache__
 archived_code
 wandb
-__pycache__
 
+# Work on MAM + gwa analysis
+gwaMAManalysis/
+
+# datasets
 GWA_Dataset_small
 meshdataset
-saved_models
-
-room_experiment_archives
-multiprocessed_encoders.py
-
-aip-archive.py
-
-HLobj
-
-gwaMAManalysis
-
 ValidationDataset/audio_recordings/*
 ValidationDataset/deconvolved_audio_recs/*
+
+models
+
