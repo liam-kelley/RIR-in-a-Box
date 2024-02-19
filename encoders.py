@@ -14,9 +14,6 @@ from torch_geometric.nn import global_mean_pool as gap
 
 from compute_batch_rir_v2 import batch_simulate_rir_ism
 
-# from pyLiam.LKTimer import LKTimer
-# timer=LKTimer(print_time=True)
-
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=16000, max_order=10):
         super().__init__()
@@ -149,84 +146,3 @@ class GraphToShoeboxEncoder(nn.Module):
         x = torch.cat((softplus_output, sigmoid_output), dim=1)
 
         return x
-
-    @staticmethod
-    def plot_intermediate_shoeboxes(x, label_x, show=True):
-        fig, ax = plt.subplots(1, figsize=(7, 7))
-        boum=x.detach().cpu().numpy()[0]
-        bing=label_x.detach().cpu().numpy()[0]
-        room_dimensions = boum[0:3]
-        label_room_dimensions = bing[0:3]
-        room_dimensions = concatenate((room_dimensions,[room_dimensions[0]]), axis=0)
-        label_room_dimensions = concatenate((label_room_dimensions,[label_room_dimensions[0]]), axis=0)
-        ax.plot([0, room_dimensions[0], room_dimensions[0], 0, 0], [0, 0, room_dimensions[1], room_dimensions[1], 0], c='blue',label='intermediate shoebox')
-        ax.plot([0, label_room_dimensions[0], label_room_dimensions[0], 0, 0], [0, 0, label_room_dimensions[1], label_room_dimensions[1], 0], c='darkorange',label='label shoebox')
-        ax.add_patch(Rectangle((0, 0), room_dimensions[0], room_dimensions[1],
-                                    alpha=0.2, facecolor = 'darkblue', fill=True))
-        ax.add_patch(Rectangle((0, 0), label_room_dimensions[0], label_room_dimensions[1],
-                                    alpha=0.3, facecolor = 'orange', fill=True))
-        ax.text(-0.85, -0.35, 'Intermediate room height = ' + str(room_dimensions[2]),
-                     bbox={'facecolor': 'white', 'alpha': 1, 'pad': 2})
-        ax.text(-0.85, -0.75, 'Label room height = ' + str(label_room_dimensions[2]),
-                     bbox={'facecolor': 'white', 'alpha': 1, 'pad': 2})
-        mic_pos=boum[3:6]*room_dimensions[:3]
-        label_mic_pos=bing[3:6]*label_room_dimensions[:3]
-        ax.scatter(mic_pos[0], mic_pos[1], marker='x', c='darkblue',label='mic')
-        ax.scatter(label_mic_pos[0], label_mic_pos[1], marker='x', c='darkorange',label='mic')
-        source_pos=boum[6:9]*room_dimensions[:3]
-        label_source_pos=bing[6:9]*label_room_dimensions[:3]
-        ax.scatter(source_pos[0], source_pos[1],  c='darkblue', label='source')
-        ax.scatter(label_source_pos[0], label_source_pos[1],  c='darkorange', label='source')
-        ax.set_xlabel('x (m)')
-        ax.set_ylabel('y (m)')
-        ax.set_xlim(-1, max(boum[0],bing[0])+1)
-        ax.set_ylim(-1, max(boum[1],bing[1])+1)
-        # ax.set_aspect('equal', 'box')
-        ax.set_title('Intermediate shoebox loss')
-        ax.grid(True, ls=':', alpha=0.5)
-        ax.legend()
-
-        if show: plt.show()
-
-
-# class MESH_NET(nn.Module):
-#     '''
-#     baseline lifted from MESH2IR
-#     '''
-#     def __init__(self):
-#         super(MESH_NET,self).__init__()
-#         self.feature_dim = 3
-#         self.conv1 = GCNConv(self.feature_dim, 32)
-#         self.pool1 = TopKPooling(32, ratio=0.6)
-#         self.conv2 = GCNConv(32, 32) #(32, 64)
-#         self.pool2 = TopKPooling(32, ratio=0.6) #64, ratio=0.6)
-#         self.conv3 = GCNConv(32, 32) #(64, 128)
-#         self.pool3 = TopKPooling(32, ratio=0.6) #(128, ratio=0.6)
-#         self.lin1 = torch.nn.Linear(64, 16) #(256, 128)
-#         self.act1 = torch.nn.ReLU() 
-#         self.lin2 = torch.nn.Linear(16, 8) #(128, 64)
-
-#     def forward(self, data):
-#         x, edge_index, batch = data.pos, data.edge_index, data.batch
-
-#         x = F.relu(self.conv1(x, edge_index))
-#         x, edge_index, _, batch, _ ,_= self.pool1(x, edge_index, None, batch)
-#         x1 = torch.cat([gmp(x, batch), gap(x, batch)], dim=1)
-
-#         x = F.relu(self.conv2(x, edge_index))
-     
-#         x, edge_index, _, batch, _,_ = self.pool2(x, edge_index, None, batch)
-#         x2 = torch.cat([gmp(x, batch), gap(x, batch)], dim=1)
-
-#         x = F.relu(self.conv3(x, edge_index))
-
-#         x, edge_index, _, batch, _,_ = self.pool3(x, edge_index, None, batch)
-#         x3 = torch.cat([gmp(x, batch), gap(x, batch)], dim=1)
-
-#         x = x1 + x2 + x3
-
-#         x = self.lin1(x)
-#         x = self.act1(x)
-#         x = F.dropout(x, p=0.5, training=self.training)
-#         x = torch.sigmoid(self.lin2(x)).squeeze(1)
-#         return x
