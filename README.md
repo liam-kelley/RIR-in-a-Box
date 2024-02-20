@@ -1,6 +1,35 @@
-# RIR-in-a-Box V.0.3
+# RIR-in-a-Box V.0.4
 
-## Installation
+Please wait for RIR-in-a-Box V.0.5 to be released for a complete installation tutorial.
+
+I'm pretty sure it could work with these requirements:
+
+```Python
+
+conda create -n mesh2ir python=3.9
+conda install numpy
+conda install pytorch torchvision torchaudio pyg pytorch-cuda=12.1 -c pytorch -c nvidia -c pyg
+python -m pip install python-dateutil
+python -m pip install soundfile
+python -m pip install pandas
+python -m pip install scipy
+python -m pip install librosa
+python -m pip install easydict
+python -m pip install cupy-cuda12x
+python -m pip install wavefile
+python -m pip install torchfile
+python -m pip install pyyaml==5.4.1
+python -m pip install pymeshlab
+python -m pip install openmesh
+python -m pip install gdown
+python -m pip install matplotlib
+python -m pip install IPython
+python -m pip install pydub
+<!-- conda install torch-scatter torch-sparse torch-cluster torch-spline-conv-c pyg -c nvidia  -->
+
+```
+
+<!-- ## Installation
 
 This installation tutorial has not been fully tested again.
 
@@ -62,4 +91,4 @@ Example usage is in the main function from mesh_dataset.py
 python mesh_dataset.py
 ```
 
-It sometimes bugs and freezes a bit. Please kill it and restart it if it does.
+It sometimes bugs and freezes a bit. Please kill it and restart it if it does. -->
