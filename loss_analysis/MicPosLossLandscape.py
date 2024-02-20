@@ -11,7 +11,7 @@ sys.path.append(path_to_append)
 from losses.shoebox_losses import MicSrcConfigurationLoss
 from losses.rir_losses import EnergyDecay_Loss, EnergyBins_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
 from loss_analysis.experiment_utility import get_loss_experiment_cmap
-from encoders import ShoeboxToRIR
+from models.rirbox_models import ShoeboxToRIR
 from pyLiam.LKTimer import LKTimer
 
 ### Experiment parameters

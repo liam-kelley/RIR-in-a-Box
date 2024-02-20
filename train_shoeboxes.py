@@ -2,13 +2,13 @@ import torch.optim as optim
 from tqdm import tqdm
 import os
 
-from mesh_dataset import GraphDataset, plot_mesh_from_edge_index_batch
+from datasets.ShoeboxMeshDataset.mesh_dataset import GraphDataset, plot_mesh_from_edge_index_batch
 from torch.utils.data import DataLoader
 from torch.utils.checkpoint import checkpoint
-from encoders import ShoeboxToRIR, GraphToShoeboxEncoder
+from models.rirbox_models import ShoeboxToRIR, GraphToShoeboxEncoder
 
 # from torch.nn import MSELoss
-from shoebox_loss import Shoebox_Loss
+from shoebox_loss import Shoebox_Loss # TODO fix this
 from edc_loss import EDC_Loss
 from RIRMetricsLoss import RIRMetricsLoss
 from torch import cat,stack, unsqueeze, Tensor, tensor , isnan, clamp, save as model_save
@@ -240,6 +240,7 @@ for epoch in range(EPOCHS):
 
         if plot : plot_i+=1
 
+    # Curriculum learning.
     print(f"Epoch: {epoch+1}, Loss: {loss.item()}")
     if epoch == 5:
         LAMBDA_ROOM_SIZE = 0.3

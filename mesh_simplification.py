@@ -5,7 +5,7 @@ import glob
 import numpy as np
 import pandas as pd
 
-from mesh_dataset import load_wall_features_and_wall_edge_index, edge_index_to_triangle_list, triangle_list_to_edge_index, plot_mesh_from_edge_index
+from datasets.ShoeboxMeshDataset.mesh_dataset import load_wall_features_and_wall_edge_index, edge_index_to_triangle_list, triangle_list_to_edge_index, plot_mesh_from_edge_index
 
 path ="meshdataset/meshes"
 simplified_path = "meshdataset/simplified_meshes"
