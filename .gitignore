@@ -2,14 +2,23 @@ __pycache__
 archived_code
 wandb
 
+# Work on absorption coeffs regression
+absorption_coeffs_analysis/
+
 # Work on MAM + gwa analysis
 gwaMAManalysis/
+playing_with_GWA.py
 
 # datasets
-GWA_Dataset_small
+GWA_3DFRONT/3D-FRONT
+GWA_3DFRONT/3D-FUTURE-model
+GWA_3DFRONT/GWA_Dataset_small
 meshdataset
 ValidationDataset/audio_recordings/*
 ValidationDataset/deconvolved_audio_recs/*
+ValidationDataset/estimated_rirs/*
+ValidationDataset/meshes/*
 
-models
+models/MESH2IR
+models/MESH2IR-D-EDR
 
