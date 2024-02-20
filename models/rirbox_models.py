@@ -8,7 +8,7 @@ from torch_geometric.nn import GCNConv, TopKPooling
 from torch_geometric.nn import global_max_pool as gmp
 from torch_geometric.nn import global_mean_pool as gap
 
-from compute_batch_rir_v2 import batch_simulate_rir_ism
+from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 
 from mesh2ir_meshnet import MESH_NET, data_for_meshnet
 
