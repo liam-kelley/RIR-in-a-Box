@@ -25,6 +25,8 @@ python -m pip install gdown
 python -m pip install matplotlib
 python -m pip install IPython
 python -m pip install pydub
+python -m pip install auraloss
+python -m pip install wandb
 <!-- conda install torch-scatter torch-sparse torch-cluster torch-spline-conv-c pyg -c nvidia  -->
 
 ```
