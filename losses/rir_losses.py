@@ -2,7 +2,7 @@ import torch
 from typing import Union, List
 import auraloss
 
-class RIRLoss(torch.nn.Module):
+class BaseRIRLoss(torch.nn.Module):
     def __init__(self):
         ''' Base class for RIR losses. These losses work in a supervised manner on RIRs.'''
         super().__init__()
@@ -80,11 +80,11 @@ class RIRLoss(torch.nn.Module):
         return shoebox_rir_batch, label_rir_batch
 
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
-                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor, plot=False):
+                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         raise NotImplementedError
 
 
-class EnergyDecay_Loss(RIRLoss):
+class EnergyDecay_Loss(BaseRIRLoss):
     def __init__(self, frequency_wise=False, synchronize_DP=True, normalize_dp=False, normalize_decay_curve=True,
                  deemphasize_early_reflections=True, pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
@@ -115,14 +115,13 @@ class EnergyDecay_Loss(RIRLoss):
         print(".")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
-                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor, plot=False):
+                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         '''
         args:
             shoebox_rir_batch: list of torch.Tensor, each tensor is a shoebox rir
             shoebox_origin_batch: torch.Tensor, each element is the origin of the corresponding shoebox rir
             label_rir_batch: list of torch.Tensor, each tensor is a label rir
             label_origin_batch: torch.Tensor, each element is the origin of the corresponding label rir
-            plot: plot Energy Decay loss or not.
         '''
         self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
 
@@ -179,7 +178,7 @@ class EnergyDecay_Loss(RIRLoss):
         return loss
     
 
-class EnergyBins_Loss(RIRLoss):
+class EnergyBins_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, synchronize_DP=True, normalize_dp=True, frequency_wise=False, 
                 pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
@@ -207,14 +206,13 @@ class EnergyBins_Loss(RIRLoss):
         print(".")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
-                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor, plot=False):
+                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         '''
         args:
             shoebox_rir_batch: list of torch.Tensor, each tensor is a shoebox rir
             shoebox_origin_batch: torch.Tensor, each element is the origin of the corresponding shoebox rir
             label_rir_batch: list of torch.Tensor, each tensor is a label rir
             label_origin_batch: torch.Tensor, each element is the origin of the corresponding label rir
-            plot: plot or not.
         '''
         self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
 
@@ -261,7 +259,7 @@ class EnergyBins_Loss(RIRLoss):
         return loss
 
 
-class MRSTFT_Loss(RIRLoss):
+class MRSTFT_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, device='cpu',
                  synchronize_DP=True, deemphasize_early_reflections=True, normalize_dp=True,
                 pad_to_same_length=False, crop_to_same_length=True):
@@ -314,7 +312,7 @@ class MRSTFT_Loss(RIRLoss):
         print(".")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
-                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor, plot=False):
+                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
         
         # crop rirs to begin from Direct Path
@@ -344,7 +342,7 @@ class MRSTFT_Loss(RIRLoss):
         return batch_mrstft_loss   
         
 
-class AcousticianMetrics_Loss(RIRLoss):
+class AcousticianMetrics_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, synchronize_DP=True, crop_to_same_length=True, normalize_dp=False, frequency_wise=False,
                  normalize_total_energy=False, pad_to_same_length=False, MeanAroundMedian_pruning=True):
         super().__init__()
@@ -376,14 +374,13 @@ class AcousticianMetrics_Loss(RIRLoss):
         print(".")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
-                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor, plot=False):
+                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         '''
         args:
             shoebox_rir_batch: list of torch.Tensor, each tensor is a shoebox rir
             shoebox_origin_batch: torch.Tensor, each element is the origin of the corresponding shoebox rir
             label_rir_batch: list of torch.Tensor, each tensor is a label rir
             label_origin_batch: torch.Tensor, each element is the origin of the corresponding label rir
-            plot: plot Energy Decay loss or not.
         '''
         self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
 
