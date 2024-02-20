@@ -2,7 +2,7 @@
 
 Please wait for RIR-in-a-Box V.0.5 to be released for a complete installation tutorial.
 
-I'm pretty sure it could work with these requirements:
+I'm pretty sure it could work with these requirements. Make sure to have cuda 12.1 installed (use apt to install it).
 
 ```Python
 
