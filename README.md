@@ -6,7 +6,7 @@ I'm pretty sure the repo should work with these requirements.
 Know that there are extra librairies that are not needed for the project to work.
 Make sure to have the cuda 12.1 toolkit installed (use apt to install it).
 
-```Python
+```bash
 
 conda create -n rirbox python=3.9
 conda install numpy
