@@ -6,7 +6,7 @@ I'm pretty sure it could work with these requirements. Make sure to have cuda 12
 
 ```Python
 
-conda create -n mesh2ir python=3.9
+conda create -n rirbox python=3.9
 conda install numpy
 conda install pytorch torchvision torchaudio pyg pytorch-cuda=12.1 -c pytorch -c nvidia -c pyg
 python -m pip install python-dateutil
