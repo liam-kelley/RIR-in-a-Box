@@ -5,6 +5,7 @@ Please add the 3D-FRONT, 3D-FUTURE-model and GWA_Dataset_small folders to this d
 ## 3D-FRONT : .json to .obj
 
 These are the steps for a windows machine to run the blender script to go from the raw 3D-FRONT data to preprocessed meshes ready for training.
+I didn't manage to make it work on WSL2, so I'm directly using windows.
 
 ### First setup
 
