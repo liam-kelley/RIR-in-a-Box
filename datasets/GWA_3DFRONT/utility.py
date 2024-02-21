@@ -1,5 +1,4 @@
 import numpy as np
-import pickle
 
 def mesh2ir_rir_preprocessing(rir, crop_length=3968): #int(16384)
     '''
