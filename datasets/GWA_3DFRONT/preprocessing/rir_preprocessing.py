@@ -24,6 +24,9 @@ def mesh2ir_rir_preprocessing(rir, crop_length=3968): #int(16384)
     return rir
 
 def string_to_array(s):
+    '''
+    Useful for what's in that dataset csv file
+    '''
     # Remove square brackets and split the string
     elements = s.strip("[]").split()
     # Convert each element to float and create a numpy array
