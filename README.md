@@ -9,6 +9,7 @@ Make sure to have the cuda 12.1 toolkit installed (use apt to install it).
 ```bash
 
 conda create -n rirbox python=3.9
+conda activate rirbox
 conda install numpy
 conda install pytorch torchvision torchaudio pyg pytorch-cuda=12.1 -c pytorch -c nvidia -c pyg
 python -m pip install python-dateutil
