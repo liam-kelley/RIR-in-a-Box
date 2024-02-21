@@ -18,11 +18,15 @@ I didn't manage to make it work on WSL2, so I'm directly using windows.
 conda create -n rirbox python=3.9
 conda activate rirbox
 conda install numpy
-conda install pytorch -c pytorch -c nvidia -c pyg
+# conda install pytorch -c pytorch -c nvidia -c pyg
 python -m pip install fake-bpy-module
 python -m pip install pandas
 python -m pip install librosa
 python -m pip install pymeshlab
+python -m pip install trimesh
+python -m pip install tqdm
+python -m pip install igl
+# python -m pip install blenderproc
 
 ```
 
