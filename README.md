@@ -29,6 +29,8 @@ python -m pip install IPython
 python -m pip install pydub
 python -m pip install auraloss
 python -m pip install wandb
+python -m pip install pyroomacoustics
+python -m pip install fake-bpy-module
 <!-- conda install torch-scatter torch-sparse torch-cluster torch-spline-conv-c pyg -c nvidia  -->
 
 ```
