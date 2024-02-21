@@ -32,6 +32,9 @@ python -m pip install auraloss
 python -m pip install wandb
 python -m pip install pyroomacoustics
 python -m pip install fake-bpy-module
+python -m pip install trimesh
+python -m pip install tqdm
+python -m pip install libigl
 <!-- conda install torch-scatter torch-sparse torch-cluster torch-spline-conv-c pyg -c nvidia  -->
 
 ```
