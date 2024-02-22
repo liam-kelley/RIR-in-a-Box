@@ -19,6 +19,7 @@ class ShoeboxToRIR(nn.Module):
         self.sound_speed=343
         self.max_order=max_order
         self.batch_size=None
+        print("ShoeboxToRIR initialized.")
 
     def forward(self, input : torch.Tensor, force_absorption : Optional[torch.Tensor] = None):
         '''
@@ -93,6 +94,7 @@ class MeshToShoebox(nn.Module):
 
         # Activation
         self.softplus = torch.nn.Softplus()
+        print("MeshToShoebox model ", self.model, " initialized")
 
     def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos):
         data = data_for_meshnet(x, edge_index, batch) # the pretrained mesh_net we use uses a data struct for input data.

@@ -31,7 +31,8 @@ class MESH_NET(nn.Module):
         self.bn1 = torch.nn.BatchNorm1d(16) #(128)
         self.bn2 = torch.nn.BatchNorm1d(8) #(64)
         self.act1 = torch.nn.ReLU()
-        # self.act2 = torch.nn.ReLU()        
+        # self.act2 = torch.nn.ReLU() 
+        print("MESH_NET initialized")   
   
     def forward(self, data):
         x, edge_index, batch = data.pos, data.edge_index, data.batch

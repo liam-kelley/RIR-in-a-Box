@@ -22,7 +22,7 @@ class BaseRIRLoss(torch.nn.Module):
         # Get batch size
         self.batch_size=shoebox_origin_batch.shape[0]
     
-    def crop_rirs_to_DP_origin(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
+    def crop_rirs_to_TOA_origin(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
                                     label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         '''Uniformizes the length of the RIRs by cropping them to the Direct Path origin, combines them into a tensor.'''
         new_shoebox_rir_batch=[]
@@ -85,7 +85,7 @@ class BaseRIRLoss(torch.nn.Module):
 
 
 class EnergyDecay_Loss(BaseRIRLoss):
-    def __init__(self, frequency_wise=False, synchronize_DP=True, normalize_dp=False, normalize_decay_curve=True,
+    def __init__(self, frequency_wise=False, synchronize_TOA=True, normalize_dp=False, normalize_decay_curve=True,
                  deemphasize_early_reflections=True, pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
 
@@ -93,7 +93,7 @@ class EnergyDecay_Loss(BaseRIRLoss):
 
         # Options
         self.frequency_wise=frequency_wise # if True, compute loss on 7 frequency bands (EDR)
-        self.synchronize_DP=synchronize_DP
+        self.synchronize_TOA=synchronize_TOA
         self.normalize_dp=normalize_dp
         self.normalize_decay_curve=normalize_decay_curve
         self.deemphasize_early_reflections=deemphasize_early_reflections
@@ -104,15 +104,15 @@ class EnergyDecay_Loss(BaseRIRLoss):
             self.pad_to_same_length, self.crop_to_same_length = False, True
 
         # Options print
-        print("EnergyDecay_Loss Initialized", end='')
-        if self.frequency_wise: print(" with frequency-wise decay curves (EDR)", end='')
-        if self.synchronize_DP: print(" with DP synchronization", end='')
-        if self.normalize_dp: print(" with DP normalization", end='')
-        if self.normalize_decay_curve: print(" with decay curve normalization", end='')
-        if self.deemphasize_early_reflections: print(" with deemphasized early reflections", end='')
-        if self.pad_to_same_length: print(" with RIR padding to same length", end='')
-        if self.crop_to_same_length: print(" with RIR cropping to same length", end='')
-        print(".")
+        print("EnergyDecay_Loss Initialized", end='\n    ')
+        if self.frequency_wise: print("> with frequency-wise decay curves (EDR)", end='\n    ')
+        if self.synchronize_TOA: print("> with TOA synchronization", end='\n    ')
+        if self.normalize_dp: print("> with TOA normalization", end='\n    ')
+        if self.normalize_decay_curve: print("> with decay curve normalization", end='\n    ')
+        if self.deemphasize_early_reflections: print("> with deemphasized early reflections", end='\n    ')
+        if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
+        if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
+        print("")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
                       label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
@@ -126,8 +126,8 @@ class EnergyDecay_Loss(BaseRIRLoss):
         self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
 
         # crop rirs to begin from Direct Path
-        if self.synchronize_DP:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_DP_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+        if self.synchronize_TOA:
+            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
         else:
             shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
             label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
@@ -179,7 +179,7 @@ class EnergyDecay_Loss(BaseRIRLoss):
     
 
 class EnergyBins_Loss(BaseRIRLoss):
-    def __init__(self, sample_rate=16000, synchronize_DP=True, normalize_dp=True, frequency_wise=False, 
+    def __init__(self, sample_rate=16000, synchronize_TOA=True, normalize_dp=True, frequency_wise=False, 
                 pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
 
@@ -187,7 +187,7 @@ class EnergyBins_Loss(BaseRIRLoss):
         self.mse=torch.nn.MSELoss(reduction='mean')
 
         # Options
-        self.synchronize_DP=synchronize_DP
+        self.synchronize_TOA=synchronize_TOA
         self.normalize_dp=normalize_dp
         self.frequency_wise=frequency_wise # if True, compute loss on 7 frequency bands (EDR)
         self.pad_to_same_length=pad_to_same_length
@@ -197,13 +197,13 @@ class EnergyBins_Loss(BaseRIRLoss):
             self.pad_to_same_length, self.crop_to_same_length = False, True
 
         # Options print
-        print("EnergyDecay_Loss Initialized", end='')
-        if self.synchronize_DP: print(" with DP synchronization", end='')
-        if self.normalize_dp: print(" with DP normalization", end='')
-        if self.frequency_wise: print(" with frequency-wise decay curves (EDR)", end='')
-        if self.pad_to_same_length: print(" with RIR padding to same length", end='')
-        if self.crop_to_same_length: print(" with RIR cropping to same length", end='')
-        print(".")
+        print("EnergyDecay_Loss Initialized", end='\n    ')
+        if self.synchronize_TOA: print("> with TOA synchronization", end='\n    ')
+        if self.normalize_dp: print("> with TOA normalization", end='\n    ')
+        if self.frequency_wise: print("> with frequency-wise decay curves (EDR)", end='\n    ')
+        if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
+        if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
+        print("")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
                       label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
@@ -217,8 +217,8 @@ class EnergyBins_Loss(BaseRIRLoss):
         self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
 
         # crop rirs to begin from Direct Path
-        if self.synchronize_DP:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_DP_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+        if self.synchronize_TOA:
+            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
         else:
             shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
             label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
@@ -261,7 +261,7 @@ class EnergyBins_Loss(BaseRIRLoss):
 
 class MRSTFT_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, device='cpu',
-                 synchronize_DP=True, deemphasize_early_reflections=True, normalize_dp=True,
+                 synchronize_TOA=True, deemphasize_early_reflections=True, normalize_dp=True,
                 pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
 
@@ -293,7 +293,7 @@ class MRSTFT_Loss(BaseRIRLoss):
         self.sample_rate=sample_rate
 
         # Options
-        self.synchronize_DP=synchronize_DP
+        self.synchronize_TOA=synchronize_TOA
         self.deemphasize_early_reflections=deemphasize_early_reflections
         self.normalize_dp=normalize_dp
         self.pad_to_same_length=pad_to_same_length
@@ -303,21 +303,21 @@ class MRSTFT_Loss(BaseRIRLoss):
             self.pad_to_same_length, self.crop_to_same_length = False, True
 
         # Options print
-        print("MRSTFT_Loss Initialized", end='')
-        if self.synchronize_DP: print(" with DP synchronization", end='')
-        if self.deemphasize_early_reflections: print(" with deemphasized early reflections", end='')
-        if self.normalize_dp: print(" with normalization", end='')
-        if self.pad_to_same_length: print(" with RIR padding to same length", end='')
-        if self.crop_to_same_length: print(" with RIR cropping to same length", end='')
-        print(".")
+        print("MRSTFT_Loss Initialized", end='\n    ')
+        if self.synchronize_TOA: print("> with TOA synchronization", end='\n    ')
+        if self.deemphasize_early_reflections: print("> with deemphasized early reflections", end='\n    ')
+        if self.normalize_dp: print("> with normalization", end='\n    ')
+        if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
+        if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
+        print("")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
                       label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
         
         # crop rirs to begin from Direct Path
-        if self.synchronize_DP:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_DP_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+        if self.synchronize_TOA:
+            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
         else:
             shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
             label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
@@ -343,7 +343,7 @@ class MRSTFT_Loss(BaseRIRLoss):
         
 
 class AcousticianMetrics_Loss(BaseRIRLoss):
-    def __init__(self, sample_rate=16000, synchronize_DP=True, crop_to_same_length=True, normalize_dp=False, frequency_wise=False,
+    def __init__(self, sample_rate=16000, synchronize_TOA=True, crop_to_same_length=True, normalize_dp=False, frequency_wise=False,
                  normalize_total_energy=False, pad_to_same_length=False, MeanAroundMedian_pruning=True):
         super().__init__()
 
@@ -351,7 +351,7 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         self.sample_rate=sample_rate
 
         # Options
-        self.synchronize_DP=synchronize_DP
+        self.synchronize_TOA=synchronize_TOA
         self.crop_to_same_length=crop_to_same_length
         self.normalize_dp=normalize_dp
         self.frequency_wise=frequency_wise # if True, compute loss on 7 frequency bands (EDR)
@@ -363,15 +363,15 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         self.MeanAroundMedian_pruning=MeanAroundMedian_pruning
 
         # Options print
-        print("AcousticianMetrics_Loss Initialized", end='')
-        if self.synchronize_DP: print(" with DP synchronization", end='')
-        if self.crop_to_same_length: print(" with RIR cropping to same length", end='')
-        if self.normalize_dp: print(" with DP normalization", end='')
-        if self.frequency_wise: print(" with frequency-wise decay curves (EDR)", end='')
-        if self.normalize_total_energy: print(" with total energy normalization", end='')
-        if self.pad_to_same_length: print(" with RIR padding to same length", end='')
-        if self.MeanAroundMedian_pruning: print(" with MeanAroundMedian pruning", end='')
-        print(".")
+        print("AcousticianMetrics_Loss Initialized", end='\n    ')
+        if self.synchronize_TOA: print("> with TOA synchronization", end='\n    ')
+        if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
+        if self.normalize_dp: print("> with TOA normalization", end='\n    ')
+        if self.frequency_wise: print("> with frequency-wise decay curves (EDR)", end='\n    ')
+        if self.normalize_total_energy: print("> with total energy normalization", end='\n    ')
+        if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
+        if self.MeanAroundMedian_pruning: print("> with MeanAroundMedian pruning", end='\n    ')
+        print("")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
                       label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
@@ -385,8 +385,8 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
 
         # crop rirs to begin from Direct Path
-        if self.synchronize_DP:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_DP_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+        if self.synchronize_TOA:
+            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
         else:
             shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
             label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)

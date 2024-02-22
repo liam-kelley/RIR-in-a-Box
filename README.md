@@ -39,6 +39,8 @@ python -m pip install libigl
 
 ```
 
+Then, follow the instructions in the datasets folder.
+
 <!-- ## Installation
 
 This installation tutorial has not been fully tested again.

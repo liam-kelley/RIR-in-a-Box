@@ -18,8 +18,8 @@ RT60 betas (new)
 All losses now have easily toggleable options:
 
 - frequency_wise (edecay, ebins, mrstft, acoustician)
-- synchronize_dp (edecay, ebins, mrstft, acoustician)
-- normalize_dp (edecay, ebins, mrstft, acoustician)
+- synchronize_TOA (edecay, ebins, mrstft, acoustician)
+- normalize_TOA (edecay, ebins, mrstft, acoustician)
 - normalize_decay_curve (edecay)
 - deemphasize_early_reflections (edecay, ebins, mrstft)
 - Normalize total energy (Acoustician)

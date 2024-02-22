@@ -15,5 +15,5 @@ def load_mesh_net(mesh_net_obj,mesh_net_path):
         if k in change_dict.keys(): state_dict_torch121[change_dict[k]] = v
         else: state_dict_torch121[k] = v
     mesh_net_obj.load_state_dict(state_dict_torch121)
-    print('Loaded from: ', mesh_net_path)
+    print('Pretrained mesh_net loaded from: ', mesh_net_path)
     return mesh_net_obj

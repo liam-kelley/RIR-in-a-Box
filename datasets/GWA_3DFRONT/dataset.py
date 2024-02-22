@@ -21,10 +21,10 @@ def string_to_array(s):
 
 from datasets.GWA_3DFRONT.preprocessing.rir_preprocessing import mesh2ir_rir_preprocessing
 
-class my_dataset(Dataset):
+class GWA_3DFRONT_Dataset(Dataset):
     def __init__(self, csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront.csv", ):
         self.csv_file=csv_file
-        self.sample_rate=None
+        self.sample_rate=16000
         self.data = pd.read_csv(csv_file)
         print('GWA_3DFRONT csv loaded at ', csv_file)
 
@@ -36,6 +36,8 @@ class my_dataset(Dataset):
         if not os.path.exists(self.label_rir_folder):
             raise Exception("Label RIR folder not found: ", self.label_rir_folder,
                             "\nPlease download the GWA_Dataset_small and place it in the datasets/GWA_3DFRONT folder.")
+
+        print('GWA_3DFRONT dataset loaded at ', self.csv_file)
 
     def __len__(self):
         return len(self.data)
@@ -55,8 +57,9 @@ class my_dataset(Dataset):
         ms.load_new_mesh(mesh_path)
 
         # get x and edge_index
-        x = ms.current_mesh.vertices
-        edge_index = ms.current_mesh.edges
+        m = ms.current_mesh()
+        x = m.vertex_matrix().astype('float32')
+        edge_index = m.edge_matrix().astype('float32')
 
         ####### LOAD RIR #######
 
@@ -90,6 +93,7 @@ class my_dataset(Dataset):
                 mic_pos_tensor, 
                 source_pos_tensor)
 
+    @staticmethod
     def custom_collate_fn(list_of_tuples):
         data_list, label_rir_tensors, label_origin_tensors, mic_pos_tensors, src_pos_tensors = zip(*list_of_tuples)
 
