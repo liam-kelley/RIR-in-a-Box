@@ -65,18 +65,28 @@ class BaseRIRLoss(torch.nn.Module):
 
     def crop_rirs_to_same_length(self, shoebox_rir_batch : torch.Tensor, label_rir_batch : torch.Tensor):
         '''Crop rirs to same length from the right'''
-        if shoebox_rir_batch.shape[-1] < label_rir_batch.shape[-1]:
-            label_rir_batch=label_rir_batch[..., :shoebox_rir_batch.shape[-1]]
-        elif shoebox_rir_batch.shape[-1] > label_rir_batch.shape[-1]:
-            shoebox_rir_batch=shoebox_rir_batch[..., :label_rir_batch.shape[-1]]
+        if min(shoebox_rir_batch.shape[-1], label_rir_batch.shape[-1]) < 1024: # Had a glitch where the shoebox rir generated was so small that mrstft couldn't perform on it.
+            shoebox_rir_batch, label_rir_batch = self.pad_rirs_to_same_length(shoebox_rir_batch,label_rir_batch[...,:1024])
+        else:
+            if shoebox_rir_batch.shape[-1] < label_rir_batch.shape[-1]:
+                label_rir_batch=label_rir_batch[..., :shoebox_rir_batch.shape[-1]]
+            elif shoebox_rir_batch.shape[-1] > label_rir_batch.shape[-1]:
+                shoebox_rir_batch=shoebox_rir_batch[..., :label_rir_batch.shape[-1]]
         return shoebox_rir_batch, label_rir_batch
 
     def deemphasize_rir_early_reflections(self, shoebox_rir_batch : torch.Tensor, label_rir_batch : torch.Tensor, t0 : int = 2000):
         '''linear ramp up from 0 to 1 on the interval [0,t0] in samples'''
-        ramp=torch.arange(0,t0).to(shoebox_rir_batch.device)
-        ramp=ramp/t0
-        shoebox_rir_batch[..., :t0] = shoebox_rir_batch[..., :t0]*(ramp[ :shoebox_rir_batch.shape[-1]].unsqueeze(0))
-        label_rir_batch[..., :t0] = label_rir_batch[..., :t0]*(ramp[ :shoebox_rir_batch.shape[-1]].unsqueeze(0))
+        device = shoebox_rir_batch.device
+        ramp = torch.arange(0, t0, device=device) / t0
+        # Determine the actual length to use (the minimum of t0 and the last dimension of the tensor)
+        actual_length = min(t0, shoebox_rir_batch.shape[-1])
+        # Adjust ramp size if necessary
+        if actual_length < t0:
+            ramp = ramp[:actual_length]
+        # Applying the ramp to both shoebox_rir_batch and label_rir_batch up to the actual_length
+        shoebox_rir_batch[..., :actual_length] = shoebox_rir_batch[..., :actual_length] * ramp.unsqueeze(0)
+        label_rir_batch[..., :actual_length] = label_rir_batch[..., :actual_length] * ramp.unsqueeze(0)
+
         return shoebox_rir_batch, label_rir_batch
 
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
@@ -168,6 +178,8 @@ class EnergyDecay_Loss(BaseRIRLoss):
         # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
         if self.crop_to_same_length:
             shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(shoebox_rir_batch, label_rir_batch)
+
+        print()
             
         # Deemphasize early reflections linearly
         if self.deemphasize_early_reflections :
@@ -338,6 +350,8 @@ class MRSTFT_Loss(BaseRIRLoss):
         if self.deemphasize_early_reflections :
             shoebox_rir_batch, label_rir_batch = self.deemphasize_rir_early_reflections(shoebox_rir_batch, label_rir_batch)
 
+        print()
+        # There was an error here
         batch_mrstft_loss = self.mrstft( shoebox_rir_batch[:,None,:], label_rir_batch[:,None,:] ) # Calculate batch_mrstft # Add a dimension for channels
         return batch_mrstft_loss   
         
@@ -498,10 +512,9 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
             label_median = torch.median(label_betas.detach(), dim=-1)[0].unsqueeze(-1).expand_as(label_betas)
             input_betas=input_betas[torch.abs(input_betas.detach()-input_median) < 2*input_std]
             label_betas=label_betas[torch.abs(label_betas.detach()-label_median) < 2*label_std]
+            del input_std, label_std, input_median, label_median
         input_regressed_beta = torch.mean(input_betas, dim=-1)
         label_regressed_beta = torch.mean(label_betas, dim=-1)
-    
-        del input_std, label_std, input_median, label_median
 
         input_rt60=6/(input_regressed_beta+1e-10)
         label_rt60=6/(label_regressed_beta+1e-10)

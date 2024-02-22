@@ -106,7 +106,7 @@ if not TRAIN_MESHNET : mesh_to_shoebox.meshnet.requires_grad = False
 optimizer = optim.Adam(mesh_to_shoebox.parameters(), lr=LEARNING_RATE)
 
 # utility
-timer = LKTimer(print_time=False)
+timer = LKTimer(print_time=True)
 
 # Training
 for epoch in range(EPOCHS):

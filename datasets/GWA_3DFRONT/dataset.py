@@ -19,6 +19,21 @@ def string_to_array(s):
     # Convert each element to float and create a numpy array
     return np.array([float(e) for e in elements])
 
+def edge_matrix_from_face_matrix(face_matrix):
+    '''
+    TODO Need to check if this is OK.
+    '''
+    # Iterate over face_matrix to extract edges
+    edges = []
+    for f in face_matrix:
+        face_edges = [(f[i], f[(i+1) % len(f)]) for i in range(len(f))]
+        for e in face_edges:
+            if e not in edges and (e[1], e[0]) not in edges:  # Avoid duplicates
+                edges.append(e)
+    # Convert edges list to a numpy array
+    edge_matrix = np.array(edges)
+    return edge_matrix
+
 from datasets.GWA_3DFRONT.preprocessing.rir_preprocessing import mesh2ir_rir_preprocessing
 
 class GWA_3DFRONT_Dataset(Dataset):
@@ -41,30 +56,25 @@ class GWA_3DFRONT_Dataset(Dataset):
 
     def __len__(self):
         return len(self.data)
-        
-    def __getitem__(self, index):
-        if torch.is_tensor(index):
-            index = index.tolist()
-        df = self.data.iloc[index]
 
-        mesh_path = os.path.join(self.meshes_folder, df['mesh_name'])
-        label_rir_path = os.path.join(self.label_rir_folder, df['rir_name'])
-
-        ####### LOAD MESH #######
-
-        # Load the mesh
+    @staticmethod
+    def _load_mesh(mesh_path):
+        # Load your mesh
         ms = ml.MeshSet()
         ms.load_new_mesh(mesh_path)
-
-        # get x and edge_index
+        # Get the current mesh
         m = ms.current_mesh()
-        x = m.vertex_matrix().astype('float32')
-        edge_index = m.edge_matrix().astype('float32')
-
-        ####### LOAD RIR #######
-
+        x = m.vertex_matrix()
+        edge_matrix = edge_matrix_from_face_matrix(m.face_matrix())
+        return x.astype('float32'), edge_matrix.astype('long')
+    
+    @staticmethod
+    def _load_rir(label_rir_path):
+        # Load RIR
         label_rir, fs = librosa.load(label_rir_path)
+        # Resample to 16kHz
         label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=16000)
+        # Preprocess RIR
         label_rir = mesh2ir_rir_preprocessing(label_rir)
         label_rir = np.array([label_rir]).astype('float32')
 
@@ -73,21 +83,32 @@ class GWA_3DFRONT_Dataset(Dataset):
         # label_origin = peak_indexes[0]
         label_origin = 41 # TODO: find a way to get the origin of the RIR
 
-        ####### GET Ground Truth Mic and Src positions #######
+        return label_rir, label_origin
 
+    def __getitem__(self, index):
+        if torch.is_tensor(index):
+            index = index.tolist()
+        df = self.data.iloc[index]
+
+        # path names
+        mesh_path = os.path.join(self.meshes_folder, df['mesh_name'])
+        label_rir_path = os.path.join(self.label_rir_folder, df['rir_name'])
+
+        # get all the data
+        x, edge_index = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
+        label_rir, label_origin = GWA_3DFRONT_Dataset._load_rir(label_rir_path)
         src_pos = string_to_array(df["Source_Pos"]).astype('float32')
         mic_pos = string_to_array(df["Receiver_Pos"]).astype('float32')
 
-        ######### CREATE TENSORS #########
-
+        # convert to tensors
         x = torch.tensor(x, dtype=torch.float32)
-        edge_index = torch.tensor(edge_index, dtype=torch.int)
-        label_rir_tensor = torch.tensor(label_rir, dtype=torch.float32)
+        edge_index = torch.tensor(edge_index, dtype=torch.int).T
+        label_rir_tensor = torch.tensor(label_rir, dtype=torch.float32).squeeze()
         label_origin_tensor = torch.tensor(label_origin, dtype=torch.float32)
         mic_pos_tensor = torch.tensor(mic_pos, dtype=torch.float32)
         source_pos_tensor = torch.tensor(src_pos, dtype=torch.float32)
 
-        return (Data(x=x, edge_index=edge_index.int().contiguous()), 
+        return (Data(x=x, edge_index=edge_index.long().contiguous()), 
                 label_rir_tensor, 
                 label_origin_tensor,
                 mic_pos_tensor, 

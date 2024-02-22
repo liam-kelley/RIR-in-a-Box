@@ -85,7 +85,7 @@ class MeshToShoebox(nn.Module):
         else: self.meshnet = meshnet # for loading a pretrained meshnet
 
         # Linear layers
-        self.lin3 = torch.nn.Linear(8, 32)
+        self.lin3 = torch.nn.Linear(14, 32)
         if self.model in [1,3] : self.lin4 = torch.nn.Linear(32, 6)
         elif self.model == 2 : self.lin4 = torch.nn.Linear(32, 12)
         if self.model == 3 :
@@ -100,7 +100,7 @@ class MeshToShoebox(nn.Module):
         data = data_for_meshnet(x, edge_index, batch) # the pretrained mesh_net we use uses a data struct for input data.
         x = self.meshnet(data)
         
-        x = torch.cat(batch_oracle_mic_pos, batch_oracle_src_pos, dim=1)
+        x = torch.cat((x, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
         x = F.relu(self.lin3(x))
         x = self.lin4(x)
 
@@ -112,7 +112,7 @@ class MeshToShoebox(nn.Module):
         if self.model in [1,2]: return(x)
 
         if self.model == 3 :
-            x = torch.cat(batch_oracle_mic_pos, batch_oracle_src_pos, dim=1)
+            x = torch.cat((batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
             x = F.relu(self.lin5(x))
             x = torch.sigmoid(self.lin6(x))
             return(x)
