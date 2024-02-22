@@ -6,6 +6,12 @@ import math
 import igl
 from shutil import copyfile
 
+'''
+This is a reimplementation of GAMMA-UMD/GWA/tools/json2obj.py on github
+I commented a few lines to not add a convex hull to the mesh, because it messes up the optional mesh reconstruction preprocessing.
+MESH2IR says that this convex hull is not necessary, although they used it to train their mesh encoder which we reuse.
+'''
+
 def split_path(paths):
     filepath,tempfilename = os.path.split(paths)
     filename,extension = os.path.splitext(tempfilename)

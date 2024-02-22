@@ -3,6 +3,15 @@ import os
 import numpy as np
 
 def obj_preprocessing(temp_file_path, preproc_obj_folder, target_faces=2000, random_reduction_factor=0):
+    '''
+    This preprocesses .obj meshes according to the following steps:
+        1. Load the mesh
+        2. Optionally, randomly remove a percentage of faces to simulate 'destroying' parts of the mesh
+        3. Optionally, Mesh reconstruction on the sparse meshes to obtain realistic looking rooms using Poisson Reconstruction.
+        4. Decimate the mesh to the target number of faces
+        5. Save the preprocessed mesh to the preproc_obj_folder
+        6. Return the path to the preprocessed mesh
+    '''
     # init pymeshlab
     ms = ml.MeshSet()
 
@@ -32,12 +41,16 @@ def obj_preprocessing(temp_file_path, preproc_obj_folder, target_faces=2000, ran
     # quadric edge collapse decimation
     ms.apply_filter('meshing_decimation_quadric_edge_collapse', targetfacenum=target_faces, preservenormal=True)
     m = ms.current_mesh()
-    print("Decimated to", target_faces, "faces and ", m.vertex_number(), "vertices.")
+    print("Decimated to", m.face_number(), "faces and ", m.vertex_number(), "vertices.")
 
     # end, and save mesh
     m = ms.current_mesh()
     print('preprocessed mesh has', m.face_number(), 'faces and', m.vertex_number(), 'vertices.')
-    simple_obj_path = os.path.join(preproc_obj_folder, temp_file_path.split('/')[-1])
+    simple_obj_path = os.path.join(preproc_obj_folder, temp_file_path.split('/')[-2], temp_file_path.split('/')[-1])
+    # make directory if it doesn't exist
+    if not os.path.exists(os.path.dirname(simple_obj_path)):
+        os.makedirs(os.path.dirname(simple_obj_path))
     ms.save_current_mesh(simple_obj_path)
+    print('Saved preprocessed mesh to', simple_obj_path)
 
     return simple_obj_path
