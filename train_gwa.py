@@ -27,7 +27,7 @@ DEVICE='cuda'
 
 ISM_MAX_ORDER = 10 # 15 is better...
 
-do_wandb=False
+do_wandb=True
 
 print("PARAMETERS:")
 print("    > BATCH_SIZE = ", BATCH_SIZE)
@@ -46,7 +46,7 @@ print("    > wandb = ",do_wandb, end="\n\n")
 if do_wandb:
     wandb.init(
         # set the wandb project where this run will be logged
-        project="RIRBox1",
+        project="RIRBox2",
         
         # track hyperparameters and run metadata
         config={
@@ -60,6 +60,7 @@ if do_wandb:
             "ism max order": ISM_MAX_ORDER
         }
     )
+    print("")
 
 ############################################ Inits ############################################
 
@@ -106,7 +107,7 @@ if not TRAIN_MESHNET : mesh_to_shoebox.meshnet.requires_grad = False
 optimizer = optim.Adam(mesh_to_shoebox.parameters(), lr=LEARNING_RATE)
 
 # utility
-timer = LKTimer(print_time=True)
+timer = LKTimer(print_time=False)
 
 # Training
 for epoch in range(EPOCHS):
