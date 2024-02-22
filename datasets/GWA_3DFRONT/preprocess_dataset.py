@@ -29,7 +29,7 @@ parser.add_argument(
         )
 parser.add_argument(
         '--target_faces',
-        default = 2000,
+        default = 3500,
         help = 'target number of faces'
         )
 args = parser.parse_args()
@@ -46,9 +46,6 @@ with open(os.path.join(args.future_path, 'model_info.json'), 'r', encoding='utf-
 # Iterate over all rooms in 3D-FRONT
 i=0
 for json_file_name in tqdm(files):
-#     if json_file_name == '402de23a-6681-4cb5-9d8a-7db57aba4a3c.json':
-#         continue
-
     # convert json to obj
     temp_file_path = json2obj(json_file_name, args.json_path, args.future_path,
                                         args.obj_path, model_info)
@@ -57,7 +54,7 @@ for json_file_name in tqdm(files):
         continue
 
     # simplify obj
-    simple_file_path = obj_preprocessing(temp_file_path, args.preprocessed_obj_path, args.target_faces)
+    simple_file_path = obj_preprocessing(temp_file_path, args.preprocessed_obj_path, args.target_faces, random_reduction_factor=0)
 
     # remove temp file
     os.remove(temp_file_path)
@@ -68,3 +65,6 @@ for json_file_name in tqdm(files):
     i+=1
     if i >= 100:
         break
+os.rmdir(os.path.dirname(temp_folder))
+print('Done')
+
