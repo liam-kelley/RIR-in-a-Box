@@ -35,9 +35,10 @@ python -m pip install fake-bpy-module
 python -m pip install trimesh
 python -m pip install tqdm
 python -m pip install libigl
-<!-- conda install torch-scatter torch-sparse torch-cluster torch-spline-conv-c pyg -c nvidia  -->
+conda install pytorch-scatter -c pyg -c nvidia
 
 ```
+<!-- conda install pytorch-scatter torch-sparse torch-cluster torch-spline-conv -c pyg -c nvidia  TODO download these-->
 
 Then, follow the instructions in the datasets folder.
 

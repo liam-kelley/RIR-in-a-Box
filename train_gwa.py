@@ -9,25 +9,33 @@ from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_
 import torch.optim as optim
 from pyLiam.LKTimer import LKTimer
 from tqdm import tqdm
-
-'''
-This code isn't functional yet due to the lack of a proper dataset.py file
-'''
+import argparse
+from training.utility import load_config_from_file
 
 ############################################ Config ############################################
 
-RIRBOX_MODEL_ARCHITECTURE=2
-PRETRAINED_MESHNET=True
-TRAIN_MESHNET=False
-
-LEARNING_RATE = 1e-3
-EPOCHS = 5
-BATCH_SIZE =  4
-DEVICE='cuda'
-
-ISM_MAX_ORDER = 10 # 15 is better...
-
-do_wandb=True
+parser = argparse.ArgumentParser()
+parser.add_argument('--RIRBOX_MODEL_ARCHITECTURE',  type=int,   default=2)
+parser.add_argument('--PRETRAINED_MESHNET',         type=bool,  default=True)
+parser.add_argument('--TRAIN_MESHNET',              type=bool,  default=False)
+parser.add_argument('--LEARNING_RATE',              type=float, default=1e-3)
+parser.add_argument('--EPOCHS',                     type=int,   default=5)
+parser.add_argument('--BATCH_SIZE',                 type=int,   default=4)
+parser.add_argument('--DEVICE',                     type=str,   default='cuda')
+parser.add_argument('--ISM_MAX_ORDER',              type=int,   default=10, help='This value is O^3 in memory. 10 should be minimum, 15 is recommended.' )
+parser.add_argument('--do_wandb',                   type=bool,  default=False)
+parser.add_argument('--config_file',                type=str,   default=None, help='Path to configuration file.')
+args, _ = parser.parse_known_args()
+if args.config_file: args = load_config_from_file(args)
+RIRBOX_MODEL_ARCHITECTURE = args.RIRBOX_MODEL_ARCHITECTURE
+PRETRAINED_MESHNET = args.PRETRAINED_MESHNET
+TRAIN_MESHNET = args.TRAIN_MESHNET
+LEARNING_RATE = args.LEARNING_RATE
+EPOCHS = args.EPOCHS
+BATCH_SIZE = args.BATCH_SIZE
+DEVICE = args.DEVICE
+ISM_MAX_ORDER = args.ISM_MAX_ORDER
+do_wandb = args.do_wandb
 
 print("PARAMETERS:")
 print("    > BATCH_SIZE = ", BATCH_SIZE)

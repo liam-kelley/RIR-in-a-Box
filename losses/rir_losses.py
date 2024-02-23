@@ -178,8 +178,6 @@ class EnergyDecay_Loss(BaseRIRLoss):
         # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
         if self.crop_to_same_length:
             shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(shoebox_rir_batch, label_rir_batch)
-
-        print()
             
         # Deemphasize early reflections linearly
         if self.deemphasize_early_reflections :
