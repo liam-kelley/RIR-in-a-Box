@@ -74,7 +74,9 @@ if do_wandb:
 
 # data
 dataset=GWA_3DFRONT_Dataset()
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
+                        num_workers=4, pin_memory=True,
+                        collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
 print("")
 
 # models
