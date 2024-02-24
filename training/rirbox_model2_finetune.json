@@ -1,16 +1,16 @@
 {
-    "SAVE LOCATION": "./models/RIRBOX/RIRBOX_Default.pth",
-
+    "SAVE_PATH": "./models/RIRBOX/RIRBOX_Model2_Finetune.pth",
+    
     "RIRBOX_MODEL_ARCHITECTURE": 2,
     "PRETRAINED_MESHNET": true,
     "TRAIN_MESHNET": false,
 
-    "LEARNING_RATE": 0.001,
+    "LEARNING_RATE": 0.0001,
     "EPOCHS": 5,
     "BATCH_SIZE": 4,
     "DEVICE": "cuda",
 
-    "ISM_MAX_ORDER": 10,
+    "ISM_MAX_ORDER": 15,
     
     "do_wandb": false
 }

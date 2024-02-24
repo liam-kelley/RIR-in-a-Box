@@ -10,32 +10,24 @@ import torch.optim as optim
 from pyLiam.LKTimer import LKTimer
 from tqdm import tqdm
 import argparse
-from training.utility import load_config_from_file
+from json import load
 
 ############################################ Config ############################################
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--RIRBOX_MODEL_ARCHITECTURE',  type=int,   default=2)
-parser.add_argument('--PRETRAINED_MESHNET',         type=bool,  default=True)
-parser.add_argument('--TRAIN_MESHNET',              type=bool,  default=False)
-parser.add_argument('--LEARNING_RATE',              type=float, default=1e-3)
-parser.add_argument('--EPOCHS',                     type=int,   default=5)
-parser.add_argument('--BATCH_SIZE',                 type=int,   default=4)
-parser.add_argument('--DEVICE',                     type=str,   default='cuda')
-parser.add_argument('--ISM_MAX_ORDER',              type=int,   default=10, help='This value is O^3 in memory. 10 should be minimum, 15 is recommended.' )
-parser.add_argument('--do_wandb',                   type=bool,  default=False)
-parser.add_argument('--config_file',                type=str,   default=None, help='Path to configuration file.')
+parser.add_argument('--config_file', type=str, default="./training/rirbox_model2_finetune.json", help='Path to configuration file.')
 args, _ = parser.parse_known_args()
-if args.config_file: args = load_config_from_file(args)
-RIRBOX_MODEL_ARCHITECTURE = args.RIRBOX_MODEL_ARCHITECTURE
-PRETRAINED_MESHNET = args.PRETRAINED_MESHNET
-TRAIN_MESHNET = args.TRAIN_MESHNET
-LEARNING_RATE = args.LEARNING_RATE
-EPOCHS = args.EPOCHS
-BATCH_SIZE = args.BATCH_SIZE
-DEVICE = args.DEVICE
-ISM_MAX_ORDER = args.ISM_MAX_ORDER
-do_wandb = args.do_wandb
+with open(args.config_file, 'r') as file: config = load(file)
+
+RIRBOX_MODEL_ARCHITECTURE = config['RIRBOX_MODEL_ARCHITECTURE']
+PRETRAINED_MESHNET = config['PRETRAINED_MESHNET']
+TRAIN_MESHNET = config['TRAIN_MESHNET']
+LEARNING_RATE = config['LEARNING_RATE']
+EPOCHS = config['EPOCHS']
+BATCH_SIZE = config['BATCH_SIZE']
+DEVICE = config['DEVICE']
+ISM_MAX_ORDER = config['ISM_MAX_ORDER']
+do_wandb = config['do_wandb']
 
 print("PARAMETERS:")
 print("    > BATCH_SIZE = ", BATCH_SIZE)
@@ -174,6 +166,11 @@ for epoch in range(EPOCHS):
                 if isinstance(value, torch.Tensor) : wandb.log({key: value.item()})
                 elif isinstance(value, float): wandb.log({key: value})
             wandb.log(timer.get_logs())
+
+# Save the model to ./models/RIRBOX
+torch.save(mesh_to_shoebox.state_dict(), config['SAVE_PATH'])
+
+print("Training completed")
 
 if do_wandb:
     # finish the wandb run
