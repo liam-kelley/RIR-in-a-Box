@@ -185,5 +185,6 @@ class MESH2IR_FULL(nn.Module):
         data = data_for_meshnet(x, edge_index, batch) # the pretrained mesh_net we use uses a data struct for input data.
         mesh_embed = self.mesh_net(data)
         text_embedding = torch.cat((batch_oracle_src_pos, batch_oracle_mic_pos), dim=1)
-        _, RIR, _ = self.net_G(text_embedding, mesh_embed)
-        return RIR
+        _, rir, _ = self.net_G(text_embedding, mesh_embed)
+        rir = rir.squeeze(1)
+        return rir
