@@ -4,13 +4,13 @@ import torch
 import torch.nn.functional as F
 from typing import Optional
 
-from torch_geometric.nn import GCNConv, TopKPooling
-from torch_geometric.nn import global_max_pool as gmp
-from torch_geometric.nn import global_mean_pool as gap
+# from torch_geometric.nn import GCNConv, TopKPooling
+# from torch_geometric.nn import global_max_pool as gmp
+# from torch_geometric.nn import global_mean_pool as gap
 
 from models.backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 
-from models.mesh2ir_meshnet import MESH_NET, data_for_meshnet
+from models.mesh2ir_models import MESH_NET, data_for_meshnet
 
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=16000, max_order=10):
@@ -52,7 +52,6 @@ class ShoeboxToRIR(nn.Module):
         shoebox_toa_batch = 40 + (self.sample_rate*distances/self.sound_speed) # 40 is delay_filter_length: int = 81 // 2
 
         return shoebox_rir_batch_2, shoebox_toa_batch
-
 
 class MeshToShoebox(nn.Module):
     '''
@@ -116,6 +115,20 @@ class MeshToShoebox(nn.Module):
             x = F.relu(self.lin5(x))
             x = torch.sigmoid(self.lin6(x))
             return(x)
+
+class RIRBox_FULL(nn.Module):
+    '''
+    combines both parts of the RIRBox model for simple evaluation or training.
+    '''
+    def __init__(self, mesh_to_sbox, sbox_to_rir):
+        super(RIRBox_FULL, self).__init__()
+        self.mesh_to_sbox = mesh_to_sbox
+        self.sbox_to_rir = sbox_to_rir
+
+    def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos):
+        latent_shoebox_batch = self.mesh_to_sbox(x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos)
+        shoebox_rir_batch, shoebox_origin_batch = self.sbox_to_rir(latent_shoebox_batch)
+        return shoebox_rir_batch, shoebox_origin_batch
 
 
 # class GraphToShoeboxEncoder(nn.Module):

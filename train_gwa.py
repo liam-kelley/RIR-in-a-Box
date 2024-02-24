@@ -2,7 +2,7 @@ import wandb
 import torch
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
 from torch.utils.data import DataLoader
-from models.mesh2ir_meshnet import MESH_NET
+from models.mesh2ir_models import MESH_NET
 from models.rirbox_models import MeshToShoebox, ShoeboxToRIR
 from models.utility import load_mesh_net
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
@@ -87,7 +87,7 @@ shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=ISM_MAX_ORDER).to(D
 print("")
 
 # losses
-edc=EnergyDecay_Loss(frequency_wise=True,
+edc=EnergyDecay_Loss(frequency_wise=False,
                      synchronize_TOA=True,
                      normalize_dp=False,
                      normalize_decay_curve=True,
@@ -134,7 +134,6 @@ for epoch in range(EPOCHS):
 
         with timer.time("GNN forward pass"):
             latent_shoebox_batch = mesh_to_shoebox(x_batch, edge_index_batch ,batch_indexes, mic_pos_batch, src_pos_batch)
-            # latent_shoebox_batch = latent_shoebox_batch.to("cpu")
         
         # Freeing memory
         del x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch

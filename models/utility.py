@@ -17,3 +17,20 @@ def load_mesh_net(mesh_net_obj,mesh_net_path):
     mesh_net_obj.load_state_dict(state_dict_torch121)
     print('Pretrained mesh_net loaded from: ', mesh_net_path)
     return mesh_net_obj
+
+def load_GAN(GAN_obj,GAN_path):
+    '''
+    load MESH2IR GAN.
+    '''
+    state_dict = load(GAN_path,
+                    map_location=lambda storage, loc: storage)
+    GAN_obj.load_state_dict(state_dict)
+    print('Pretrained GAN loaded from: ', GAN_path)
+    return GAN_obj
+
+def load_mesh_to_shoebox(mesh_to_shoebox_obj,mesh_to_shoebox_path):
+    '''
+    load RIRBox mesh_to_shoebox.
+    '''
+    # TODO: implement
+    return mesh_to_shoebox_obj
