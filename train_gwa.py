@@ -15,9 +15,9 @@ from json import load
 ############################################ Config ############################################
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config_file', type=str, default="./training/rirbox_model2_finetune.json", help='Path to configuration file.')
+parser.add_argument('--config', type=str, default="./training/rirbox_model2_finetune.json", help='Path to configuration file.')
 args, _ = parser.parse_known_args()
-with open(args.config_file, 'r') as file: config = load(file)
+with open(args.config, 'r') as file: config = load(file)
 
 RIRBOX_MODEL_ARCHITECTURE = config['RIRBOX_MODEL_ARCHITECTURE']
 PRETRAINED_MESHNET = config['PRETRAINED_MESHNET']

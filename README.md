@@ -1,10 +1,11 @@
-# RIR-in-a-Box V.0.4
+# RIR-in-a-Box V.0.5
 
-Please wait for RIR-in-a-Box V.0.5 to be released for a complete installation tutorial.
+## Setup
 
-I'm pretty sure the repo should work with these requirements.
-Know that there are extra librairies that are not needed for the project to work.
-Make sure to have the cuda 12.1 toolkit installed (use apt to install it).
+This setup tutorial is functional, but beware there may be too many librairies installed.
+
+Install the cuda 12.1 toolkit. Other versions may work, but this is the one I used.
+If you use another other, please change the pytorch-cuda version in the conda install command below.
 
 ```bash
 
@@ -38,9 +39,32 @@ python -m pip install libigl
 conda install pytorch-scatter -c pyg -c nvidia
 
 ```
-<!-- conda install pytorch-scatter torch-sparse torch-cluster torch-spline-conv -c pyg -c nvidia  TODO download these-->
 
-Then, follow the instructions in the datasets folder.
+Once you set up the environment, go to the RIR-in-a-Box/datasets/GWA_3DFRONT folder for extra instructions.
+
+Then, go to the RIR-in-a-Box/models folder for extra instructions.
+
+Congrats! Enjoy RIR-in-a-Box.
+
+## Usage
+
+To train a model.
+
+```bash
+
+python train_gwa.py --config "./training/rirbox_model2_finetune.json"
+
+```
+
+To validate model performance.
+
+```bash
+
+python validation.py --rirbox_path "./models/rirbox_model2_finetune.pth"
+
+```
+
+The arguments are defaults, you don't need to specify them if you don't want to.
 
 <!-- ## Installation
 

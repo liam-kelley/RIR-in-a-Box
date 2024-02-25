@@ -10,6 +10,7 @@ from pyLiam.LKTimer import LKTimer
 from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
+import argparse
 
 def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_iterations=10, plot_rirs=False):
     '''
@@ -203,8 +204,12 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox():
     plt.show()
 
 def main():
-    # validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path="./models/RIRBOX/RIRBOX_Model2_Finetune.pth",
-    #                                              validation_iterations=20, plot_rirs=False)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--rirbox_path', type=str, default="./training/rirbox_model2_finetune.json", help='Path to rirbox model to validate.')
+    args, _ = parser.parse_known_args()
+    
+    validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=args.rirbox_path,
+                                                 validation_iterations=20, plot_rirs=False)
     view_results_metric_accuracy_mesh2ir_vs_rirbox()
 
 if __name__ == "__main__":
