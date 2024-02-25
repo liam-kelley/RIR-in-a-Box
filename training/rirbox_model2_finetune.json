@@ -5,12 +5,18 @@
     "PRETRAINED_MESHNET": true,
     "TRAIN_MESHNET": false,
 
-    "LEARNING_RATE": 0.0001,
-    "EPOCHS": 5,
+    "LEARNING_RATE": 0.0005,
+    "EPOCHS": 1,
     "BATCH_SIZE": 4,
     "DEVICE": "cuda",
 
     "ISM_MAX_ORDER": 15,
     
-    "do_wandb": false
+    "do_wandb": true,
+
+    "EDC_LOSS_WEIGHT": 40.0,
+    "MRSTFT_LOSS_WEIGHT": 1.0,
+    "D_LOSS_WEIGHT": 1.0,
+    "C80_LOSS_WEIGHT": 0.0,
+    "RT60_LOSS_WEIGHT": 1.0
 }

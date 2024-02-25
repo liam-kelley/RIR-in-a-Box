@@ -348,7 +348,6 @@ class MRSTFT_Loss(BaseRIRLoss):
         if self.deemphasize_early_reflections :
             shoebox_rir_batch, label_rir_batch = self.deemphasize_rir_early_reflections(shoebox_rir_batch, label_rir_batch)
 
-        print()
         # There was an error here
         batch_mrstft_loss = self.mrstft( shoebox_rir_batch[:,None,:], label_rir_batch[:,None,:] ) # Calculate batch_mrstft # Add a dimension for channels
         return batch_mrstft_loss   

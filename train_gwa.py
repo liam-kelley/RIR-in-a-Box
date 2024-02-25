@@ -144,8 +144,13 @@ for epoch in range(EPOCHS):
             loss_edr = edc(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
             loss_mrstft = mrstft(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
             loss_c80, loss_D, loss_rt60, _ = acm(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+            loss_c80 = loss_c80.clamp(max=2.0)
             del _
-            total_loss = loss_edr + loss_mrstft + loss_c80 + loss_D + loss_rt60
+            total_loss = loss_edr * config["EDC_LOSS_WEIGHT"]\
+                        + loss_mrstft * config["MRSTFT_LOSS_WEIGHT"]\
+                        + loss_c80 * config["C80_LOSS_WEIGHT"]\
+                        + loss_D * config["D_LOSS_WEIGHT"]\
+                        + loss_rt60 * config["RT60_LOSS_WEIGHT"]
         
         # Freeing memory
         del shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch

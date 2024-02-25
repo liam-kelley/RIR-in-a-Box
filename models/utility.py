@@ -32,5 +32,7 @@ def load_mesh_to_shoebox(mesh_to_shoebox_obj,mesh_to_shoebox_path):
     '''
     load RIRBox mesh_to_shoebox.
     '''
-    # TODO: implement
+    state_dict = load(mesh_to_shoebox_path,
+                    map_location=lambda storage, loc: storage)
+    mesh_to_shoebox_obj.load_state_dict(state_dict)
     return mesh_to_shoebox_obj
