@@ -62,9 +62,9 @@ for json_file_name in tqdm(files):
     temp_folder = os.path.join(args.obj_path, json_file_name[:-5])
     os.rmdir(temp_folder)
 
-    i+=1
-    if i >= 100:
-        break
+#     i+=1
+#     if i >= 100:
+#         break
 os.rmdir(os.path.dirname(temp_folder))
 print('Done')
 

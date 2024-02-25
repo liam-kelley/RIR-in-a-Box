@@ -154,12 +154,12 @@ def json2obj(current_json_file_name, json_folder, future_path, save_path, model_
             return None
 
         if len(meshes) > 0:
-            # # get convex hull of all rooms and add it to the model
-            # all_mesh = trimesh.util.concatenate(structure_meshes)
-            # convex_hull = all_mesh.convex_hull
-            # visual = trimesh.visual.TextureVisuals(material=trimesh.visual.material.PBRMaterial(name="bounds"))
-            # convex_hull.visual = visual
-            # meshes.append(convex_hull)
+            # get convex hull of all rooms and add it to the model
+            all_mesh = trimesh.util.concatenate(structure_meshes)
+            convex_hull = all_mesh.convex_hull
+            visual = trimesh.visual.TextureVisuals(material=trimesh.visual.material.PBRMaterial(name="bounds"))
+            convex_hull.visual = visual
+            meshes.append(convex_hull)
 
             # write mesh with materials
             write_meshes_with_mtl(save_folder + '/house.obj', meshes)
