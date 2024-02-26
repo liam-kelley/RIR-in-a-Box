@@ -10,6 +10,8 @@ import pymeshlab as ml
 from torch_geometric.data import Data
 from torch_geometric.data import Batch
 
+from scipy.signal import find_peaks
+
 def string_to_array(s):
     '''
     Useful for what's in that dataset csv file
@@ -91,11 +93,16 @@ class GWA_3DFRONT_Dataset(Dataset):
         label_rir = np.array([label_rir]).astype('float32')
 
         # find origin of RIR
-        # peak_indexes, _ = find_peaks(label_rir/np.max(label_rir),height=0.3)
-        # label_origin = peak_indexes[0]
-        label_origin = 41 # TODO: find a way to get the origin of the RIR
+        label_origin = GWA_3DFRONT_Dataset._estimate_origin(label_rir)
 
         return label_rir, label_origin
+
+    @staticmethod
+    def _estimate_origin(label_rir):
+        peak_indexes, _ = find_peaks(label_rir[0],height=0.05*np.max(label_rir), distance=40)
+        label_origin = peak_indexes[0]
+        # label_origin = 41 # TODO: find a way to get the origin of the RIR
+        return label_origin
 
     def __getitem__(self, index):
         if torch.is_tensor(index):
