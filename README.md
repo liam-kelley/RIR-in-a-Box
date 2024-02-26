@@ -72,7 +72,7 @@ python validation.py --rirbox_path "./models/rirbox_model2_finetune.pth"
 
 ```
 
-To monitor gpu usage.
+To monitor gpu usage in another terminal.
 
 ```bash
 
