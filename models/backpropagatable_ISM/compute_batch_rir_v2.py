@@ -12,7 +12,7 @@ from torch import Tensor
 from torch.nn.functional import pad
 from torch.utils.checkpoint import checkpoint
 
-from pyLiam.LKTimer import LKTimer
+from tools.pyLiam.LKTimer import LKTimer
 timer=LKTimer()
 
 def _batch_validate_inputs(room: torch.Tensor, mic_array: torch.Tensor, source: torch.Tensor, absorption: torch.Tensor):
