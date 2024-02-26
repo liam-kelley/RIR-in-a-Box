@@ -12,7 +12,7 @@
 
     "ISM_MAX_ORDER": 15,
     
-    "do_wandb": false,
+    "do_wandb": true,
 
     "EDC_LOSS_WEIGHT": 40.0,
     "MRSTFT_LOSS_WEIGHT": 1.0,

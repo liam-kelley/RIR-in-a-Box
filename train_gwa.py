@@ -32,7 +32,7 @@ DEVICE = config['DEVICE']
 ISM_MAX_ORDER = config['ISM_MAX_ORDER']
 do_wandb = config['do_wandb']
 
-NUM_WORKERS = 16
+NUM_WORKERS = 8
 
 print("PARAMETERS:")
 print("    > BATCH_SIZE = ", BATCH_SIZE)
@@ -194,6 +194,8 @@ for epoch in range(EPOCHS):
             wandb.log(timer.get_logs())
             if iterations % NUM_WORKERS == 0:
                 wandb.log({"Loading data": time_load/NUM_WORKERS})
+            total_time = sum([ timer.get_logs()[key] for key in timer.get_logs()]) + time_load
+            wandb.log({"Total time": total_time})
         
         # print(iterations)
         if iterations % NUM_WORKERS == 0:
