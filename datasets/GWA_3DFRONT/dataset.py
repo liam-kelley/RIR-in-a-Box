@@ -72,20 +72,22 @@ class GWA_3DFRONT_Dataset(Dataset):
     def _load_rir(label_rir_path):
         # Load RIR
         label_rir, fs = librosa.load(label_rir_path)
-        # crop or pad all rirs to same length
-        length = label_rir.size
-        crop_length = 4096
-        if(length<crop_length):
-            zeros = np.zeros(crop_length-length)
-            label_rir = np.concatenate([label_rir,zeros])
-        else:
-            label_rir = label_rir[0:crop_length]
+        
+        # # crop or pad all rirs to same length
+        # length = label_rir.size
+        # crop_length = 4096
+        # if(length<crop_length):
+        #     zeros = np.zeros(crop_length-length)
+        #     label_rir = np.concatenate([label_rir,zeros])
+        # else:
+        #     label_rir = label_rir[0:crop_length]
 
         # testing if rir preprocessing is slow.
-        # # Resample to 16kHz
-        # label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=16000)
-        # # Preprocess RIR
-        # label_rir = mesh2ir_rir_preprocessing(label_rir)
+        
+        # Resample to 16kHz
+        label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=16000)
+        # Preprocess RIR
+        label_rir = mesh2ir_rir_preprocessing(label_rir)
         label_rir = np.array([label_rir]).astype('float32')
 
         # find origin of RIR
