@@ -12,7 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 
-def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_iterations=10, plot_rirs=False):
+def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_iterations=10):
     '''
     Validation of the metric accuracy of the MESH2IR and RIRBOX models on the GWA_3DFRONT dataset.
     '''
@@ -20,14 +20,13 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_it
     ############################################ Config ############################################
 
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-    BATCH_SIZE = 4 # Batch evaluation
+    BATCH_SIZE = 1 # Batch validation ?
+    RIRBOX_MAX_ORDER = 15 # please make sure it's the same as the one used during training TODO do this better
+    DATALOADER_NUM_WORKERS = 12
+    synchronizing_TOA_for_mesh2ir = False # No TOA synchronizing for mesh3ir, yes for rirbox
 
     print("PARAMETERS:")
     print("    > BATCH_SIZE = ", BATCH_SIZE)
-    if DEVICE == 'cuda':
-        if not torch.cuda.is_available():
-            DEVICE = 'cpu'
-            print("    CUDA not available, using CPU")
     print("    > DEVICE = ", DEVICE)
 
     ############################################ Inits #############################################
@@ -44,7 +43,7 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_it
     mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=2)
     if rirbox_path is not None:
         mesh_to_shoebox = load_mesh_to_shoebox(mesh_to_shoebox, rirbox_path)
-    shoebox_to_rir = ShoeboxToRIR(16000, max_order=10)
+    shoebox_to_rir = ShoeboxToRIR(16000, max_order=RIRBOX_MAX_ORDER)
     rirbox = RIRBox_FULL(mesh_to_shoebox, shoebox_to_rir).eval().to(DEVICE)
     print("")
 
@@ -55,27 +54,51 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_it
     # data
     dataset=GWA_3DFRONT_Dataset()
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
-                            num_workers=4, pin_memory=True,
+                            num_workers=DATALOADER_NUM_WORKERS, pin_memory=False,
                             collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
     print("")
 
     # metrics
-    edc=EnergyDecay_Loss(frequency_wise=False,
-                        synchronize_TOA=True,
+    edc_mesh2ir=EnergyDecay_Loss(frequency_wise=False,
+                        synchronize_TOA=synchronizing_TOA_for_mesh2ir, # No TOA synchronizing for mesh3ir, yes for rirbox
                         normalize_dp=False,
-                        normalize_decay_curve=True,
-                        deemphasize_early_reflections=True,
+                        normalize_decay_curve=False,
+                        deemphasize_early_reflections=False, # No deemphasis for validation, only for training
                         pad_to_same_length=False,
                         crop_to_same_length=True).to(DEVICE)
-    mrstft=MRSTFT_Loss(sample_rate=16000,
+    edc_rirbox=EnergyDecay_Loss(frequency_wise=False,
+                        synchronize_TOA=True,         # No TOA synchronizing for mesh3ir, yes for rirbox  
+                        normalize_dp=False,
+                        normalize_decay_curve=False,
+                        deemphasize_early_reflections=False, # No deemphasis for validation, only for training
+                        pad_to_same_length=False,
+                        crop_to_same_length=True).to(DEVICE)
+    
+    mrstft_mesh2ir=MRSTFT_Loss(sample_rate=16000,
                     device=DEVICE,
-                    synchronize_TOA=True,
-                    deemphasize_early_reflections=True,
-                    normalize_dp=True,
+                    synchronize_TOA=synchronizing_TOA_for_mesh2ir,   # No TOA synchronizing for mesh3ir, yes for rirbox 
+                    deemphasize_early_reflections=False, # No deemphasis for validation, only for training
+                    normalize_dp=False,
                     pad_to_same_length=False,
                     crop_to_same_length=True).to(DEVICE)
-    acm=AcousticianMetrics_Loss(sample_rate=16000,
-                                synchronize_TOA=True, 
+    mrstft_rirbox=MRSTFT_Loss(sample_rate=16000,
+                    device=DEVICE,
+                    synchronize_TOA=True,   # No TOA synchronizing for mesh3ir, yes for rirbox
+                    deemphasize_early_reflections=False, # No deemphasis for validation, only for training
+                    normalize_dp=False,
+                    pad_to_same_length=False,
+                    crop_to_same_length=True).to(DEVICE)
+    
+    acm_mesh2ir=AcousticianMetrics_Loss(sample_rate=16000,
+                                synchronize_TOA=synchronizing_TOA_for_mesh2ir,  # No TOA synchronizing for mesh3ir, yes for rirbox
+                                crop_to_same_length=True,
+                                normalize_dp=False,
+                                frequency_wise=False,
+                                normalize_total_energy=False,
+                                pad_to_same_length=False,
+                                MeanAroundMedian_pruning=False).to(DEVICE)
+    acm_rirbox=AcousticianMetrics_Loss(sample_rate=16000,
+                                synchronize_TOA=True,    # No TOA synchronizing for mesh3ir, yes for rirbox
                                 crop_to_same_length=True,
                                 normalize_dp=False,
                                 frequency_wise=False,
@@ -101,36 +124,42 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_it
 
             # Forward passes
             rir_mesh2ir = mesh2ir(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
-            origin_mesh2ir = torch.tensor(np.repeat(41, BATCH_SIZE)).to(DEVICE)
+            origin_mesh2ir = torch.tensor([GWA_3DFRONT_Dataset._estimate_origin(rir_mesh2ir.cpu().numpy())]).to(DEVICE)
 
             rir_rirbox, origin_rirbox = rirbox(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
 
             # Compute losses
-            loss_mesh2ir_edr = edc(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
-            loss_mesh2ir_mrstft = mrstft(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
-            loss_mesh2ir_c80, loss_mesh2ir_D, loss_mesh2ir_rt60, _ = acm(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
+            loss_mesh2ir_edr = edc_mesh2ir(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
+            loss_mesh2ir_mrstft = mrstft_mesh2ir(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
+            loss_mesh2ir_c80, loss_mesh2ir_D, loss_mesh2ir_rt60, _ = acm_mesh2ir(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
 
-            loss_rirbox_edr = edc(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
-            loss_rirbox_mrstft = mrstft(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
-            loss_rirbox_c80, loss_rirbox_D, loss_rirbox_rt60, _ = acm(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
+            loss_rirbox_edr = edc_rirbox(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
+            loss_rirbox_mrstft = mrstft_rirbox(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
+            loss_rirbox_c80, loss_rirbox_D, loss_rirbox_rt60, _ = acm_rirbox(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
 
             # # plot rirs with subplots
-            if plot_rirs and (i == 0 or i == 1):
+            plot_rirs = False
+            if plot_rirs:
                 fig, axs = plt.subplots(3, 1, figsize=(9, 9))
                 fig.suptitle('RIR comparison between MESH2IR and RIRBOX')
-                axs[0].plot(abs(rir_mesh2ir[0].cpu().numpy()), label="MESH2IR", color='blue')
+                axs[0].plot(rir_mesh2ir[0].cpu().numpy(), label="MESH2IR", color='blue')
+                axs[0].axvline(x=origin_mesh2ir.cpu().numpy(), color='red', linestyle='--', label='Origin')
                 axs[0].set_title('MESH2IR')
                 axs[0].grid(ls="--", alpha=0.5)
+                axs[0].legend()
                 axs[0].set_xlim(0, 4096)
-                axs[1].plot(abs(rir_rirbox[0].cpu().numpy()), label="RIRBOX", color='orange')
+                axs[1].plot(rir_rirbox[0].cpu().numpy(), label="RIRBOX", color='orange')
+                axs[1].axvline(x=origin_rirbox.cpu().numpy(), color='red', linestyle='--', label='Origin')
                 axs[1].set_title('RIRBOX')
+                axs[1].legend()
                 axs[1].grid(ls="--", alpha=0.5)
                 axs[1].set_xlim(0, 4096)
                 axs[2].plot(abs(label_rir_batch[0].cpu().numpy()), label="GT", color='green')
+                axs[2].axvline(x=label_origin_batch.cpu().numpy(), color='red', linestyle='--', label='Origin')
                 axs[2].set_title('GT')
                 axs[2].grid(ls="--", alpha=0.5)
+                axs[2].legend()
                 axs[2].set_xlim(0, 4096)
-                # Show plot
                 plt.tight_layout()
                 plt.show()
 
@@ -189,8 +218,8 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox():
     axs[2].set_title('C80')
     axs[2].set_ylabel('Mean Error')
 
-    # delete axs 2
-    fig.delaxes(axs[2])
+    # # delete axs 2
+    # fig.delaxes(axs[2])
 
     # D
     axs[3].bar(model_names, [df_mean["mesh2ir_D"], df_mean["rirbox_D"]],
@@ -212,10 +241,11 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--rirbox_path', type=str, default="./training/rirbox_model2_finetune.json", help='Path to rirbox model to validate.')
+    parser.add_argument('--rirbox_path', type=str, default="./models/RIRBOX/RIRBOX_Model2_Finetune_apricot-frost-16.pth",
+                        help='Path to rirbox model to validate.')
     args, _ = parser.parse_known_args()
     
-    # validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=args.rirbox_path, validation_iterations=20, plot_rirs=False)
+    validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=args.rirbox_path, validation_iterations=1000)
     view_results_metric_accuracy_mesh2ir_vs_rirbox()
 
 if __name__ == "__main__":
