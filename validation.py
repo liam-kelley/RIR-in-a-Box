@@ -162,44 +162,51 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_it
 def view_results_metric_accuracy_mesh2ir_vs_rirbox():
     df = pd.read_csv("./validation_results/metric_accuracy_mesh2ir_vs_rirbox.csv")
 
-    # Perform average of the losses for each model and print the results as a table
     df_mean = df.mean()
-    print(df_mean)
+    df_std = df.std()
 
-    # Plot the results as a different bar plot for each metric
-    # use subplots
-    fig, axs = plt.subplots(2, 3, figsize=(16, 9))
+    fig, axs = plt.subplots(1,5, figsize=(12, 5))
     fig.suptitle('Metric accuracy comparison between MESH2IR and RIRBOX')
 
+    model_names = ["Baseline", "RIRBOX"]
+    colors = ['C0', 'C1']
+
     # EDR
-    axs[0, 0].bar(["MESH2IR", "RIRBOX"], [df_mean["mesh2ir_edr"], df_mean["rirbox_edr"]])
-    axs[0, 0].set_title('EDR')
-    axs[0, 0].set_ylabel('Mean Error')
+    axs[0].bar(model_names, [df_mean["mesh2ir_edr"], df_mean["rirbox_edr"]],
+                yerr=[df_std["mesh2ir_edr"], df_std["rirbox_edr"]],color=colors, capsize=20)
+    axs[0].set_title('EDR')
+    axs[0].set_ylabel('Mean Error')
 
     # MRSTFT
-    axs[0, 1].bar(["MESH2IR", "RIRBOX"], [df_mean["mesh2ir_mrstft"], df_mean["rirbox_mrstft"]])
-    axs[0, 1].set_title('MRSTFT')
-    axs[0, 1].set_ylabel('Mean Error')
+    axs[1].bar(model_names, [df_mean["mesh2ir_mrstft"], df_mean["rirbox_mrstft"]],
+                yerr=[df_std["mesh2ir_mrstft"], df_std["rirbox_mrstft"]],color=colors, capsize=20)
+    axs[1].set_title('MRSTFT')
+    axs[1].set_ylabel('Mean Error')
 
     # C80
-    axs[0, 2].bar(["MESH2IR", "RIRBOX"], [df_mean["mesh2ir_c80"], df_mean["rirbox_c80"]])
-    axs[0, 2].set_title('C80')
-    axs[0, 2].set_ylabel('Mean Error')
+    axs[2].bar(model_names, [df_mean["mesh2ir_c80"], df_mean["rirbox_c80"]],
+                yerr=[df_std["mesh2ir_c80"], df_std["rirbox_c80"]],color=colors, capsize=20)
+    axs[2].set_title('C80')
+    axs[2].set_ylabel('Mean Error')
+
+    # delete axs 2
+    fig.delaxes(axs[2])
 
     # D
-    axs[1, 0].bar(["MESH2IR", "RIRBOX"], [df_mean["mesh2ir_D"], df_mean["rirbox_D"]])
-    axs[1, 0].set_title('D')
-    axs[1, 0].set_ylabel('Mean Error')
+    axs[3].bar(model_names, [df_mean["mesh2ir_D"], df_mean["rirbox_D"]],
+                yerr=[df_std["mesh2ir_D"], df_std["rirbox_D"]],color=colors, capsize=20)
+    axs[3].set_title('D')
+    axs[3].set_ylabel('Mean Error')
 
     # RT60
-    axs[1, 1].bar(["MESH2IR", "RIRBOX"], [df_mean["mesh2ir_rt60"], df_mean["rirbox_rt60"]])
-    axs[1, 1].set_title('RT60')
-    axs[1, 1].set_ylabel('Mean Error')
+    axs[4].bar(model_names, [df_mean["mesh2ir_rt60"], df_mean["rirbox_rt60"]],
+                yerr=[df_std["mesh2ir_rt60"], df_std["rirbox_rt60"]],color=colors, capsize=20)
+    axs[4].set_title('RT60')
+    axs[4].set_ylabel('Mean Error')
 
-    # Remove last subplot
-    fig.delaxes(axs[1, 2])
+    for ax in axs:
+        ax.grid(ls="--", alpha=0.5, axis='y')
 
-    # Show plot
     plt.tight_layout()
     plt.show()
 
@@ -208,8 +215,7 @@ def main():
     parser.add_argument('--rirbox_path', type=str, default="./training/rirbox_model2_finetune.json", help='Path to rirbox model to validate.')
     args, _ = parser.parse_known_args()
     
-    validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=args.rirbox_path,
-                                                 validation_iterations=20, plot_rirs=False)
+    # validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=args.rirbox_path, validation_iterations=20, plot_rirs=False)
     view_results_metric_accuracy_mesh2ir_vs_rirbox()
 
 if __name__ == "__main__":
