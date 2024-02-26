@@ -11,6 +11,7 @@ from pyLiam.LKTimer import LKTimer
 from tqdm import tqdm
 import argparse
 from json import load
+import time
 
 ############################################ Config ############################################
 
@@ -113,16 +114,19 @@ timer = LKTimer(print_time=False)
 
 # Training
 for epoch in range(EPOCHS):
+    time_start_load = time.time()
     for x_batch, edge_index_batch, batch_indexes, label_rir_batch, label_origin_batch, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Epoch "+str(epoch+1)+ " completion"):
+        time_end_load = time.time()        
 
         optimizer.zero_grad()
 
-        # Moving data to device
-        x_batch = x_batch.to(DEVICE)
-        edge_index_batch = edge_index_batch.to(DEVICE)
-        batch_indexes = batch_indexes.to(DEVICE)
-        mic_pos_batch = mic_pos_batch.to(DEVICE)
-        src_pos_batch = src_pos_batch.to(DEVICE)
+        with timer.time("Move data to device"):
+            # Moving data to device
+            x_batch = x_batch.to(DEVICE)
+            edge_index_batch = edge_index_batch.to(DEVICE)
+            batch_indexes = batch_indexes.to(DEVICE)
+            mic_pos_batch = mic_pos_batch.to(DEVICE)
+            src_pos_batch = src_pos_batch.to(DEVICE)
 
         with timer.time("GNN forward pass"):
             latent_shoebox_batch = mesh_to_shoebox(x_batch, edge_index_batch ,batch_indexes, mic_pos_batch, src_pos_batch)
@@ -167,10 +171,13 @@ for epoch in range(EPOCHS):
                                "loss_mrstft":loss_mrstft,
                                "loss_c80":loss_c80,
                                "loss_D":loss_D,
-                               "loss_rt60":loss_rt60}.items():
+                               "loss_rt60":loss_rt60,
+                               "Loading data": time_end_load - time_start_load}.items():
                 if isinstance(value, torch.Tensor) : wandb.log({key: value.item()})
                 elif isinstance(value, float): wandb.log({key: value})
             wandb.log(timer.get_logs())
+        
+        time_start_load = time.time()
 
 # Save the model to ./models/RIRBOX
 torch.save(mesh_to_shoebox.state_dict(), config['SAVE_PATH'])
