@@ -6,7 +6,7 @@ from models.mesh2ir_models import MESH_NET, STAGE1_G, MESH2IR_FULL
 from models.rirbox_models import MeshToShoebox, ShoeboxToRIR, RIRBox_FULL
 from models.utility import load_mesh_net, load_GAN, load_mesh_to_shoebox
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
-from pyLiam.LKTimer import LKTimer
+from tools.pyLiam.LKTimer import LKTimer
 from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt

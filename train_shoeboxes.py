@@ -14,7 +14,7 @@ from RIRMetricsLoss import RIRMetricsLoss
 from torch import cat,stack, unsqueeze, Tensor, tensor , isnan, clamp, save as model_save
 from torch.cuda import empty_cache
 
-from pyLiam.LKTimer import LKTimer
+from tools.pyLiam.LKTimer import LKTimer
 
 import wandb #https://wandb.ai/home
 

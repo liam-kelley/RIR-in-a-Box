@@ -7,7 +7,7 @@ from models.rirbox_models import MeshToShoebox, ShoeboxToRIR
 from models.utility import load_mesh_net
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
 import torch.optim as optim
-from pyLiam.LKTimer import LKTimer
+from tools.pyLiam.LKTimer import LKTimer
 from tqdm import tqdm
 import argparse
 from json import load
