@@ -51,6 +51,8 @@ Congrats! Enjoy RIR-in-a-Box.
 ```bash
 
 conda activate rirbox
+# to try and avoid loading tensors into shared memory
+export PYTORCH_CUDA_ALLOC_CONF=garbage_collection_threshold:0.4 # instead of 0.8
 
 ```
 

@@ -8,10 +8,12 @@ from models.utility import load_mesh_net
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
 import torch.optim as optim
 from tools.pyLiam.LKTimer import LKTimer
+from tools.pyLiam.LKMemCheck import LKMemCheck
 from tqdm import tqdm
 import argparse
 from json import load
 import time
+import gc
 
 ############################################ Config ############################################
 
@@ -68,7 +70,7 @@ if do_wandb:
 # data
 dataset=GWA_3DFRONT_Dataset()
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
-                        num_workers=4, pin_memory=True,
+                        num_workers=8, pin_memory=True,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
 print("")
 
@@ -111,6 +113,8 @@ optimizer = optim.Adam(mesh_to_shoebox.parameters(), lr=LEARNING_RATE)
 
 # utility
 timer = LKTimer(print_time=False)
+lkmc = LKMemCheck()
+# lkmc.disable()
 
 # Training
 for epoch in range(EPOCHS):
@@ -120,6 +124,8 @@ for epoch in range(EPOCHS):
 
         optimizer.zero_grad()
 
+        lkmc.memcheck("Initial")
+
         with timer.time("Move data to device"):
             # Moving data to device
             x_batch = x_batch.to(DEVICE)
@@ -128,21 +134,33 @@ for epoch in range(EPOCHS):
             mic_pos_batch = mic_pos_batch.to(DEVICE)
             src_pos_batch = src_pos_batch.to(DEVICE)
 
+        lkmc.memcheck("Move data 1")
+
         with timer.time("GNN forward pass"):
             latent_shoebox_batch = mesh_to_shoebox(x_batch, edge_index_batch ,batch_indexes, mic_pos_batch, src_pos_batch)
         
+        lkmc.memcheck("forward")
+
         # Freeing memory
         del x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch
+
+        lkmc.memcheck("free 1")
 
         with timer.time("Getting shoebox rir"):
             shoebox_rir_batch, shoebox_origin_batch = shoebox_to_rir(latent_shoebox_batch) # shoebox_rir_batch is a list of tensors (batch_size, TODO rir_lengths(i)) , shoebox_origin_batch is a (batch_size) tensor)
         
+        lkmc.memcheck("shoebox rir")
+
         # Freeing memory
         del latent_shoebox_batch
+
+        lkmc.memcheck("free 2")
 
         # Moving data to device
         label_rir_batch = label_rir_batch.to(DEVICE)
         label_origin_batch = label_origin_batch.to(DEVICE)
+
+        lkmc.memcheck("Move data 2")
 
         with timer.time("Computing RIR losses"):
             loss_edr = edc(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
@@ -155,9 +173,14 @@ for epoch in range(EPOCHS):
                         + loss_c80 * config["C80_LOSS_WEIGHT"]\
                         + loss_D * config["D_LOSS_WEIGHT"]\
                         + loss_rt60 * config["RT60_LOSS_WEIGHT"]
+            
+        lkmc.memcheck("losses")
         
         # Freeing memory
         del shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch
+
+        lkmc.memcheck("free 3")
+
         losses = [loss_edr, loss_mrstft, loss_c80 , loss_D , loss_rt60]
         for i in range(len(losses)): losses[i] = losses[i].detach().cpu()
 
@@ -177,6 +200,17 @@ for epoch in range(EPOCHS):
                 elif isinstance(value, float): wandb.log({key: value})
             wandb.log(timer.get_logs())
         
+        del total_loss, losses
+
+        lkmc.memcheck("free 4")
+        
+        if  torch.cuda.memory_reserved() > 7500000000:
+            gc.collect()
+            torch.cuda.empty_cache()
+        
+        lkmc.memcheck("empty cache", last_step=True)
+        lkmc.print_max()
+
         time_start_load = time.time()
 
 # Save the model to ./models/RIRBOX

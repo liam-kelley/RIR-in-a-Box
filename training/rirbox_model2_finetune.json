@@ -7,12 +7,12 @@
 
     "LEARNING_RATE": 0.0005,
     "EPOCHS": 1,
-    "BATCH_SIZE": 4,
+    "BATCH_SIZE": 8,
     "DEVICE": "cuda",
 
-    "ISM_MAX_ORDER": 15,
+    "ISM_MAX_ORDER": 17,
     
-    "do_wandb": true,
+    "do_wandb": false,
 
     "EDC_LOSS_WEIGHT": 40.0,
     "MRSTFT_LOSS_WEIGHT": 1.0,
