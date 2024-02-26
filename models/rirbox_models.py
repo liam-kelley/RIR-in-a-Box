@@ -13,12 +13,13 @@ from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 from models.mesh2ir_models import MESH_NET, data_for_meshnet
 
 class ShoeboxToRIR(nn.Module):
-    def __init__(self,sample_rate=16000, max_order=10):
+    def __init__(self,sample_rate=16000, max_order=10, rir_length=3968):
         super().__init__()
         self.sample_rate=sample_rate
         self.sound_speed=343
         self.max_order=max_order
         self.batch_size=None
+        self.rir_length=3968
         print("ShoeboxToRIR initialized.")
 
     def forward(self, input : torch.Tensor, force_absorption : Optional[torch.Tensor] = None):
@@ -45,7 +46,7 @@ class ShoeboxToRIR(nn.Module):
         # Maybe faster batch simulate rir
         shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position,
                                                     absorption.unsqueeze(1).unsqueeze(2).expand(-1,-1,6),
-                                                    self.max_order, self.sample_rate)        
+                                                    self.max_order, self.sample_rate, output_length=self.rir_length)        
 
         # Get origins (Time of first arrival)
         distances = norm(mic_position-source_position, dim=1)
