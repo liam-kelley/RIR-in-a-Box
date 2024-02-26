@@ -1,7 +1,10 @@
 # Folder to manage the GWA 3D Front dataset and the 3D-FRONT dataset
 
-Please add the 3D-FRONT, 3D-FUTURE-model and [GWA_Dataset_small](https://github.com/GAMMA-UMD/GWA/tree/master/download) folders to this directory.
-If you are specifically members of my team, feel free ask me for the much smaller preprocessed datasets, I'll put them on google drive for you guys.
+Please add the 3D-FRONT, 3D-FUTURE-model and GWA_Dataset_small folders to this directory.
+
+GWA_Dataset_small link is available from the  [GWA Repository](https://github.com/GAMMA-UMD/GWA/tree/master/download), or [directly here](https://obj.umiacs.umd.edu/gamma-datasets/GWA_Dataset_small.zip).
+
+If you are specifically members of my team, feel free ask me for the much smaller preprocessed 3D-FRONT datasets, I'll put them on google drive for you guys.
 
 Expected folder structure:
 
