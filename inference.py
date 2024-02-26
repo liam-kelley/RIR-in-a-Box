@@ -89,6 +89,5 @@ with torch.no_grad():
         axs[2].grid(ls="--", alpha=0.5)
         axs[2].legend()
         axs[2].set_xlim(0, 4096)
-        # Show plot
         plt.tight_layout()
         plt.show()
