@@ -48,6 +48,12 @@ Congrats! Enjoy RIR-in-a-Box.
 
 ## Usage
 
+```bash
+
+conda activate rirbox
+
+```
+
 To train a model.
 
 ```bash
@@ -64,7 +70,13 @@ python validation.py --rirbox_path "./models/rirbox_model2_finetune.pth"
 
 ```
 
-The arguments are defaults, you don't need to specify them if you don't want to.
+To monitor gpu usage.
+
+```bash
+
+watch -d -n 0.5 nvidia-smi
+
+```
 
 <!-- ## Installation
 
