@@ -32,6 +32,8 @@ DEVICE = config['DEVICE']
 ISM_MAX_ORDER = config['ISM_MAX_ORDER']
 do_wandb = config['do_wandb']
 
+NUM_WORKERS = 16
+
 print("PARAMETERS:")
 print("    > BATCH_SIZE = ", BATCH_SIZE)
 print("    > LEARNING_RATE = ", LEARNING_RATE)
@@ -70,7 +72,7 @@ if do_wandb:
 # data
 dataset=GWA_3DFRONT_Dataset()
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
-                        num_workers=8, pin_memory=True,
+                        num_workers=NUM_WORKERS, pin_memory=True,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
 print("")
 
@@ -118,14 +120,13 @@ lkmc = LKMemCheck(print_during_mem_check=False, print_at_last_mem_check=True, al
 
 # Training
 for epoch in range(EPOCHS):
-    i = 0
+    iterations = 0
+    time_load = 0
     time_start_load = time.time()
     for x_batch, edge_index_batch, batch_indexes, label_rir_batch, label_origin_batch, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Epoch "+str(epoch+1)+ " completion"):
-        i += 1
+        iterations += 1
         time_end_load = time.time()
-        if time_end_load - time_start_load > 2.0:
-            time_load = time_end_load - time_start_load
-            print("time load = ", time_load)      
+        time_load += time_end_load - time_start_load      
 
         optimizer.zero_grad()
 
@@ -191,7 +192,13 @@ for epoch in range(EPOCHS):
                 if isinstance(value, torch.Tensor) : wandb.log({key: value.item()})
                 elif isinstance(value, float): wandb.log({key: value})
             wandb.log(timer.get_logs())
-            wandb.log({"Loading data": time_end_load - time_start_load})
+            if iterations % NUM_WORKERS == 0:
+                wandb.log({"Loading data": time_load/NUM_WORKERS})
+        
+        # print(iterations)
+        if iterations % NUM_WORKERS == 0:
+            print("Loading data: ", time_load/NUM_WORKERS)
+            time_load = 0
         
         del total_loss, losses
 
