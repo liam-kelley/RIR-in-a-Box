@@ -10,7 +10,7 @@
     "BATCH_SIZE": 8,
     "DEVICE": "cuda",
 
-    "ISM_MAX_ORDER": 17,
+    "ISM_MAX_ORDER": 15,
     
     "do_wandb": false,
 
