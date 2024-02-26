@@ -32,7 +32,7 @@ DEVICE = config['DEVICE']
 ISM_MAX_ORDER = config['ISM_MAX_ORDER']
 do_wandb = config['do_wandb']
 
-NUM_WORKERS = 8
+NUM_WORKERS = 10
 
 print("PARAMETERS:")
 print("    > BATCH_SIZE = ", BATCH_SIZE)
@@ -72,7 +72,7 @@ if do_wandb:
 # data
 dataset=GWA_3DFRONT_Dataset()
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
-                        num_workers=NUM_WORKERS, pin_memory=True,
+                        num_workers=NUM_WORKERS, pin_memory=False,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
 print("")
 
@@ -84,7 +84,7 @@ shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=ISM_MAX_ORDER, rir_
 print("")
 
 # losses
-edc=EnergyDecay_Loss(frequency_wise=False,
+edc=EnergyDecay_Loss(frequency_wise=True,
                      synchronize_TOA=True,
                      normalize_dp=False,
                      normalize_decay_curve=True,
@@ -122,7 +122,9 @@ lkmc = LKMemCheck(print_during_mem_check=False, print_at_last_mem_check=True, al
 for epoch in range(EPOCHS):
     iterations = 0
     time_load = 0
+    time_load_remember = 1
     time_start_load = time.time()
+    curriculum_done=False
     for x_batch, edge_index_batch, batch_indexes, label_rir_batch, label_origin_batch, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Epoch "+str(epoch+1)+ " completion"):
         iterations += 1
         time_end_load = time.time()
@@ -158,7 +160,8 @@ for epoch in range(EPOCHS):
             loss_edr = edc(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
             loss_mrstft = mrstft(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
             loss_c80, loss_D, loss_rt60, _ = acm(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
-            loss_c80 = loss_c80.clamp(max=2.0)
+            loss_c80 = torch.clamp(loss_c80, max=40)
+            loss_rt60 = torch.clamp(loss_rt60, max=1.0)
             del _
             total_loss = loss_edr * config["EDC_LOSS_WEIGHT"]\
                         + loss_mrstft * config["MRSTFT_LOSS_WEIGHT"]\
@@ -194,15 +197,35 @@ for epoch in range(EPOCHS):
             wandb.log(timer.get_logs())
             if iterations % NUM_WORKERS == 0:
                 wandb.log({"Loading data": time_load/NUM_WORKERS})
-            total_time = sum([ timer.get_logs()[key] for key in timer.get_logs()]) + time_load
+            total_time = sum([ timer.get_logs()[key] for key in timer.get_logs()]) + time_load_remember
             wandb.log({"Total time": total_time})
         
         # print(iterations)
         if iterations % NUM_WORKERS == 0:
-            print("Loading data: ", time_load/NUM_WORKERS)
+            # print("Loading data: ", time_load/NUM_WORKERS)
+            time_load_remember = time_load/NUM_WORKERS
             time_load = 0
         
         del total_loss, losses
+
+        # if not curriculum_done and loss_mrstft.item() < 2.0:
+        #     curriculum_done=True
+        #     print("Reducing learning rate and increasing loss weights")
+        #     LEARNING_RATE *= 0.5
+        #     config["EDC_LOSS_WEIGHT"] *= 2
+        #     config["RT60_LOSS_WEIGHT"] *= 4
+        #     config["D_LOSS_WEIGHT"] *= 10
+        #     config["C80_LOSS_WEIGHT"] = 0.01
+        #     print("New learning rate: ", LEARNING_RATE)
+        #     print("New EDC loss weight: ", config["EDC_LOSS_WEIGHT"])
+        #     print("New RT60 loss weight: ", config["RT60_LOSS_WEIGHT"])
+        #     print("New D loss weight: ", config["D_LOSS_WEIGHT"])
+        #     print("New C80 loss weight: ", config["C80_LOSS_WEIGHT"])
+        #     print("MRSTFT loss weight: ", config["MRSTFT_LOSS_WEIGHT"])
+        #     optimizer = optim.Adam(mesh_to_shoebox.parameters(), lr=LEARNING_RATE)
+
+        if iterations == 500:
+            break
 
         time_start_load = time.time()
 
