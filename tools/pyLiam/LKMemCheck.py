@@ -1,5 +1,6 @@
 from collections.abc import Iterable
-from torch.cuda import memory_allocated, memory_reserved, max_memory_allocated
+from gc import collect
+from torch.cuda import memory_allocated, memory_reserved, max_memory_allocated, empty_cache
 import pandas as pd
 
 def format_size(bytes, suffix="B"):
@@ -77,4 +78,21 @@ class LKMemCheck:
         if self.enable_flag:
             print("max memory allocated: ", format_size(max_memory_allocated()))
 
-    
+    def free_cache_and_collect_garbage_if_needed(self, threshold=7500000000):
+        if self.enable_flag:
+            if  memory_reserved() > threshold:
+                collect()
+                empty_cache()
+
+# Example use
+                
+def main():
+    lkmc = LKMemCheck(print_during_mem_check=False, print_at_last_mem_check=True, always_reset_lists=True)
+    # lkmc.disable()
+    lkmc.memcheck("free 4")
+    lkmc.free_cache_and_collect_garbage_if_needed()
+    lkmc.memcheck("empty cache", last_step=True)
+    lkmc.print_max()
+
+if __name__ == "__main__":
+    main()
