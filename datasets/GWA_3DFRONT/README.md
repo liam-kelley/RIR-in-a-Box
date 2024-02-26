@@ -19,7 +19,7 @@ Expected folder structure:
 
 ```
 
-Then, run the following script while here:
+Then, run the following script while here: (unless you downloaded the preprocessed 3D-FRONT dataset from me)
 
 ```bash
 
