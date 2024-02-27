@@ -241,11 +241,11 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--rirbox_path', type=str, default="./models/RIRBOX/RIRBOX_Model2_Finetune_apricot-frost-16.pth",
+    parser.add_argument('--rirbox_path', type=str, default="./models/RIRBOX/RIRBOX_Model2_Finetune_worldly-lion-25.pth",
                         help='Path to rirbox model to validate.')
     args, _ = parser.parse_known_args()
     
-    validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=args.rirbox_path, validation_iterations=1000)
+    validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=args.rirbox_path, validation_iterations=10000)
     view_results_metric_accuracy_mesh2ir_vs_rirbox()
 
 if __name__ == "__main__":
