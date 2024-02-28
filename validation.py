@@ -22,8 +22,8 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_it
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     BATCH_SIZE = 1 # Batch validation ?
     RIRBOX_MAX_ORDER = 15 # please make sure it's the same as the one used during training TODO do this better
-    DATALOADER_NUM_WORKERS = 12
-    synchronizing_TOA_for_mesh2ir = False # No TOA synchronizing for mesh3ir, yes for rirbox
+    DATALOADER_NUM_WORKERS = 4 #12
+    synchronizing_TOA_for_mesh2ir = True # No TOA synchronizing for mesh3ir, yes for rirbox
 
     print("PARAMETERS:")
     print("    > BATCH_SIZE = ", BATCH_SIZE)
@@ -124,7 +124,8 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=None, validation_it
 
             # Forward passes
             rir_mesh2ir = mesh2ir(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
-            origin_mesh2ir = torch.tensor([GWA_3DFRONT_Dataset._estimate_origin(rir_mesh2ir.cpu().numpy())]).to(DEVICE)
+            # origin_mesh2ir = torch.tensor([GWA_3DFRONT_Dataset._estimate_origin(rir_mesh2ir.cpu().numpy())]).to(DEVICE)
+            origin_mesh2ir = label_origin_batch
 
             rir_rirbox, origin_rirbox = rirbox(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
 
@@ -245,7 +246,7 @@ def main():
                         help='Path to rirbox model to validate.')
     args, _ = parser.parse_known_args()
     
-    validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=args.rirbox_path, validation_iterations=10000)
+    validation_metric_accuracy_mesh2ir_vs_rirbox(rirbox_path=args.rirbox_path, validation_iterations=1000)
     view_results_metric_accuracy_mesh2ir_vs_rirbox()
 
 if __name__ == "__main__":

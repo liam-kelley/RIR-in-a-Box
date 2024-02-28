@@ -144,7 +144,6 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     del batch_dist, batch_att
 
     ##### MY OWN BATCH ISM IMPLEMENTATION ###########
-
     if output_length is not None: rir_length = output_length
     else: rir_length = torch.ceil(batch_delay.detach().max()).int() + delay_filter_length
     if rir_length > 6000: # for memory reasons, with rir max order 15, batch_size 9 and sample rate 48000 I can't go above 11000 (0.229 seconds)
@@ -158,7 +157,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
 
     # create hann window tensor
     hann_tensor=torch.where(torch.abs(my_arange_tensor) <= delay_filter_length//2,
-                            0.5 * (1 - torch.cos(2 * math.pi * my_arange_tensor / (delay_filter_length - 1))), # Hann window fix
+                            0.5 * (1 + torch.cos(math.pi * my_arange_tensor / (delay_filter_length//2))), # Hann window fix
                             my_arange_tensor.new_zeros(1)) # (batch_size, rir_length, n_image_source, n_mics=1)
     batch_indiv_IRS = torch.special.sinc(my_arange_tensor) * hann_tensor # (batch_size, rir_length, n_image_source, n_mics=1)
     del my_arange_tensor, hann_tensor
