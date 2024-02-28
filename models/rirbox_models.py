@@ -48,10 +48,8 @@ class ShoeboxToRIR(nn.Module):
 
         # Figure out how our RIR impulses should be LP filtered
         # (this is a tempory solution before we implement proper multi-band support)
-        if absorption.shape[1] == 1  :
-            cutoff_frequency = 2000
-            window_length = ShoeboxToRIR.get_window_length(self.sample_rate, center_frequency=cutoff_frequency/2)
-        else: raise ValueError("Multiple bands not supported yet. Absorption shape not understood.")
+        cutoff_frequency = 2000
+        window_length = ShoeboxToRIR.get_window_length(self.sample_rate, center_frequency=cutoff_frequency/2)
 
         # Batch simulate rir
         shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position, absorption,
