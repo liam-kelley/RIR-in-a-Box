@@ -15,6 +15,20 @@ from torch.utils.checkpoint import checkpoint
 from tools.pyLiam.LKTimer import LKTimer
 timer=LKTimer()
 
+def LP_filter(n, fs, window_length, lp_cutoff_frequency):
+    '''
+    windowed sinc filter
+    '''
+    # Get hann
+    hanning = 0.5 * (1 - torch.cos(2 * math.pi * n / window_length))
+
+    # Get sinc
+    nyquist_f = fs / 2
+    f_c_normalized = lp_cutoff_frequency / nyquist_f
+    sinc = f_c_normalized * torch.special.sinc( (n - window_length//2) * f_c_normalized)
+    windowed_sinc = sinc * hanning
+    return windowed_sinc
+
 def _batch_validate_inputs(room: torch.Tensor, mic_array: torch.Tensor, source: torch.Tensor, absorption: torch.Tensor):
     '''Only supports mono band absorption, 3D dimensions, and 1 mic for now.'''
     
@@ -106,8 +120,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
                            batch_source_position : torch.Tensor,
                            batch_absorption : torch.Tensor,
                            max_order : int, sample_rate : float = 16000.0, sound_speed: float = 343.0,
-                           output_length: Optional[int] = None, delay_filter_length: int = 81,
-                           center_frequency: Optional[torch.Tensor] = None,
+                           output_length: Optional[int] = None, window_length: int = 81,
+                           lp_cutoff_frequency: Optional[int] = None,
 ) -> Tensor:
     """
     Simulate room impulse responses (RIRs) using image source method (ISM).
@@ -123,7 +137,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
         sample_rate (float): The sample rate of the RIRs. (Default: ``16000.0``)
         sound_speed (float): The speed of sound. (Default: ``343.0``)
         output_length (int, optional): The length of the output RIRs. (Default: ``None``)
-        delay_filter_length (int): The length of the delay filter. (Default: ``81``)
+        window_length (int): The length of the hann window. (Default: ``81``)
+        lp_cutoff_frequency (int): The cutoff frequency of the low-pass filter. (Default: ``None``)
 
     Returns:
         (torch.Tensor): batch of rir (batch_size, max_rir_length)
@@ -145,41 +160,29 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
 
     ##### MY OWN BATCH ISM IMPLEMENTATION ###########
     if output_length is not None: rir_length = output_length
-    else: rir_length = torch.ceil(batch_delay.detach().max()).int() + delay_filter_length
+    else: rir_length = torch.ceil(batch_delay.detach().max()).int() + window_length
     if rir_length > 6000: # for memory reasons, with rir max order 15, batch_size 9 and sample rate 48000 I can't go above 11000 (0.229 seconds)
         rir_length = 6000 # for memory reasons, with rir max order 15, batch_size 16 and sample rate 16000 I can't go above 6000 (0.393 seconds)
 
     #### Prepare Fractional delays
-    my_arange_tensor = torch.arange(rir_length, device=batch_delay.device)-(delay_filter_length // 2) # substraction to account for the delay filter length and to have similar results as pyroomacoustics.
-    my_arange_tensor = my_arange_tensor.unsqueeze(0).unsqueeze(2).unsqueeze(3).expand(batch_delay.shape[0], -1, batch_delay.shape[1], -1) # (batch_size, rir_length, n_image_source, n_mics=1)
-    my_arange_tensor = my_arange_tensor-batch_delay.unsqueeze(1).expand(-1,my_arange_tensor.shape[1],-1,-1) # (batch_size, rir_length, n_image_source, n_mics=1)
+    n = torch.arange(rir_length, device=batch_delay.device)
+    n = n.unsqueeze(0).unsqueeze(2).unsqueeze(3).expand(batch_delay.shape[0], -1, batch_delay.shape[1], batch_delay.shape[2]) # (batch_size, rir_length, n_image_source, n_mics=1)
+    n = n-batch_delay.unsqueeze(1).expand(-1,rir_length,-1,-1) # (batch_size, rir_length, n_image_source, n_mics=1)
     del batch_delay
 
     # create hann window tensor
-    hann_tensor=torch.where(torch.abs(my_arange_tensor) <= delay_filter_length//2,
-                            0.5 * (1 + torch.cos(math.pi * my_arange_tensor / (delay_filter_length//2))), # Hann window fix
-                            my_arange_tensor.new_zeros(1)) # (batch_size, rir_length, n_image_source, n_mics=1)
-    freq_cutoff = 8000 # Hz
-    f_c_normalized = 2 * freq_cutoff / sample_rate
-    batch_indiv_IRS = torch.special.sinc(my_arange_tensor / f_c_normalized) * hann_tensor # (batch_size, rir_length, n_image_source, n_mics=1)
-    del my_arange_tensor, hann_tensor
+    # For multiband processing, we need to create a different batch_indiv_IRS for each band, and then sum them up.
+    batch_indiv_IRS=torch.where(torch.abs(n) <= window_length//2,
+                                LP_filter(n),
+                                n.new_zeros(1)) # (batch_size, rir_length, n_image_source, n_mics=1) 
+    del n
 
-    # get rid of multi-band processing, and multi-channel processing here
+    # here get rid of multi-band processing and multi-channel processing (for now)
     batch_indiv_IRS = batch_indiv_IRS.squeeze(dim=3) # (batch_size, rir_length, n_image_source, n_mics=1) -> (batch_size, rir_length, n_image_source)
     batch_img_src_att = batch_img_src_att.squeeze(dim=(1,3)) # (batch_size, n_bands, n_image_source, n_mics=1) -> (batch_size, n_image_source)
+    
     # Sum the img sources
     batch_rir = torch.einsum('bri,bi->br', batch_indiv_IRS, batch_img_src_att) # (batch_size, rir_length)
-
-    # # multi-band processing
-    # if batch_absorption.shape[1] > 1:
-    #     if center_frequency is None: center = torch.tensor([125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0], dtype=batch_room_dimensions.dtype, device=batch_room_dimensions.device)
-    #     else: center = center_frequency
-    #     # n_fft is set to 512 by default.
-    #     from torchaudio.functional import fftconvolve
-    #     filters = make_rir_filter(center, sample_rate, n_fft=512)
-    #     batch_rir = fftconvolve(batch_rir, filters.unsqueeze(0).unsqueeze(2).expand(batch_rir.shape[0],1, batch_rir.shape[2], 1), mode="same")
-    # # sum up batch_rir signals of all image sources into one waveform.
-    # batch_rir = batch_rir.sum(0)
 
     del batch_indiv_IRS, batch_img_src_att
     return batch_rir # (batch_size, rir_length)
