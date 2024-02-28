@@ -159,7 +159,9 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     hann_tensor=torch.where(torch.abs(my_arange_tensor) <= delay_filter_length//2,
                             0.5 * (1 + torch.cos(math.pi * my_arange_tensor / (delay_filter_length//2))), # Hann window fix
                             my_arange_tensor.new_zeros(1)) # (batch_size, rir_length, n_image_source, n_mics=1)
-    batch_indiv_IRS = torch.special.sinc(my_arange_tensor) * hann_tensor # (batch_size, rir_length, n_image_source, n_mics=1)
+    freq_cutoff = 8000 # Hz
+    f_c_normalized = 2 * freq_cutoff / sample_rate
+    batch_indiv_IRS = torch.special.sinc(my_arange_tensor / f_c_normalized) * hann_tensor # (batch_size, rir_length, n_image_source, n_mics=1)
     del my_arange_tensor, hann_tensor
 
     # get rid of multi-band processing, and multi-channel processing here
