@@ -16,7 +16,7 @@ import argparse
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 rirbox_path = "./models/RIRBOX/RIRBOX_Model2_Finetune_worldly-lion-25.pth"
 ribox_max_order = 15
-START_FROM_ORIGIN = True
+TOA_SYNCHRONIZATION = False
 
 ############################################ Inits #############################################
 
@@ -73,7 +73,7 @@ with torch.no_grad():
         fig, axs = plt.subplots(3, 1, figsize=(9, 9))
         fig.suptitle('RIR comparison between MESH2IR and RIRBOX')
         axs[0].set_title('MESH2IR')
-        if not START_FROM_ORIGIN:
+        if not TOA_SYNCHRONIZATION:
             axs[0].plot(rir_mesh2ir, label="MESH2IR", color='blue')
             axs[0].axvline(x=origin_mesh2ir, color='red', linestyle='--', label='Origin')
         else:
@@ -83,7 +83,7 @@ with torch.no_grad():
         axs[0].legend()
 
         axs[1].set_title('RIRBOX')
-        if not START_FROM_ORIGIN:
+        if not TOA_SYNCHRONIZATION:
             axs[1].plot(rir_rirbox, label="RIRBOX", color='orange')
             axs[1].axvline(x=origin_rirbox, color='red', linestyle='--', label='Origin')
         else:
@@ -93,7 +93,7 @@ with torch.no_grad():
         axs[1].legend()
 
         axs[2].set_title('GT')
-        if not START_FROM_ORIGIN:
+        if not TOA_SYNCHRONIZATION:
             axs[2].plot(label_rir, label="GT", color='green')
             axs[2].axvline(x=label_origin, color='red', linestyle='--', label='Origin')
         else:
