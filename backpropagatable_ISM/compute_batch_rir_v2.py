@@ -68,6 +68,17 @@ def BP_filter(n, fs, fc_high, fc_low, window_length):
 # plt.legend()
 # plt.show()
 
+# Tests 2
+
+# Old_Hann = lambda x : 0.5 * (1 + torch.cos(math.pi * x / 40))
+# Old_sinc = lambda x : torch.sinc(x)
+# Old_LP_filter = lambda x, fc : fc * Old_sinc(x * fc) * Old_Hann(x)
+
+# n = torch.arange(81) - 81 // 2
+# plt.plot(Old_LP_filter(n, 1))
+# plt.title("Old LP filter : filtering to 8kHz")
+# plt.show()
+
 def _batch_validate_inputs(room: torch.Tensor, mic_array: torch.Tensor, source: torch.Tensor, absorption: torch.Tensor):
     '''Only supports mono band absorption, 3D dimensions, and 1 mic for now.'''
     
