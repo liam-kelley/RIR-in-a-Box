@@ -3,7 +3,7 @@ import numpy as np
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
 from torch.utils.data import DataLoader
 from models.mesh2ir_models import MESH_NET, STAGE1_G, MESH2IR_FULL
-from models.rirbox_models import MeshToShoebox, ShoeboxToRIR, RIRBox_FULL
+from models.rirbox_models import MeshToShoebox_Model_2, ShoeboxToRIR, RIRBox_FULL
 from models.utility import load_mesh_net, load_GAN, load_mesh_to_shoebox
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
 from tools.pyLiam.LKTimer import LKTimer
@@ -30,7 +30,11 @@ mesh2ir = MESH2IR_FULL(mesh_net, net_G).eval().to(DEVICE)
 print("")
 
 # Init Rirbox
-mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=2)
+mesh_to_shoebox = MeshToShoebox_Model_2(meshnet=mesh_net, model=2)
+# # Calculate the total number of parameters
+# total_params = sum(p.numel() for p in mesh_to_shoebox.parameters() if p.requires_grad)
+# print(f"Total number of trainable parameters: {total_params}")
+# breakpoint()
 if rirbox_path is not None:
     mesh_to_shoebox = load_mesh_to_shoebox(mesh_to_shoebox, rirbox_path)
 shoebox_to_rir = ShoeboxToRIR(16000, max_order=ribox_max_order)
