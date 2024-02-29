@@ -171,7 +171,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
                            batch_absorption : torch.Tensor,
                            max_order : int, fs : float = 16000.0, sound_speed: float = 343.0,
                            output_length: Optional[int] = None, window_length: int = 81,
-                           lp_cutoff_frequency: Optional[int] = None,
+                        #    lp_cutoff_frequency: Optional[int] = None,
 ) -> Tensor:
     """
     Simulate room impulse responses (RIRs) using image source method (ISM).
@@ -223,7 +223,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     # create hann window tensor
     # For multiband processing, we need to create a different batch_indiv_IRS for each band, and then sum them up.
     batch_indiv_IRS=torch.where(torch.abs(n) <= window_length//2,
-                                LP_filter(n, fs, window_length, lp_cutoff_frequency),
+                                BP_filter(n, fs, 8000, 80, window_length),
+                                # LP_filter(n, fs, window_length, lp_cutoff_frequency),
                                 n.new_zeros(1)) # (batch_size, rir_length, n_image_source, n_mics=1) 
     del n
 

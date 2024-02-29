@@ -19,8 +19,7 @@ class ShoeboxToRIR(nn.Module):
         self.sound_speed=343
         self.max_order=max_order
         self.rir_length=rir_length
-        self.window_length=81 #ShoeboxToRIR.get_window_length(self.sample_rate, center_frequency=cutoff_frequency/2
-        self.cutoff_frequency = 1000
+        self.window_length=81
         print("ShoeboxToRIR initialized.")
 
     def forward(self, input : torch.Tensor):
@@ -47,7 +46,7 @@ class ShoeboxToRIR(nn.Module):
         # Batch simulate rir
         shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions, mic_position.unsqueeze(1), source_position, absorption,
                                                     self.max_order, self.sample_rate, output_length=self.rir_length,
-                                                    window_length=self.window_length, lp_cutoff_frequency=self.cutoff_frequency) # Figure out how our RIR impulses should be LP filtered # (this is a tempory solution before we implement proper multi-band support)
+                                                    window_length=self.window_length)
 
         # Get origins (Time of first arrival)
         distances = norm(mic_position-source_position, dim=1)
@@ -62,43 +61,28 @@ class ShoeboxToRIR(nn.Module):
         window_length = (filter_order // 2)*2  + 1
         return window_length
 
-class MeshToShoebox(nn.Module):
+class MeshToShoebox_Model_2(nn.Module):
     '''
-    MODEL 1: MESH_NET (GNN + 2-layer MLP)
-     -> concatenate mic pos and src pos
-     -> 2-layer MLP
-     -> (3 room dim + 3 absorption) embedding.
-     -> LOSS: Sample 4 random msconf in that room, and mean the losses on the 4 RIR.
-    
     MODEL 2: MESH_NET (GNN + 2-layer MLP)
      -> concatenate mic pos and src pos
-     -> 2-layer MLP
+     -> X-layer MLP
      -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.
      -> LOSS: on RIR
-
-    MODEL 3: MODEL 1 (pre-trained?)
-    -> Concatenate mic pos and src pos again 
-    -> 3-layer MLP 
-    -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.  
-    -> LOSS: on RIR
     '''
-    def __init__(self, meshnet=None, model=1):
+    def __init__(self, meshnet=None, MLP_depth=2):
         super().__init__()
         # Model type
-        assert(model in [1,2,3])
-        self.model=model
+        self.model=2
 
         # Load (pretrained) mesh net
         if meshnet == None: self.meshnet = MESH_NET()
         else: self.meshnet = meshnet # for loading a pretrained meshnet
 
         # Linear layers
-        self.lin3 = torch.nn.Linear(14, 32)
-        if self.model in [1,3] : self.lin4 = torch.nn.Linear(32, 6)
-        elif self.model == 2 : self.lin4 = torch.nn.Linear(32, 12)
-        if self.model == 3 :
-            self.lin5 == torch.nn.Linear(12, 32)
-            self.lin6 == torch.nn.Linear(32, 6)
+        self.lin3 = torch.nn.Linear(14, 64)
+        self.lin4 = torch.nn.Linear(64, 64)
+        self.lin5 = torch.nn.Linear(64, 64)
+        self.lin6 = torch.nn.Linear(64, 12)
 
         # Activation
         self.softplus = torch.nn.Softplus()
@@ -107,23 +91,89 @@ class MeshToShoebox(nn.Module):
     def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos):
         data = data_for_meshnet(x, edge_index, batch) # the pretrained mesh_net we use uses a data struct for input data.
         x = self.meshnet(data)
-        
+
         x = torch.cat((x, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
+
         x = F.relu(self.lin3(x))
-        x = self.lin4(x)
+        if self.MLP_depth == 2 :
+            x = self.lin6(x)
+        elif self.MLP_depth == 3 :
+            x = F.relu(self.lin4(x))
+            x = self.lin6(x)
+        elif self.MLP_depth == 4 :
+            x = F.relu(self.lin4(x))
+            x = F.relu(self.lin5(x))
+            x = self.lin6(x)
 
         softplus_output = self.softplus(x[:,0:3])
-        if self.model in [1,3] : sigmoid_output = torch.sigmoid(x[:,3:6])
-        if self.model==2 : sigmoid_output = torch.sigmoid(x[:,3:12])
+        sigmoid_output = torch.sigmoid(x[:,3:12])
+
         x = torch.cat((softplus_output, sigmoid_output), dim=1)
+        return(x)
 
-        if self.model in [1,2]: return(x)
+# class MeshToShoebox(nn.Module):
+#     '''
+#     MODEL 1: MESH_NET (GNN + 2-layer MLP)
+#      -> concatenate mic pos and src pos
+#      -> 2-layer MLP
+#      -> (3 room dim + 3 absorption) embedding.
+#      -> LOSS: Sample 4 random msconf in that room, and mean the losses on the 4 RIR.
+    
+#     MODEL 2: MESH_NET (GNN + 2-layer MLP)
+#      -> concatenate mic pos and src pos
+#      -> 2-layer MLP
+#      -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.
+#      -> LOSS: on RIR
 
-        if self.model == 3 :
-            x = torch.cat((batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
-            x = F.relu(self.lin5(x))
-            x = torch.sigmoid(self.lin6(x))
-            return(x)
+#     MODEL 3: MODEL 1 (pre-trained?)
+#     -> Concatenate mic pos and src pos again 
+#     -> 2-layer MLP 
+#     -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.  
+#     -> LOSS: on RIR
+#     '''
+#     def __init__(self, meshnet=None, model=1):
+#         super().__init__()
+#         # Model type
+#         assert(model in [1,2,3])
+#         self.model=model
+
+#         # Load (pretrained) mesh net
+#         if meshnet == None: self.meshnet = MESH_NET()
+#         else: self.meshnet = meshnet # for loading a pretrained meshnet
+
+#         # Linear layers
+#         self.lin3 = torch.nn.Linear(14, 32)
+#         if self.model in [1,3] : self.lin4 = torch.nn.Linear(32, 6)
+#         elif self.model == 2 : self.lin4 = torch.nn.Linear(32, 12)
+#         if self.model == 3 :
+#             self.lin5 == torch.nn.Linear(12, 32)
+#             self.lin6 == torch.nn.Linear(32, 6)
+
+#         # Activation
+#         self.softplus = torch.nn.Softplus()
+#         print("MeshToShoebox model ", self.model, " initialized")
+
+#     def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos):
+#         data = data_for_meshnet(x, edge_index, batch) # the pretrained mesh_net we use uses a data struct for input data.
+#         x = self.meshnet(data)
+        
+#         x = torch.cat((x, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
+#         x = F.relu(self.lin3(x))
+#         x = self.lin4(x)
+
+#         softplus_output = self.softplus(x[:,0:3])
+#         if self.model in [1,3] :
+#             sigmoid_output = torch.sigmoid(x[:,3:6])
+#         if self.model==2 :
+#             sigmoid_output = torch.sigmoid(x[:,3:12])
+#         x = torch.cat((softplus_output, sigmoid_output), dim=1)
+
+#         if self.model == 3 : # TODO fix this
+#             x = torch.cat((batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
+#             x = F.relu(self.lin5(x))
+#             x = torch.sigmoid(self.lin6(x))
+        
+#         return(x)
 
 class RIRBox_FULL(nn.Module):
     '''
