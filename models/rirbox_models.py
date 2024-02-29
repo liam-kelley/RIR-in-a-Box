@@ -13,13 +13,14 @@ from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 from models.mesh2ir_models import MESH_NET, data_for_meshnet
 
 class ShoeboxToRIR(nn.Module):
-    def __init__(self,sample_rate=16000, max_order=15, rir_length=3968, force_absorption : Optional[torch.Tensor] = None):
+    def __init__(self,sample_rate=16000, max_order=15, rir_length=3968):
         super().__init__()
         self.sample_rate=sample_rate
         self.sound_speed=343
         self.max_order=max_order
         self.rir_length=rir_length
-        self.force_absorption = force_absorption
+        self.window_length=81 #ShoeboxToRIR.get_window_length(self.sample_rate, center_frequency=cutoff_frequency/2
+        self.cutoff_frequency = 1000
         print("ShoeboxToRIR initialized.")
 
     def forward(self, input : torch.Tensor):
@@ -34,37 +35,29 @@ class ShoeboxToRIR(nn.Module):
             shoebox_toa_batch (tensor) : shape B
         '''
         # Get shoebox parameters from RIRBox latent space.
-        room_dimensions = input[:, 0:3]  # (batch_size, 3)
-        mic_position = input[:, 3:6]*room_dimensions  # (batch_size, 1, 3)
-        source_position = input[:, 6:9]*room_dimensions  # (batch_size, 3)
-        if self.force_absorption is not None: absorption = self.force_absorption  # (batch_size, 3) # Walls, floor, ceiling
-        else: absorption = input[:, 9:12] # (batch_size, 3) # Walls, floor, ceiling
-
-        # Convert rirbox Absorption values to ISM format
-        absorption = torch.cat((absorption[:, 9].unsqueeze(1).expand(-1,4),
-                                absorption[:, 10].unsqueeze(1),
-                                absorption[:, 11].unsqueeze(1)), dim=1)  # (batch_size, 6) # west, east, south, north, floor, ceiling
-        absorption = absorption.unsqueeze(1)  # (batch_size, n_bands=1, n_walls=6) # n_bands=1 for now, because the backpropagatable ISM code does not support multiple bands yet.
-
-        # Figure out how our RIR impulses should be LP filtered
-        # (this is a tempory solution before we implement proper multi-band support)
-        cutoff_frequency = 2000
-        window_length = ShoeboxToRIR.get_window_length(self.sample_rate, center_frequency=cutoff_frequency/2)
-
+        room_dimensions = input[:, 0:3]
+        mic_position = input[:, 3:6]*room_dimensions
+        source_position = input[:, 6:9]*room_dimensions
+        absorption = torch.cat((input[:, 9].unsqueeze(1).expand(-1,4),
+                                input[:, 10].unsqueeze(1),
+                                input[:, 11].unsqueeze(1)), dim=1)  # (batch_size, 6) # west, east, south, north, floor, ceiling
+        absorption = absorption.unsqueeze(1)  # (batch_size, n_bands=1, n_walls=6)
+        # n_bands=1 for now, because the backpropagatable ISM code does not support multiple bands yet.
+        
         # Batch simulate rir
-        shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions,mic_position.unsqueeze(1),source_position, absorption,
+        shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions, mic_position.unsqueeze(1), source_position, absorption,
                                                     self.max_order, self.sample_rate, output_length=self.rir_length,
-                                                    window_length=window_length, lp_cutoff_frequency=cutoff_frequency)     
+                                                    window_length=self.window_length, lp_cutoff_frequency=self.cutoff_frequency) # Figure out how our RIR impulses should be LP filtered # (this is a tempory solution before we implement proper multi-band support)
 
         # Get origins (Time of first arrival)
         distances = norm(mic_position-source_position, dim=1)
-        shoebox_toa_batch = window_length//2 + (self.sample_rate*distances/self.sound_speed)
+        shoebox_toa_batch = self.window_length//2 + (self.sample_rate*distances/self.sound_speed)
 
         return shoebox_rir_batch_2, shoebox_toa_batch
     
     @staticmethod
-    def get_window_length(fs=16000, center_frequency=500):
-        filter_transition_band = center_frequency / 5 # a good approximation.
+    def get_a_good_window_length(fs=16000, center_frequency=500):
+        filter_transition_band = center_frequency *1 #* 0.2 # a good approximation.
         filter_order = fs / filter_transition_band # a good approximation.
         window_length = (filter_order // 2)*2  + 1
         return window_length

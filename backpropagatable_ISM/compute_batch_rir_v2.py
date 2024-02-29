@@ -12,22 +12,61 @@ from torch import Tensor
 from torch.nn.functional import pad
 from torch.utils.checkpoint import checkpoint
 
-from tools.pyLiam.LKTimer import LKTimer
-timer=LKTimer()
+# from tools.pyLiam.LKTimer import LKTimer
+# timer=LKTimer()
+import matplotlib.pyplot as plt
 
 def LP_filter(n, fs, window_length, lp_cutoff_frequency):
     '''
     windowed sinc filter
     '''
     # Get hann
-    hanning = 0.5 * (1 - torch.cos(2 * math.pi * n / window_length))
+    hanning = 0.5 * (1 - torch.cos(2 * math.pi * (n + 1 + window_length//2) / window_length))
 
     # Get sinc
     nyquist_f = fs / 2
     f_c_normalized = lp_cutoff_frequency / nyquist_f
-    sinc = f_c_normalized * torch.special.sinc( (n - window_length//2) * f_c_normalized)
+    sinc = f_c_normalized * torch.special.sinc( n * f_c_normalized)
     windowed_sinc = sinc * hanning
+
     return windowed_sinc
+
+def BP_filter(n, fs, fc_high, fc_low, window_length):
+    '''
+    windowed sinc filter translated to be bandpass
+    '''
+    # Get hann
+    hann_window = 0.5 * (1 - torch.cos(2 * math.pi * (n + 1 + window_length//2) / window_length))
+
+    # Get sinc
+    half_bandwidth = (fc_high - fc_low)/2
+    nyquist_f = fs / 2
+    f_c_normalized = half_bandwidth / nyquist_f
+    sinc = 2 * f_c_normalized * torch.sinc(f_c_normalized * n) # we have to multiply by 2 because when translating, we get the energy of all negative frequencies!
+    
+    # Get windowed sinc
+    h_lp = sinc * hann_window
+
+    # Frequency shift to convert low pass to band pass
+    fc_center = (fc_high + fc_low) / 2
+    h_bp = h_lp * torch.cos(2 * math.pi * fc_center * n / fs)
+
+    return h_bp
+
+# Tests
+
+# window_length = 81
+# n = torch.arange(window_length) - window_length // 2
+# # n = n[30:70]
+# lp_cutoff_frequency = 500
+# fs=16000
+# plt.plot(LP_filter(n, fs, window_length, lp_cutoff_frequency), label="Lowpass at {} Hz".format(lp_cutoff_frequency))
+# plt.show()
+# plt.title("Filter shapes".format(lp_cutoff_frequency))
+# # plt.show()
+# plt.plot(BP_filter(n, fs, lp_cutoff_frequency, 125, window_length), label=f"Bandpass at fc low {fc_low} Hz\nand fc high {fc_high} Hz")
+# plt.legend()
+# plt.show()
 
 def _batch_validate_inputs(room: torch.Tensor, mic_array: torch.Tensor, source: torch.Tensor, absorption: torch.Tensor):
     '''Only supports mono band absorption, 3D dimensions, and 1 mic for now.'''
@@ -119,7 +158,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
                            batch_mic_position : torch.Tensor,
                            batch_source_position : torch.Tensor,
                            batch_absorption : torch.Tensor,
-                           max_order : int, sample_rate : float = 16000.0, sound_speed: float = 343.0,
+                           max_order : int, fs : float = 16000.0, sound_speed: float = 343.0,
                            output_length: Optional[int] = None, window_length: int = 81,
                            lp_cutoff_frequency: Optional[int] = None,
 ) -> Tensor:
@@ -134,7 +173,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
         batch_source_position must be a 2D Tensor (batch_size, 3).
         batch_absorption must be a 3D Tensor of shape (batch_size, 1 or 7, n_walls=6). Walls are `"west"``, ``"east"``, ``"south"``, ``"north"``, ``"floor"``, and ``"ceiling"``, respectively.
         max_order (int): The maximum number of reflections of the source.
-        sample_rate (float): The sample rate of the RIRs. (Default: ``16000.0``)
+        fs (float): The sample rate of the RIRs. (Default: ``16000.0``)
         sound_speed (float): The speed of sound. (Default: ``343.0``)
         output_length (int, optional): The length of the output RIRs. (Default: ``None``)
         window_length (int): The length of the hann window. (Default: ``81``)
@@ -151,7 +190,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     vec = batch_img_location[:,:, None, :] - batch_mic_position[:, None, :, :]
     batch_dist = torch.linalg.norm(vec, dim=-1)  # (batch_size, n_image_source, n_mics=1)
     del vec
-    batch_delay = batch_dist * sample_rate / sound_speed  # (fractionnal delay) (batch_size, n_image_source, n_mics=1)
+    batch_delay = batch_dist * fs / sound_speed  # (fractionnal delay) (batch_size, n_image_source, n_mics=1)
 
     #attenuate image sources
     epsilon = 1e-10
@@ -165,7 +204,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
         rir_length = 6000 # for memory reasons, with rir max order 15, batch_size 16 and sample rate 16000 I can't go above 6000 (0.393 seconds)
 
     #### Prepare Fractional delays
-    n = torch.arange(rir_length, device=batch_delay.device)
+    n = torch.arange(rir_length, device=batch_delay.device) - window_length//2 # (rir_length)
     n = n.unsqueeze(0).unsqueeze(2).unsqueeze(3).expand(batch_delay.shape[0], -1, batch_delay.shape[1], batch_delay.shape[2]) # (batch_size, rir_length, n_image_source, n_mics=1)
     n = n-batch_delay.unsqueeze(1).expand(-1,rir_length,-1,-1) # (batch_size, rir_length, n_image_source, n_mics=1)
     del batch_delay
@@ -173,7 +212,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     # create hann window tensor
     # For multiband processing, we need to create a different batch_indiv_IRS for each band, and then sum them up.
     batch_indiv_IRS=torch.where(torch.abs(n) <= window_length//2,
-                                LP_filter(n),
+                                LP_filter(n, fs, window_length, lp_cutoff_frequency),
                                 n.new_zeros(1)) # (batch_size, rir_length, n_image_source, n_mics=1) 
     del n
 
