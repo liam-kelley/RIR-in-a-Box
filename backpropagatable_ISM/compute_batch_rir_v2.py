@@ -57,14 +57,14 @@ def BP_filter(n, fs, fc_high, fc_low, window_length):
 
 # window_length = 81
 # n = torch.arange(window_length) - window_length // 2
-# # n = n[30:70]
-# lp_cutoff_frequency = 500
+# n = n[30:70]
+# lp_cutoff_frequency = 8000
 # fs=16000
 # plt.plot(LP_filter(n, fs, window_length, lp_cutoff_frequency), label="Lowpass at {} Hz".format(lp_cutoff_frequency))
 # plt.show()
 # plt.title("Filter shapes".format(lp_cutoff_frequency))
 # # plt.show()
-# plt.plot(BP_filter(n, fs, lp_cutoff_frequency, 125, window_length), label=f"Bandpass at fc low {fc_low} Hz\nand fc high {fc_high} Hz")
+# plt.plot(BP_filter(n, fs, lp_cutoff_frequency, 80, window_length), label=f"Bandpass at fc low {80} Hz\nand fc high {lp_cutoff_frequency} Hz")
 # plt.legend()
 # plt.show()
 
