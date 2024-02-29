@@ -15,7 +15,7 @@ from scipy.signal import stft
 
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-rirbox_path = "./models/RIRBOX/RIRBOX_Model2_Finetune_worldly-lion-25.pth"
+rirbox_path = "./models/RIRBOX/RIRBOX_Model2_Finetune.pth"
 ribox_max_order = 15
 TOA_SYNCHRONIZATION = False
 
@@ -30,7 +30,7 @@ mesh2ir = MESH2IR_FULL(mesh_net, net_G).eval().to(DEVICE)
 print("")
 
 # Init Rirbox
-mesh_to_shoebox = MeshToShoebox_Model_2(meshnet=mesh_net, model=2)
+mesh_to_shoebox = MeshToShoebox_Model_2(meshnet=mesh_net)
 # # Calculate the total number of parameters
 # total_params = sum(p.numel() for p in mesh_to_shoebox.parameters() if p.requires_grad)
 # print(f"Total number of trainable parameters: {total_params}")

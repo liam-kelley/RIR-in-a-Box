@@ -18,97 +18,45 @@ import gc
 ############################################ Config ############################################
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default="./training/rirbox_model2_finetune.json", help='Path to configuration file.')
-parser.add_argument('--MLP_DEPTH', type=int, default=2, help='MLP depth')
-parser.add_argument('--TOA_SYNC', type=bool, default=True, help='Synchronize TOA')
-parser.add_argument('--D', type=bool, default=False, help='add D Loss')
-parser.add_argument('--RT60', type=bool, default=False, help='add RT60 Loss')
+parser.add_argument('--config', type=str, default="./training/rirbox_model2_finetune_default.json", help='Path to configuration file.')
 args, _ = parser.parse_known_args()
 with open(args.config, 'r') as file: config = load(file)
 
-RIRBOX_MODEL_ARCHITECTURE = config['RIRBOX_MODEL_ARCHITECTURE']
-PRETRAINED_MESHNET = config['PRETRAINED_MESHNET']
-TRAIN_MESHNET = config['TRAIN_MESHNET']
-ISM_MAX_ORDER = config['ISM_MAX_ORDER']
-MLP_DEPTH = 2
-
-LEARNING_RATE = config['LEARNING_RATE']
-EPOCHS = config['EPOCHS']
-MAX_ITERATIONS = config['MAX_ITERATIONS']
-BATCH_SIZE = config['BATCH_SIZE']
 DEVICE = config['DEVICE']
-
-TOA_SYNC = args.TOA_SYNC
-if args.D: D_LOSS_WEIGHT = 1.0
-else: D_LOSS_WEIGHT = 0.0
-if args.RT60: RT60_LOSS_WEIGHT = 1.0
-else: RT60_LOSS_WEIGHT = 0.0
-
-do_wandb = config['do_wandb']
-
+if not torch.cuda.is_available(): DEVICE = 'cpu'
 DATALOADER_NUM_WORKERS = 10
+config["DATALOADER_NUM_WORKERS"] = DATALOADER_NUM_WORKERS
 
 print("PARAMETERS:")
-print("    > BATCH_SIZE = ", BATCH_SIZE)
-print("    > LEARNING_RATE = ", LEARNING_RATE)
-print("    > EPOCHS = ", EPOCHS)
-# if device is cuda, then check if cuda is available
-if DEVICE == 'cuda':
-    if not torch.cuda.is_available():
-        DEVICE = 'cpu'
-        print("    CUDA not available, using CPU")
-print("    > DEVICE = ", DEVICE)
-print("    > wandb = ",do_wandb, end="\n\n")
+for key, value in config.items():
+    print(f"    > {key} = {value}")
+print("")
 
-############################################  WanDB ############################################
-
-if do_wandb:
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="RIRBox3",
-        
-        # track hyperparameters and run metadata
-        config={
-            "training_dataset": "GWA_3DFRONT",
-            "architecture": f"Model {RIRBOX_MODEL_ARCHITECTURE}",
-            "pretrained_meshnet": PRETRAINED_MESHNET,
-            "ism max order": ISM_MAX_ORDER,
-            "MLP depth": MLP_DEPTH,
-
-            "learning rate": LEARNING_RATE,
-            "epochs": EPOCHS,
-            "max iterations": MAX_ITERATIONS,
-            "batch size": BATCH_SIZE,
-            "device": DEVICE,
-
-            "TOA sync": TOA_SYNC,
-            "D loss": D_LOSS_WEIGHT,
-            "RT60 loss": RT60_LOSS_WEIGHT
-        }
-    )
+if config['do_wandb']:
+    wandb.init(project="RIRBox3",config=config)
     print("")
 
 ############################################ Inits ############################################
 
 # data
 dataset=GWA_3DFRONT_Dataset()
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True,
+dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=True,
                         num_workers=DATALOADER_NUM_WORKERS, pin_memory=False,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
 print("")
 
 # models
 mesh_net = MESH_NET()
-if PRETRAINED_MESHNET:
+if config['PRETRAINED_MESHNET']:
     mesh_net = load_mesh_net(mesh_net, "./models/MESH2IR/mesh_net_epoch_175.pth")
-if RIRBOX_MODEL_ARCHITECTURE == 2:
-    mesh_to_shoebox = MeshToShoebox_Model_2(meshnet=mesh_net, MLP_depth=MLP_DEPTH).to(DEVICE)
-shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=ISM_MAX_ORDER, rir_length=3968).to(DEVICE)#.to('cpu') # This doesn't train, it just computes the RIRs
+if config['RIRBOX_MODEL_ARCHITECTURE'] == 2:
+    mesh_to_shoebox = MeshToShoebox_Model_2(meshnet=mesh_net).to(DEVICE)
+shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=config['ISM_MAX_ORDER'], rir_length=3968).to(DEVICE)#.to('cpu') # This doesn't train, it just computes the RIRs
 print("")
 
 # losses
 edc=EnergyDecay_Loss(frequency_wise=True,
-                     synchronize_TOA=TOA_SYNC,
+                     synchronize_TOA=config['EDC_TOA_SYNC'],
                      normalize_dp=False,
                      normalize_decay_curve=False,
                      deemphasize_early_reflections=False,
@@ -121,21 +69,21 @@ mrstft=MRSTFT_Loss(sample_rate=dataset.sample_rate,
                    normalize_dp=False,
                    pad_to_same_length=False,
                    crop_to_same_length=True).to(DEVICE)
-# acm=AcousticianMetrics_Loss(sample_rate=dataset.sample_rate,
-#                             synchronize_TOA=True, 
-#                             crop_to_same_length=True,
-#                             normalize_dp=False,
-#                             frequency_wise=False,
-#                             normalize_total_energy=False,
-#                             pad_to_same_length=False,
-#                             MeanAroundMedian_pruning=False).to(DEVICE)
+acm=AcousticianMetrics_Loss(sample_rate=dataset.sample_rate,
+                            synchronize_TOA=True, 
+                            crop_to_same_length=True,
+                            normalize_dp=False,
+                            frequency_wise=False,
+                            normalize_total_energy=False,
+                            pad_to_same_length=False,
+                            MeanAroundMedian_pruning=False).to(DEVICE)
 
 loss_edr, loss_mrstft, loss_c80, loss_D, loss_rt60 = torch.tensor([0.0]), torch.tensor([0.0]), torch.tensor([0.0]), torch.tensor([0.0]), torch.tensor([0.0])
 print("")
 
 # optimizer
-if not TRAIN_MESHNET : mesh_to_shoebox.meshnet.requires_grad = False
-optimizer = optim.Adam(mesh_to_shoebox.parameters(), lr=LEARNING_RATE)
+if not config['TRAIN_MESHNET'] : mesh_to_shoebox.meshnet.requires_grad = False
+optimizer = optim.Adam(mesh_to_shoebox.parameters(), lr=config['LEARNING_RATE'])
 
 # utility
 timer = LKTimer(print_time=False)
@@ -147,7 +95,7 @@ time_load_remember = 1
 time_start_load = time.time()
 
 # Training
-for epoch in range(EPOCHS):
+for epoch in range(config['EPOCHS']):
     for x_batch, edge_index_batch, batch_indexes, label_rir_batch, label_origin_batch, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Epoch "+str(epoch+1)+ " completion"):
         iterations += 1
         time_end_load = time.time()
@@ -182,15 +130,15 @@ for epoch in range(EPOCHS):
         with timer.time("Computing RIR losses"):
             loss_edr = edc(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
             loss_mrstft = mrstft(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
-            # loss_c80, loss_D, loss_rt60, _ = acm(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
-            # loss_c80 = torch.clamp(loss_c80, max=40)
-            # loss_rt60 = torch.clamp(loss_rt60, max=1.0)
+            loss_c80, loss_D, loss_rt60, _ = acm(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+            loss_c80 = torch.clamp(loss_c80, max=40)
+            loss_rt60 = torch.clamp(loss_rt60, max=1.0)
             del _
-            total_loss = loss_edr * config["EDC_LOSS_WEIGHT"]\
-                        + loss_mrstft * config["MRSTFT_LOSS_WEIGHT"]\
-                        # + loss_c80 * 0\
-                        # + loss_D * D_LOSS_WEIGHT\
-                        # + loss_rt60 * RT60_LOSS_WEIGHT
+            total_loss = loss_edr * config['EDC_LOSS_WEIGHT']\
+                        + loss_mrstft * config['MRSTFT_LOSS_WEIGHT']\
+                        # + loss_c80 * config['C80_LOSS_WEIGHT']\
+                        # + loss_D * config['D_LOSS_WEIGHT']\
+                        # + loss_rt60 * config['RT60_LOSS_WEIGHT']
         
         # Freeing memory
         del shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch
@@ -208,7 +156,7 @@ for epoch in range(EPOCHS):
             total_loss.backward()
             optimizer.step()
 
-        if do_wandb:
+        if config['do_wandb']:
             wandb.log({"Epoch": epoch+1, "total loss": total_loss.item()})
             for key, value in {"loss_edr":loss_edr,
                                "loss_mrstft":loss_mrstft,
@@ -231,7 +179,7 @@ for epoch in range(EPOCHS):
         
         del total_loss, losses
 
-        if iterations == 500:
+        if iterations >= config['MAX_ITERATIONS']:
             break
 
         time_start_load = time.time()
@@ -241,6 +189,6 @@ torch.save(mesh_to_shoebox.state_dict(), config['SAVE_PATH'])
 
 print("Training completed")
 
-if do_wandb:
+if config['do_wandb']:
     # finish the wandb run
     wandb.finish()
