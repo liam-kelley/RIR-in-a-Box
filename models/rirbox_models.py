@@ -40,6 +40,7 @@ class ShoeboxToRIR(nn.Module):
         absorption = torch.cat((input[:, 9].unsqueeze(1).expand(-1,4),
                                 input[:, 10].unsqueeze(1),
                                 input[:, 11].unsqueeze(1)), dim=1)  # (batch_size, 6) # west, east, south, north, floor, ceiling
+        absorption = (absorption*0.81) + 0.01 # Constrain to realistic absorption values
         absorption = absorption.unsqueeze(1)  # (batch_size, n_bands=1, n_walls=6)
         # n_bands=1 for now, because the backpropagatable ISM code does not support multiple bands yet.
         
