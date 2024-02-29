@@ -11,6 +11,7 @@ from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
+from scipy.signal import stft
 
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -64,7 +65,7 @@ with torch.no_grad():
         # preprocessing for plotting
         rir_mesh2ir=abs(rir_mesh2ir[0].cpu().numpy())
         origin_mesh2ir=origin_mesh2ir
-        rir_rirbox = abs(rir_rirbox[0].cpu().numpy())
+        rir_rirbox = rir_rirbox[0].cpu().numpy()
         origin_rirbox = origin_rirbox.cpu().numpy()
         label_rir = abs(label_rir_batch[0].cpu().numpy())
         label_origin = label_origin_batch.cpu().numpy()
@@ -102,5 +103,29 @@ with torch.no_grad():
         axs[2].grid(ls="--", alpha=0.5)
         axs[2].legend()
 
+        plt.tight_layout()
+        plt.show()
+
+
+        # # plot rirs with subplots
+        fig, axs = plt.subplots(3, 1, figsize=(9, 9))
+
+        f, t, Zxx = stft(abs(np.array(rir_mesh2ir, dtype=float)), 16000, nperseg=256)
+        axs[0].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
+        axs[0].set_title("MESH2IR STFT Magnitude")
+        axs[0].set_ylabel('Frequency [Hz]')
+        axs[0].set_xlabel('Time [sec]')
+
+        f, t, Zxx = stft(abs(np.array(rir_rirbox, dtype=float)), 16000, nperseg=256)
+        axs[1].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
+        axs[1].set_title("RIRBOX STFT Magnitude")
+        axs[1].set_ylabel('Frequency [Hz]')
+        axs[1].set_xlabel('Time [sec]')
+
+        f, t, Zxx = stft(abs(np.array(label_rir, dtype=float)), 16000, nperseg=256)
+        axs[2].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
+        axs[2].set_title("GT STFT Magnitude")
+        axs[2].set_ylabel('Frequency [Hz]')
+        axs[2].set_xlabel('Time [sec]')
         plt.tight_layout()
         plt.show()
