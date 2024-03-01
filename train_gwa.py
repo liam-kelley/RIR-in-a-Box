@@ -47,7 +47,7 @@ if config['do_wandb']:
 ############################################ Inits ############################################
 
 # data
-dataset=GWA_3DFRONT_Dataset()
+dataset=GWA_3DFRONT_Dataset(rir_std_normalization=False)
 dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=True,
                         num_workers=DATALOADER_NUM_WORKERS, pin_memory=False,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
@@ -58,11 +58,7 @@ mesh_net = MESH_NET()
 if config['PRETRAINED_MESHNET']:
     mesh_net = load_mesh_net(mesh_net, "./models/MESH2IR/mesh_net_epoch_175.pth")
 mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=config['RIRBOX_MODEL_ARCHITECTURE']).to(DEVICE)
-shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=config['ISM_MAX_ORDER'], rir_length=3968).to(DEVICE)#.to('cpu') # This doesn't train, it just computes the RIRs
-
-# net_G = STAGE1_G()
-# net_G = load_GAN(net_G, "./models/MESH2IR/netG_epoch_175.pth").eval().to(DEVICE)
-# mesh2ir = MESH2IR_FULL(mesh_net, net_G).eval().to(DEVICE)
+shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=config['ISM_MAX_ORDER'], rir_length=3968, start_from_ir_onset=True).to(DEVICE)
 print("")
 
 # losses
