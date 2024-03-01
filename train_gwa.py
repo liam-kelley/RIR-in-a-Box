@@ -1,12 +1,13 @@
 import wandb
 import torch
+import torch.optim as optim
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
 from torch.utils.data import DataLoader
-from models.mesh2ir_models import MESH_NET
-from models.rirbox_models import MeshToShoebox_Model_2, ShoeboxToRIR
-from models.utility import load_mesh_net
+from models.mesh2ir_models import MESH_NET, STAGE1_G, MESH2IR_FULL
+from models.rirbox_models import MeshToShoebox, ShoeboxToRIR
+from models.utility import load_mesh_net, load_GAN
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
-import torch.optim as optim
+from training.utility import filter_rir_like_rirbox
 from tools.pyLiam.LKTimer import LKTimer
 from tools.pyLiam.LKMemCheck import LKMemCheck
 from tqdm import tqdm
@@ -56,9 +57,12 @@ print("")
 mesh_net = MESH_NET()
 if config['PRETRAINED_MESHNET']:
     mesh_net = load_mesh_net(mesh_net, "./models/MESH2IR/mesh_net_epoch_175.pth")
-if config['RIRBOX_MODEL_ARCHITECTURE'] == 2:
-    mesh_to_shoebox = MeshToShoebox_Model_2(meshnet=mesh_net).to(DEVICE)
+mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=config['RIRBOX_MODEL_ARCHITECTURE']).to(DEVICE)
 shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=config['ISM_MAX_ORDER'], rir_length=3968).to(DEVICE)#.to('cpu') # This doesn't train, it just computes the RIRs
+
+# net_G = STAGE1_G()
+# net_G = load_GAN(net_G, "./models/MESH2IR/netG_epoch_175.pth").eval().to(DEVICE)
+# mesh2ir = MESH2IR_FULL(mesh_net, net_G).eval().to(DEVICE)
 print("")
 
 # losses
@@ -133,6 +137,9 @@ for epoch in range(config['EPOCHS']):
         # Moving data to device
         label_rir_batch = label_rir_batch.to(DEVICE)
         label_origin_batch = label_origin_batch.to(DEVICE)
+
+        # filter label rir for comparability to rirbox in the losses.
+        label_rir_batch = filter_rir_like_rirbox(label_rir_batch)
 
         with timer.time("Computing RIR losses"):
             loss_edr = edc(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
