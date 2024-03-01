@@ -78,9 +78,17 @@ class GWA_3DFRONT_Dataset(Dataset):
         
         # Resample to 16kHz
         label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=16000)
-        # Preprocess RIR
+
+        # crop or pad all rirs to same length
+        crop_length = 3968
+        length = rir.size
+        if(length<crop_length):
+            zeros = np.zeros(crop_length-length)
+            rir = np.concatenate([rir,zeros])
+        else: rir = rir[0:crop_length]
+
+        # Preprocess RIR (standardization by std)
         if rir_std_normalization : label_rir = mesh2ir_rir_preprocessing(label_rir)
-        else: label_rir = rirbox_rir_preprocessing(label_rir)
         label_rir = np.array([label_rir]).astype('float32')
 
         # find origin of RIR
