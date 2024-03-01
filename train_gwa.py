@@ -14,6 +14,7 @@ import argparse
 from json import load
 import time
 import gc
+import copy
 
 ############################################ Config ############################################
 
@@ -35,6 +36,12 @@ print("")
 if config['do_wandb']:
     wandb.init(project="RIRBox3",config=config)
     print("")
+
+# og_config = copy.deepcopy(config)
+# config['EDC_LOSS_WEIGHT'] = 0.0
+# config['C80_LOSS_WEIGHT'] = 0.0
+# config['D_LOSS_WEIGHT'] = 0.0
+# config['RT60_LOSS_WEIGHT'] = 0.0
 
 ############################################ Inits ############################################
 
@@ -136,9 +143,9 @@ for epoch in range(config['EPOCHS']):
             del _
             total_loss = loss_edr * config['EDC_LOSS_WEIGHT']\
                         + loss_mrstft * config['MRSTFT_LOSS_WEIGHT']\
-                        # + loss_c80 * config['C80_LOSS_WEIGHT']\
-                        # + loss_D * config['D_LOSS_WEIGHT']\
-                        # + loss_rt60 * config['RT60_LOSS_WEIGHT']
+                        + loss_c80 * config['C80_LOSS_WEIGHT']\
+                        + loss_D * config['D_LOSS_WEIGHT']\
+                        + loss_rt60 * config['RT60_LOSS_WEIGHT']
         
         # Freeing memory
         del shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch
@@ -178,6 +185,13 @@ for epoch in range(config['EPOCHS']):
             time_load = 0
         
         del total_loss, losses
+
+        # if iterations == config['MAX_ITERATIONS'] // 2:
+        #     config['LEARNING_RATE'] = config['LEARNING_RATE'] / 2
+        #     config['EDC_LOSS_WEIGHT'] = og_config['EDC_LOSS_WEIGHT']
+        #     config['C80_LOSS_WEIGHT'] = og_config['C80_LOSS_WEIGHT']
+        #     config['D_LOSS_WEIGHT'] = og_config['D_LOSS_WEIGHT']
+        #     config['RT60_LOSS_WEIGHT'] = og_config['RT60_LOSS_WEIGHT']
 
         if iterations >= config['MAX_ITERATIONS']:
             break

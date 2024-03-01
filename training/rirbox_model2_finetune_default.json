@@ -10,7 +10,7 @@
 
     "LEARNING_RATE": 0.001,
     "EPOCHS": 1,
-    "MAX_ITERATIONS": 250,
+    "MAX_ITERATIONS": 500,
     "BATCH_SIZE": 8,
     "DEVICE": "cuda",
 

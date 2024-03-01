@@ -16,10 +16,10 @@
 
     "do_wandb": true,
 
-    "EDC_TOA_SYNC": true,
+    "EDC_TOA_SYNC": false,
     "EDC_LOSS_WEIGHT": 0.001,
-    "MRSTFT_LOSS_WEIGHT": 1.0,
-    "D_LOSS_WEIGHT": 1000,
+    "MRSTFT_LOSS_WEIGHT": 0.0,
+    "D_LOSS_WEIGHT": 0.0,
     "C80_LOSS_WEIGHT": 0.0,
     "RT60_LOSS_WEIGHT":0.0
 }
