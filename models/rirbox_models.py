@@ -3,6 +3,7 @@ from torch.linalg import norm
 import torch
 import torch.nn.functional as F
 from typing import Optional
+import math
 
 # from torch_geometric.nn import GCNConv, TopKPooling
 # from torch_geometric.nn import global_max_pool as gmp
@@ -10,7 +11,7 @@ from typing import Optional
 
 from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 
-from models.mesh2ir_models import MESH_NET, data_for_meshnet
+from models.mesh2ir_models import MESH_NET, data_for_meshnet, STAGE1_G
 
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=16000, max_order=15, rir_length=3968, start_from_ir_onset=False):
@@ -154,7 +155,7 @@ class RIRBox_FULL(nn.Module):
     '''
     combines both parts of the RIRBox model for simple inference.
     '''
-    def __init__(self, mesh_to_sbox, sbox_to_rir):
+    def __init__(self, mesh_to_sbox : MeshToShoebox, sbox_to_rir : ShoeboxToRIR):
         super(RIRBox_FULL, self).__init__()
         self.mesh_to_sbox = mesh_to_sbox
         self.sbox_to_rir = sbox_to_rir
@@ -163,3 +164,33 @@ class RIRBox_FULL(nn.Module):
         latent_shoebox_batch = self.mesh_to_sbox(x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos)
         shoebox_rir_batch, shoebox_origin_batch = self.sbox_to_rir(latent_shoebox_batch)
         return shoebox_rir_batch, shoebox_origin_batch
+
+class RIRBox_MESH2IR_Hybrid(nn.Module):
+    '''
+    combines both RIRBOX and MESH2IR at the mixing point, for potentially the highest quality RIRs. INFERENCE ONLY.
+    '''
+    def __init__(self, mesh_to_sbox : MeshToShoebox, sbox_to_rir : ShoeboxToRIR):
+        super(RIRBox_FULL, self).__init__()
+        self.mesh_to_sbox = mesh_to_sbox
+        self.sbox_to_rir = sbox_to_rir
+
+    def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos , mesh2ir_estimated_rir_batch, mesh2ir_estimated_origin_batch):
+        latent_shoebox_batch = self.mesh_to_sbox(x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos)
+        shoebox_rir_batch, shoebox_origin_batch = self.sbox_to_rir(latent_shoebox_batch)
+
+        # crop mesh2ir to 3968 (get rid of that weird std)
+
+        # This sucks to do batch wise, so i guess... Separate the batch, and iterate the procedure with a for loop.
+            # synchronize both origins/onsets to window length // 2 (rirbox should already be like that if you used the start_from_ir_onset option on ShoeboxToRIR.
+        
+            # get mixing point from rirbox latent shoebox volume and that formula
+        
+            # combine mesh2ir rir from mixing point onwards somehow
+        
+        # Recombine and pad your newly fabricated rirs. Enjoy!
+
+        return shoebox_rir_batch, shoebox_origin_batch
+    
+    @staticmethod
+    def get_batch_mixing_point(room_volume_batch : torch.Tensor):
+        return torch.floor(0.002 * torch.sqrt(room_volume_batch) * 16000).int
