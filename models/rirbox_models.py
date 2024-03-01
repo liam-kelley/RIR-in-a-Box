@@ -32,7 +32,7 @@ class ShoeboxToRIR(nn.Module):
 
         Returns:
             shoebox_rir_batch (list of torch.Tensor): batch of rir. shape (batch_size, rir_length*)
-            shoebox_toa_batch (tensor) : shape B
+            shoebox_ir_onset_batch (tensor) : shape B
         '''
         # Get shoebox parameters from RIRBox latent space.
         room_dimensions = input[:, 0:3]
@@ -51,16 +51,16 @@ class ShoeboxToRIR(nn.Module):
                                                     window_length=self.window_length,
                                                     start_from_ir_onset=self.start_from_ir_onset)
 
-        # Get origins (Time of first arrival)
+        # Get shoebox ir onset
         if self.start_from_ir_onset:
-            shoebox_toa_batch = torch.tensor([self.window_length//2], device=mic_position.device).repeat(mic_position.shape[0])
-            print("shoebox_toa_batch :", shoebox_toa_batch.shape)
+            shoebox_ir_onset_batch = torch.tensor([self.window_length//2], device=mic_position.device).repeat(mic_position.shape[0])
+            print("shoebox_ir_onset_batch :", shoebox_ir_onset_batch.shape)
             breakpoint()
         else :
             distances = norm(mic_position-source_position, dim=1)
-            shoebox_toa_batch = self.window_length//2 + (self.sample_rate*distances/self.sound_speed)
+            shoebox_ir_onset_batch = self.window_length//2 + (self.sample_rate*distances/self.sound_speed)
 
-        return shoebox_rir_batch_2, shoebox_toa_batch
+        return shoebox_rir_batch_2, shoebox_ir_onset_batch
     
     @staticmethod
     def get_a_good_window_length(fs=16000, center_frequency=500):
