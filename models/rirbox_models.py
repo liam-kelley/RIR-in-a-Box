@@ -145,7 +145,7 @@ class MeshToShoebox(nn.Module):
 
 class RIRBox_FULL(nn.Module):
     '''
-    combines both parts of the RIRBox model for simple evaluation or training.
+    combines both parts of the RIRBox model for simple inference.
     '''
     def __init__(self, mesh_to_sbox, sbox_to_rir):
         super(RIRBox_FULL, self).__init__()
