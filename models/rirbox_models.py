@@ -13,13 +13,14 @@ from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 from models.mesh2ir_models import MESH_NET, data_for_meshnet
 
 class ShoeboxToRIR(nn.Module):
-    def __init__(self,sample_rate=16000, max_order=15, rir_length=3968):
+    def __init__(self,sample_rate=16000, max_order=15, rir_length=3968, start_from_ir_onset=False):
         super().__init__()
         self.sample_rate=sample_rate
         self.sound_speed=343
         self.max_order=max_order
         self.rir_length=rir_length
         self.window_length=81
+        self.start_from_ir_onset = start_from_ir_onset
         print("ShoeboxToRIR initialized.")
 
     def forward(self, input : torch.Tensor):
@@ -40,18 +41,24 @@ class ShoeboxToRIR(nn.Module):
         absorption = torch.cat((input[:, 9].unsqueeze(1).expand(-1,4),
                                 input[:, 10].unsqueeze(1),
                                 input[:, 11].unsqueeze(1)), dim=1)  # (batch_size, 6) # west, east, south, north, floor, ceiling
-        absorption = (absorption*0.81) + 0.01 # Constrain to realistic absorption values
+        absorption = (absorption*0.84) + 0.01 # Constrain to realistic absorption values
         absorption = absorption.unsqueeze(1)  # (batch_size, n_bands=1, n_walls=6)
         # n_bands=1 for now, because the backpropagatable ISM code does not support multiple bands yet.
         
         # Batch simulate rir
         shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions, mic_position.unsqueeze(1), source_position, absorption,
                                                     self.max_order, self.sample_rate, output_length=self.rir_length,
-                                                    window_length=self.window_length)
+                                                    window_length=self.window_length,
+                                                    start_from_ir_onset=self.start_from_ir_onset)
 
         # Get origins (Time of first arrival)
-        distances = norm(mic_position-source_position, dim=1)
-        shoebox_toa_batch = self.window_length//2 + (self.sample_rate*distances/self.sound_speed)
+        if self.start_from_ir_onset:
+            shoebox_toa_batch = torch.tensor([self.window_length//2], device=mic_position.device).repeat(mic_position.shape[0])
+            print("shoebox_toa_batch :", shoebox_toa_batch.shape)
+            breakpoint()
+        else :
+            distances = norm(mic_position-source_position, dim=1)
+            shoebox_toa_batch = self.window_length//2 + (self.sample_rate*distances/self.sound_speed)
 
         return shoebox_rir_batch_2, shoebox_toa_batch
     
