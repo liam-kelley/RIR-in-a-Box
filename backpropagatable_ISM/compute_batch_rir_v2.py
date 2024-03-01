@@ -171,7 +171,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
                            batch_absorption : torch.Tensor,
                            max_order : int, fs : float = 16000.0, sound_speed: float = 343.0,
                            output_length: Optional[int] = None, window_length: int = 81,
-                        #    lp_cutoff_frequency: Optional[int] = None,
+                           start_from_IR_onset : bool = False
 ) -> Tensor:
     """
     Simulate room impulse responses (RIRs) using image source method (ISM).
@@ -202,6 +202,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     batch_dist = torch.linalg.norm(vec, dim=-1)  # (batch_size, n_image_source, n_mics=1)
     del vec
     batch_delay = batch_dist * fs / sound_speed  # (fractionnal delay) (batch_size, n_image_source, n_mics=1)
+    if start_from_IR_onset:
+        batch_IR_onset = fs * torch.linalg.norm(batch_mic_position-batch_source_position, dim=1) / sound_speed
 
     #attenuate image sources
     epsilon = 1e-10
@@ -215,13 +217,21 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
         rir_length = 6000 # for memory reasons, with rir max order 15, batch_size 16 and sample rate 16000 I can't go above 6000 (0.393 seconds)
 
     #### Prepare Fractional delays
-    n = torch.arange(rir_length, device=batch_delay.device) - window_length//2 # (rir_length)
-    n = n.unsqueeze(0).unsqueeze(2).unsqueeze(3).expand(batch_delay.shape[0], -1, batch_delay.shape[1], batch_delay.shape[2]) # (batch_size, rir_length, n_image_source, n_mics=1)
-    n = n-batch_delay.unsqueeze(1).expand(-1,rir_length,-1,-1) # (batch_size, rir_length, n_image_source, n_mics=1)
+    n = torch.arange(rir_length, device=batch_delay.device) # (rir_length)
+    # leave space for the convolution window.
+    n = n - window_length//2
+    n = n.unsqueeze(0).expand(batch_delay.shape[0], -1) # (batch_size, rir_length)
+    if start_from_IR_onset:
+        # translate the IR onset to be at t = window_length//2 + 1
+        n = n + batch_IR_onset.unsqueeze(1).expand(-1,rir_length) 
+    n = n.unsqueeze(2).unsqueeze(3).expand(-1, -1, batch_delay.shape[1], batch_delay.shape[2]) # (batch_size, rir_length, n_image_source, n_mics=1)
+    # translate each n by the amount of delay corresponding to each image source so when convolved with the filter they'll be in the correct place in the rir before ein-summation with the absorption
+    n = n - batch_delay.unsqueeze(1).expand(-1,rir_length,-1,-1) # (batch_size, rir_length, n_image_source, n_mics=1)
     del batch_delay
 
-    # create hann window tensor
-    # For multiband processing, we need to create a different batch_indiv_IRS for each band, and then sum them up.
+    #### Sub-sample backpropagatable convolution for fractional delays.
+    # TODO For multiband processing, we will eventually need to create a different batch_indiv_IRS for each band using a different filter, and then sum them up.
+    #      There should be a more elegant way of doing this that won't cost 7x the VRAM.
     batch_indiv_IRS=torch.where(torch.abs(n) <= window_length//2,
                                 BP_filter(n, fs, 8000, 80, window_length),
                                 # LP_filter(n, fs, window_length, lp_cutoff_frequency),
@@ -233,6 +243,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     batch_img_src_att = batch_img_src_att.squeeze(dim=(1,3)) # (batch_size, n_bands, n_image_source, n_mics=1) -> (batch_size, n_image_source)
     
     # Sum the img sources
+    # TODO implement opt_einsum.
     batch_rir = torch.einsum('bri,bi->br', batch_indiv_IRS, batch_img_src_att) # (batch_size, rir_length)
 
     del batch_indiv_IRS, batch_img_src_att
