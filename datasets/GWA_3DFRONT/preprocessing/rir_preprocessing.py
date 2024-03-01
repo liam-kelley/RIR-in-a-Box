@@ -22,3 +22,19 @@ def mesh2ir_rir_preprocessing(rir, crop_length=3968): #int(16384)
     rir = np.concatenate([rir,std_array])
 
     return rir
+
+def rirbox_rir_preprocessing(rir, crop_length=3968): #int(16384)
+    '''
+    We cannot use the std normalization that MESH2IR did on the rirs of the GWA dataset for RIRBOX!
+    Because our physics normalization WANTs to have the accurate Energy peaks!!
+    '''
+    length = rir.size
+
+    # crop or pad all rirs to same length
+    if(length<crop_length):
+        zeros = np.zeros(crop_length-length)
+        rir = np.concatenate([rir,zeros])
+    else:
+        rir = rir[0:crop_length]
+
+    return rir
