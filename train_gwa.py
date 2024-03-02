@@ -29,7 +29,7 @@ DEVICE = config['DEVICE']
 if not torch.cuda.is_available(): DEVICE = 'cpu'
 DATALOADER_NUM_WORKERS = 10
 config["DATALOADER_NUM_WORKERS"] = DATALOADER_NUM_WORKERS
-if config["SAVE_PATH"] == "": config["SAVE_PATH"] = "./models/RIRBOX" + args.config[10:]
+if config["SAVE_PATH"] == "": config["SAVE_PATH"] = "./models/RIRBOX" + args.config[10:-5] + ".pth"
 
 print("PARAMETERS:")
 for key, value in config.items():
@@ -132,12 +132,12 @@ for epoch in range(config['EPOCHS']):
         # Freeing memory
         del latent_shoebox_batch
 
+        # filter label rir for comparability to rirbox in the losses.
+        label_rir_batch = filter_rir_like_rirbox(label_rir_batch)
+
         # Moving data to device
         label_rir_batch = label_rir_batch.to(DEVICE)
         label_origin_batch = label_origin_batch.to(DEVICE)
-
-        # filter label rir for comparability to rirbox in the losses.
-        label_rir_batch = filter_rir_like_rirbox(label_rir_batch)
 
         with timer.time("Computing RIR losses"):
             loss_edr = edc(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
@@ -205,8 +205,8 @@ for epoch in range(config['EPOCHS']):
 
 # Save the model to ./models/RIRBOX
 # check if save directory exists
-if not os.path.exists(config['SAVE_PATH']):
-    os.makedirs(config['SAVE_PATH'])
+if not os.path.exists(os.path.dirname(config['SAVE_PATH'])):
+    os.makedirs(os.path.dirname(config['SAVE_PATH']))
 
 torch.save(mesh_to_shoebox.state_dict(), config['SAVE_PATH'])
 

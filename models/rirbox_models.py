@@ -88,7 +88,7 @@ class MeshToShoebox(nn.Module):
     '''
     def __init__(self, meshnet : MESH_NET = None, model : int = 2, MLP_Depth : int = 3):
         super().__init__()
-        assert model in [2,3], "Model 2 or 3 only"
+        assert model in [2,3, 4], "Model 2 or 3 or 4 only"
         # Model type
         self.model=model
         self.MLP_depth=MLP_Depth
@@ -100,14 +100,17 @@ class MeshToShoebox(nn.Module):
         # Linear layers
         if self.model == 2 :
             self.lin3 = torch.nn.Linear(14, 48)
-            self.lin4 = torch.nn.Linear(48, 48)
+            if self.MLP_depth >= 3: self.lin4 = torch.nn.Linear(48, 48)
+            if self.MLP_depth >= 4: self.lin6 = torch.nn.Linear(48, 48)
             self.lin5 = torch.nn.Linear(48, 12)
         if self.model == 3 :
             self.lin3 = torch.nn.Linear(14, 32)
-            self.lin4 = torch.nn.Linear(32, 32)
+            if self.MLP_depth >= 3:self.lin4 = torch.nn.Linear(32, 32)
+            if self.MLP_depth >= 4: self.lin9 = torch.nn.Linear(32, 32)
             self.lin5 = torch.nn.Linear(32, 6)
             self.lin6 = torch.nn.Linear(12, 32)
-            self.lin7 = torch.nn.Linear(32, 32)
+            if self.MLP_depth >= 3:self.lin7 = torch.nn.Linear(32, 32)
+            if self.MLP_depth >= 4: self.lin10 = torch.nn.Linear(32, 32)
             self.lin8 = torch.nn.Linear(32, 6)
 
         # Activation
@@ -122,7 +125,8 @@ class MeshToShoebox(nn.Module):
 
         if self.model == 2 :
             x = F.relu(self.lin3(x))
-            if self.MLP_depth: x = F.relu(self.lin4(x))
+            if self.MLP_depth >= 3: x = F.relu(self.lin4(x))
+            if self.MLP_depth >= 4: x = F.relu(self.lin6(x))
             x = self.lin5(x)
 
             softplus_output = self.softplus(x[:,0:3])
@@ -133,16 +137,18 @@ class MeshToShoebox(nn.Module):
         
         if self.model == 3 :
             x = F.relu(self.lin3(x))
-            if self.MLP_depth: x = F.relu(self.lin4(x))
+            if self.MLP_depth >=3: x = F.relu(self.lin4(x))
+            if self.MLP_depth >=4: x = F.relu(self.lin9(x))
             x = self.lin5(x)
 
             room_dims = self.softplus(x[:,0:3])
             absorptions = torch.sigmoid(x[:,3:6])
 
-            x = torch.cat((room_dims, sigmoid_output, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
+            x = torch.cat((room_dims, absorptions, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
 
             x = F.relu(self.lin6(x))
-            if self.MLP_depth: x = F.relu(self.lin7(x))
+            if self.MLP_depth >= 3: x = F.relu(self.lin7(x))
+            if self.MLP_depth >= 4: x = F.relu(self.lin10(x))
             x = self.lin8(x)
 
             mic_and_src_pos = torch.sigmoid(x)
