@@ -1,6 +1,7 @@
 import torch.nn as nn
 from torch.linalg import norm
 import torch
+from torch import Tensor
 import torch.nn.functional as F
 from typing import Optional
 import math
@@ -87,7 +88,7 @@ class MeshToShoebox(nn.Module):
     -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.  
     -> LOSS: on RIR
     '''
-    def __init__(self, meshnet=None, model=2):
+    def __init__(self, meshnet : MESH_NET = None, model : int = 2):
         super().__init__()
         assert(model in [2,3], "Model 2 or 3 only")
         # Model type
@@ -114,7 +115,7 @@ class MeshToShoebox(nn.Module):
         self.softplus = torch.nn.Softplus()
         print("MeshToShoebox model ", self.model, " initialized")
 
-    def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos):
+    def forward(self, x, edge_index, batch, batch_oracle_mic_pos : Tensor, batch_oracle_src_pos : Tensor):
         data = data_for_meshnet(x, edge_index, batch) # the pretrained mesh_net we use uses a data struct for input data.
         x = self.meshnet(data)
 
@@ -157,10 +158,10 @@ class RIRBox_FULL(nn.Module):
     '''
     def __init__(self, mesh_to_sbox : MeshToShoebox, sbox_to_rir : ShoeboxToRIR):
         super(RIRBox_FULL, self).__init__()
-        self.mesh_to_sbox = mesh_to_sbox
-        self.sbox_to_rir = sbox_to_rir
+        self.mesh_to_sbox = mesh_to_sbox.eval()
+        self.sbox_to_rir = sbox_to_rir.eval()
 
-    def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos):
+    def forward(self, x, edge_index, batch, batch_oracle_mic_pos : Tensor, batch_oracle_src_pos : Tensor):
         latent_shoebox_batch = self.mesh_to_sbox(x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos)
         shoebox_rir_batch, shoebox_origin_batch = self.sbox_to_rir(latent_shoebox_batch)
         return shoebox_rir_batch, shoebox_origin_batch
@@ -171,23 +172,50 @@ class RIRBox_MESH2IR_Hybrid(nn.Module):
     '''
     def __init__(self, mesh_to_sbox : MeshToShoebox, sbox_to_rir : ShoeboxToRIR):
         super(RIRBox_FULL, self).__init__()
-        self.mesh_to_sbox = mesh_to_sbox
-        self.sbox_to_rir = sbox_to_rir
+        self.mesh_to_sbox = mesh_to_sbox.eval()
+        self.sbox_to_rir = sbox_to_rir.eval()
 
-    def forward(self, x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos , mesh2ir_estimated_rir_batch, mesh2ir_estimated_origin_batch):
+    def forward(self, x, edge_index, batch, batch_oracle_mic_pos : Tensor, batch_oracle_src_pos : Tensor,
+                                     mesh2ir_estimated_rir_batch : Tensor, mesh2ir_estimated_origin_batch : Tensor):
         latent_shoebox_batch = self.mesh_to_sbox(x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos)
         shoebox_rir_batch, shoebox_origin_batch = self.sbox_to_rir(latent_shoebox_batch)
 
         # crop mesh2ir to 3968 (get rid of that weird std)
+        mesh2ir_estimated_rir_batch = mesh2ir_estimated_rir_batch[:,0:3968]
+
+        # get mixing point from rirbox latent shoebox volume and that formula
+        batch_mixing_points = RIRBox_MESH2IR_Hybrid.get_batch_mixing_point(torch.prod(latent_shoebox_batch[:,0:3], dim=1))
 
         # This sucks to do batch wise, so i guess... Separate the batch, and iterate the procedure with a for loop.
+        window_length=81
+        shoebox_rirs = []
+        for i in range(shoebox_rir_batch.shape[0]):
+            temp_shoebox_rir = shoebox_rir_batch[i]
+            temp_mesh2ir_rir = mesh2ir_estimated_rir_batch[i]
             # synchronize both origins/onsets to window length // 2 (rirbox should already be like that if you used the start_from_ir_onset option on ShoeboxToRIR.
-        
-            # get mixing point from rirbox latent shoebox volume and that formula
-        
-            # combine mesh2ir rir from mixing point onwards somehow
+            shoebox_syncronized_origin = int(max(shoebox_origin_batch[i].item() - (window_length // 2), 0))
+            mesh2ir_syncronized_origin = int(max(mesh2ir_estimated_origin_batch[i].item() - (window_length // 2), 0))
+            temp_shoebox_rir = temp_shoebox_rir[shoebox_syncronized_origin:]
+            temp_mesh2ir_rir = temp_mesh2ir_rir[mesh2ir_syncronized_origin:]
+
+            # combine mesh2ir rir from mixing point onwards
+            until = min(len(temp_shoebox_rir), len(temp_mesh2ir_rir))
+            if until > batch_mixing_points[i]:
+                # # additive mode
+                # temp_shoebox_rir[batch_mixing_points[i]:until] = temp_shoebox_rir[batch_mixing_points[i]:until] + temp_mesh2ir_rir[batch_mixing_points[i]:until]
+                # # replace mode
+                # temp_shoebox_rir[batch_mixing_points[i]:until] = mesh2ir_estimated_rir_batch[i, batch_mixing_points[i]:until]
+                # Ramp mode
+                ramp_length = min(until-batch_mixing_points[i], 200)
+                temp_shoebox_rir[batch_mixing_points[i]:until] = temp_shoebox_rir[batch_mixing_points[i]:until] * torch.linspace(1,0,ramp_length)
+                temp_shoebox_rir[batch_mixing_points[i]:until] = temp_shoebox_rir[batch_mixing_points[i]:until] + temp_mesh2ir_rir[batch_mixing_points[i]:until] * torch.linspace(0,1,ramp_length)
+
+            # append
+            shoebox_rirs.append(temp_shoebox_rir)
         
         # Recombine and pad your newly fabricated rirs. Enjoy!
+        shoebox_rir_batch = torch.nn.utils.rnn.pad_sequence(shoebox_rirs, batch_first=True, padding_value=0.0)
+        shoebox_origin_batch = torch.tensor([window_length//2], device=shoebox_rir_batch.device).repeat(shoebox_rir_batch.shape[0])
 
         return shoebox_rir_batch, shoebox_origin_batch
     
