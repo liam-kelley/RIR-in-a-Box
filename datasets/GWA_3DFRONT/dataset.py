@@ -12,7 +12,7 @@ from torch_geometric.data import Batch
 
 from scipy.signal import find_peaks
 
-from datasets.GWA_3DFRONT.preprocessing.rir_preprocessing import mesh2ir_rir_preprocessing, rirbox_rir_preprocessing
+from datasets.GWA_3DFRONT.preprocessing.rir_preprocessing import mesh2ir_rir_preprocessing
 
 def string_to_array(s):
     '''
@@ -81,11 +81,11 @@ class GWA_3DFRONT_Dataset(Dataset):
 
         # crop or pad all rirs to same length
         crop_length = 3968
-        length = rir.size
+        length = label_rir.size
         if(length<crop_length):
             zeros = np.zeros(crop_length-length)
-            rir = np.concatenate([rir,zeros])
-        else: rir = rir[0:crop_length]
+            label_rir = np.concatenate([label_rir,zeros])
+        else: label_rir = label_rir[0:crop_length]
 
         # Preprocess RIR (standardization by std)
         if rir_std_normalization : label_rir = mesh2ir_rir_preprocessing(label_rir)

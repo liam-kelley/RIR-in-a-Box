@@ -171,7 +171,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
                            batch_absorption : torch.Tensor,
                            max_order : int, fs : float = 16000.0, sound_speed: float = 343.0,
                            output_length: Optional[int] = None, window_length: int = 81,
-                           start_from_IR_onset : bool = False
+                           start_from_ir_onset : bool = False
 ) -> Tensor:
     """
     Simulate room impulse responses (RIRs) using image source method (ISM).
@@ -202,8 +202,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     batch_dist = torch.linalg.norm(vec, dim=-1)  # (batch_size, n_image_source, n_mics=1)
     del vec
     batch_delay = batch_dist * fs / sound_speed  # (fractionnal delay) (batch_size, n_image_source, n_mics=1)
-    if start_from_IR_onset:
-        batch_IR_onset = fs * torch.linalg.norm(batch_mic_position-batch_source_position, dim=1) / sound_speed
+    if start_from_ir_onset:
+        batch_IR_onset = fs * torch.linalg.norm(batch_mic_position.squeeze(1)-batch_source_position, dim=1) / sound_speed # squeezing n_channels for now
 
     #attenuate image sources
     epsilon = 1e-10
@@ -217,11 +217,11 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
         rir_length = 6000 # for memory reasons, with rir max order 15, batch_size 16 and sample rate 16000 I can't go above 6000 (0.393 seconds)
 
     #### Prepare Fractional delays
-    n = torch.arange(rir_length, device=batch_delay.device) # (rir_length)
+    n = torch.arange(0, rir_length, device=batch_delay.device) # (rir_length)
     # leave space for the convolution window.
     n = n - window_length//2
     n = n.unsqueeze(0).expand(batch_delay.shape[0], -1) # (batch_size, rir_length)
-    if start_from_IR_onset:
+    if start_from_ir_onset:
         # translate the IR onset to be at t = window_length//2 + 1
         n = n + batch_IR_onset.unsqueeze(1).expand(-1,rir_length) 
     n = n.unsqueeze(2).unsqueeze(3).expand(-1, -1, batch_delay.shape[1], batch_delay.shape[2]) # (batch_size, rir_length, n_image_source, n_mics=1)

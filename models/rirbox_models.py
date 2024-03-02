@@ -56,8 +56,6 @@ class ShoeboxToRIR(nn.Module):
         # Get shoebox ir onset
         if self.start_from_ir_onset:
             shoebox_ir_onset_batch = torch.tensor([self.window_length//2], device=mic_position.device).repeat(mic_position.shape[0])
-            print("shoebox_ir_onset_batch :", shoebox_ir_onset_batch.shape)
-            breakpoint()
         else :
             distances = norm(mic_position-source_position, dim=1)
             shoebox_ir_onset_batch = self.window_length//2 + (self.sample_rate*distances/self.sound_speed)
@@ -88,12 +86,12 @@ class MeshToShoebox(nn.Module):
     -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.  
     -> LOSS: on RIR
     '''
-    def __init__(self, meshnet : MESH_NET = None, model : int = 2, MLP_depth : int = 3):
+    def __init__(self, meshnet : MESH_NET = None, model : int = 2, MLP_Depth : int = 3):
         super().__init__()
-        assert(model in [2,3], "Model 2 or 3 only")
+        assert model in [2,3], "Model 2 or 3 only"
         # Model type
         self.model=model
-        self.MLP_depth=MLP_depth
+        self.MLP_depth=MLP_Depth
 
         # Load (pretrained) mesh net
         if meshnet == None: self.meshnet = MESH_NET()

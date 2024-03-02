@@ -22,4 +22,5 @@ def filter_rir_like_rirbox(rir: Tensor):
     '''
     rir = rir.unsqueeze(1)
     rir = conv1d(rir, filter, padding=window_length // 2)
+    rir = rir.squeeze(1)
     return rir

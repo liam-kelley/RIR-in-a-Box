@@ -1,7 +1,8 @@
 {
-    "SAVE_PATH": "./models/RIRBOX/RIRBOX_Model2_Finetune.pth",
+    "SAVE_PATH": "",
     
     "RIRBOX_MODEL_ARCHITECTURE": 2,
+    "MLP_DEPTH": 3,
     "ISM_MAX_ORDER": 15,
 
     "PRETRAINED_MESHNET": true,
@@ -10,11 +11,11 @@
 
     "LEARNING_RATE": 0.001,
     "EPOCHS": 1,
-    "MAX_ITERATIONS": 500,
-    "BATCH_SIZE": 8,
-    "DEVICE": "cuda",
+    "MAX_ITERATIONS": 200,
+    "BATCH_SIZE": 2,
+    "DEVICE": "cpu",
 
-    "do_wandb": true,
+    "do_wandb": false,
 
     "EDC_TOA_SYNC": true,
     "EDC_LOSS_WEIGHT": 0.0,

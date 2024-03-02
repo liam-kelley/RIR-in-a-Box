@@ -59,7 +59,7 @@ print("")
 mesh_net = MESH_NET()
 if config['PRETRAINED_MESHNET']:
     mesh_net = load_mesh_net(mesh_net, "./models/MESH2IR/mesh_net_epoch_175.pth")
-mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=config['RIRBOX_MODEL_ARCHITECTURE']).to(DEVICE)
+mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=config['RIRBOX_MODEL_ARCHITECTURE'], MLP_Depth=config["MLP_DEPTH"]).to(DEVICE)
 shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=config['ISM_MAX_ORDER'], rir_length=3968, start_from_ir_onset=True).to(DEVICE)
 print("")
 
