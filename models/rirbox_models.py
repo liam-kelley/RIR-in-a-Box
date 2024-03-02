@@ -165,6 +165,7 @@ class RIRBox_FULL(nn.Module):
         super(RIRBox_FULL, self).__init__()
         self.mesh_to_sbox = mesh_to_sbox.eval()
         self.sbox_to_rir = sbox_to_rir.eval()
+        print("RIRBox_FULL initialized.")
 
     def forward(self, x, edge_index, batch, batch_oracle_mic_pos : Tensor, batch_oracle_src_pos : Tensor):
         latent_shoebox_batch = self.mesh_to_sbox(x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos)
@@ -176,9 +177,10 @@ class RIRBox_MESH2IR_Hybrid(nn.Module):
     combines both RIRBOX and MESH2IR at the mixing point, for potentially the highest quality RIRs. INFERENCE ONLY.
     '''
     def __init__(self, mesh_to_sbox : MeshToShoebox, sbox_to_rir : ShoeboxToRIR):
-        super(RIRBox_FULL, self).__init__()
+        super(RIRBox_MESH2IR_Hybrid, self).__init__()
         self.mesh_to_sbox = mesh_to_sbox.eval()
         self.sbox_to_rir = sbox_to_rir.eval()
+        print("RIRBox_MESH2IR_Hybrid initialized.")
 
     def forward(self, x, edge_index, batch, batch_oracle_mic_pos : Tensor, batch_oracle_src_pos : Tensor,
                                      mesh2ir_estimated_rir_batch : Tensor, mesh2ir_estimated_origin_batch : Tensor):
@@ -189,7 +191,8 @@ class RIRBox_MESH2IR_Hybrid(nn.Module):
         mesh2ir_estimated_rir_batch = mesh2ir_estimated_rir_batch[:,0:3968]
 
         # get mixing point from rirbox latent shoebox volume and that formula
-        batch_mixing_points = RIRBox_MESH2IR_Hybrid.get_batch_mixing_point(torch.prod(latent_shoebox_batch[:,0:3], dim=1))
+        batch_room_volume=torch.prod(latent_shoebox_batch[:,0:3], dim=1)
+        batch_mixing_points = torch.floor(0.002 * torch.sqrt(batch_room_volume) * 16000).int()
 
         # This sucks to do batch wise, so i guess... Separate the batch, and iterate the procedure with a for loop.
         window_length=81
@@ -205,15 +208,17 @@ class RIRBox_MESH2IR_Hybrid(nn.Module):
 
             # combine mesh2ir rir from mixing point onwards
             until = min(len(temp_shoebox_rir), len(temp_mesh2ir_rir))
-            if until > batch_mixing_points[i]:
+            mixing_point = batch_mixing_points[i].item()
+            if until > mixing_point:
                 # # additive mode
-                # temp_shoebox_rir[batch_mixing_points[i]:until] = temp_shoebox_rir[batch_mixing_points[i]:until] + temp_mesh2ir_rir[batch_mixing_points[i]:until]
+                # temp_shoebox_rir[mixing_point:until] = temp_shoebox_rir[mixing_point:until] + temp_mesh2ir_rir[mixing_point:until]
                 # # replace mode
-                # temp_shoebox_rir[batch_mixing_points[i]:until] = mesh2ir_estimated_rir_batch[i, batch_mixing_points[i]:until]
+                # temp_shoebox_rir[mixing_point:until] = mesh2ir_estimated_rir_batch[i, mixing_point:until]
                 # Ramp mode
-                ramp_length = min(until-batch_mixing_points[i], 200)
-                temp_shoebox_rir[batch_mixing_points[i]:until] = temp_shoebox_rir[batch_mixing_points[i]:until] * torch.linspace(1,0,ramp_length)
-                temp_shoebox_rir[batch_mixing_points[i]:until] = temp_shoebox_rir[batch_mixing_points[i]:until] + temp_mesh2ir_rir[batch_mixing_points[i]:until] * torch.linspace(0,1,ramp_length)
+                ramp_length = min(until-mixing_point, 200)
+                temp_shoebox_rir[mixing_point:mixing_point+ramp_length] = temp_shoebox_rir[mixing_point:mixing_point+ramp_length] * torch.linspace(1,0,ramp_length, device=temp_shoebox_rir.device)
+                temp_shoebox_rir[mixing_point:mixing_point+ramp_length] = temp_shoebox_rir[mixing_point:mixing_point+ramp_length] + temp_mesh2ir_rir[mixing_point:mixing_point+ramp_length] * torch.linspace(0,1,ramp_length, device=temp_shoebox_rir.device)
+                temp_shoebox_rir[mixing_point+ramp_length:until] = temp_mesh2ir_rir[mixing_point+ramp_length:until]
 
             # append
             shoebox_rirs.append(temp_shoebox_rir)

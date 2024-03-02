@@ -95,8 +95,8 @@ class BaseRIRLoss(torch.nn.Module):
 
 
 class EnergyDecay_Loss(BaseRIRLoss):
-    def __init__(self, frequency_wise=False, synchronize_TOA=True, normalize_dp=False, normalize_decay_curve=True,
-                 deemphasize_early_reflections=True, pad_to_same_length=False, crop_to_same_length=True):
+    def __init__(self, frequency_wise=False, synchronize_TOA=False, normalize_dp=False, normalize_decay_curve=False,
+                 deemphasize_early_reflections=False, pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
 
         self.mse=torch.nn.MSELoss(reduction='mean')
@@ -189,7 +189,7 @@ class EnergyDecay_Loss(BaseRIRLoss):
     
 
 class EnergyBins_Loss(BaseRIRLoss):
-    def __init__(self, sample_rate=16000, synchronize_TOA=True, normalize_dp=True, frequency_wise=False, 
+    def __init__(self, sample_rate=16000, synchronize_TOA=False, normalize_dp=False, frequency_wise=False, 
                 pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
 
@@ -271,7 +271,7 @@ class EnergyBins_Loss(BaseRIRLoss):
 
 class MRSTFT_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, device='cpu',
-                 synchronize_TOA=True, deemphasize_early_reflections=True, normalize_dp=True,
+                 synchronize_TOA=False, deemphasize_early_reflections=False, normalize_dp=False,
                 pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
 
@@ -355,7 +355,7 @@ class MRSTFT_Loss(BaseRIRLoss):
 
 class AcousticianMetrics_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, synchronize_TOA=True, crop_to_same_length=True, normalize_dp=False, frequency_wise=False,
-                 normalize_total_energy=False, pad_to_same_length=False, MeanAroundMedian_pruning=True):
+                 normalize_total_energy=False, pad_to_same_length=False, MeanAroundMedian_pruning=False):
         super().__init__()
 
         self.mse=torch.nn.MSELoss(reduction='mean')
