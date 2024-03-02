@@ -16,11 +16,12 @@ from json import load
 import time
 import gc
 import copy
+import os
 
 ############################################ Config ############################################
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default="./training/rirbox_model2_finetune_default.json", help='Path to configuration file.')
+parser.add_argument('--config', type=str, default="./training/default/rirbox_model2_finetune_default.json", help='Path to configuration file.')
 args, _ = parser.parse_known_args()
 with open(args.config, 'r') as file: config = load(file)
 
@@ -28,6 +29,7 @@ DEVICE = config['DEVICE']
 if not torch.cuda.is_available(): DEVICE = 'cpu'
 DATALOADER_NUM_WORKERS = 10
 config["DATALOADER_NUM_WORKERS"] = DATALOADER_NUM_WORKERS
+if config["SAVE_PATH"] == "": config["SAVE_PATH"] = "./models/RIRBOX" + args.config[10:]
 
 print("PARAMETERS:")
 for key, value in config.items():
@@ -202,6 +204,10 @@ for epoch in range(config['EPOCHS']):
         time_start_load = time.time()
 
 # Save the model to ./models/RIRBOX
+# check if save directory exists
+if not os.path.exists(config['SAVE_PATH']):
+    os.makedirs(config['SAVE_PATH'])
+
 torch.save(mesh_to_shoebox.state_dict(), config['SAVE_PATH'])
 
 print("Training completed")

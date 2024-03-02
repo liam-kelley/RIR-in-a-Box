@@ -88,11 +88,12 @@ class MeshToShoebox(nn.Module):
     -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.  
     -> LOSS: on RIR
     '''
-    def __init__(self, meshnet : MESH_NET = None, model : int = 2):
+    def __init__(self, meshnet : MESH_NET = None, model : int = 2, MLP_depth : int = 3):
         super().__init__()
         assert(model in [2,3], "Model 2 or 3 only")
         # Model type
         self.model=model
+        self.MLP_depth=MLP_depth
 
         # Load (pretrained) mesh net
         if meshnet == None: self.meshnet = MESH_NET()
@@ -123,7 +124,7 @@ class MeshToShoebox(nn.Module):
 
         if self.model == 2 :
             x = F.relu(self.lin3(x))
-            x = F.relu(self.lin4(x))
+            if self.MLP_depth: x = F.relu(self.lin4(x))
             x = self.lin5(x)
 
             softplus_output = self.softplus(x[:,0:3])
@@ -134,7 +135,7 @@ class MeshToShoebox(nn.Module):
         
         if self.model == 3 :
             x = F.relu(self.lin3(x))
-            x = F.relu(self.lin4(x))
+            if self.MLP_depth: x = F.relu(self.lin4(x))
             x = self.lin5(x)
 
             room_dims = self.softplus(x[:,0:3])
@@ -143,7 +144,7 @@ class MeshToShoebox(nn.Module):
             x = torch.cat((room_dims, sigmoid_output, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
 
             x = F.relu(self.lin6(x))
-            x = F.relu(self.lin7(x))
+            if self.MLP_depth: x = F.relu(self.lin7(x))
             x = self.lin8(x)
 
             mic_and_src_pos = torch.sigmoid(x)
