@@ -3,7 +3,7 @@ import torch
 import torch.optim as optim
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
 from torch.utils.data import DataLoader
-from models.mesh2ir_models import MESH_NET, STAGE1_G, MESH2IR_FULL
+from models.mesh2ir_models import MESH_NET
 from models.rirbox_models import MeshToShoebox, ShoeboxToRIR
 from models.utility import load_mesh_net, load_GAN
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
@@ -47,7 +47,7 @@ if config['do_wandb']:
 ############################################ Inits ############################################
 
 # data
-dataset=GWA_3DFRONT_Dataset(rir_std_normalization=False)
+dataset=GWA_3DFRONT_Dataset(csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront_train.csv", rir_std_normalization=False)
 dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=True,
                         num_workers=DATALOADER_NUM_WORKERS, pin_memory=False,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
