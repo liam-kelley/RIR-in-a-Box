@@ -162,7 +162,7 @@ class RIRBox_FULL(nn.Module):
     combines both parts of the RIRBox model for simple inference.
     '''
     def __init__(self, mesh_to_sbox : MeshToShoebox, sbox_to_rir : ShoeboxToRIR):
-        super(RIRBox_FULL, self).__init__()
+        super().__init__()
         self.mesh_to_sbox = mesh_to_sbox.eval()
         self.sbox_to_rir = sbox_to_rir.eval()
         print("RIRBox_FULL initialized.")
@@ -177,7 +177,7 @@ class RIRBox_MESH2IR_Hybrid(nn.Module):
     combines both RIRBOX and MESH2IR at the mixing point, for potentially the highest quality RIRs. INFERENCE ONLY.
     '''
     def __init__(self, mesh_to_sbox : MeshToShoebox, sbox_to_rir : ShoeboxToRIR):
-        super(RIRBox_MESH2IR_Hybrid, self).__init__()
+        super().__init__()
         self.mesh_to_sbox = mesh_to_sbox.eval()
         self.sbox_to_rir = sbox_to_rir.eval()
         print("RIRBox_MESH2IR_Hybrid initialized.")

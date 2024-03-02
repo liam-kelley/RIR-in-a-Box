@@ -177,7 +177,7 @@ class MESH2IR_FULL(nn.Module):
     combines both parts of the MESH2IR model for simple evaluation or training.
     '''
     def __init__(self, mesh_net, net_G):
-        super(MESH2IR_FULL, self).__init__()
+        super().__init__()
         self.mesh_net = mesh_net
         self.net_G = net_G
 
