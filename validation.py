@@ -11,6 +11,7 @@ from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
+from matplotlib.lines import Line2D
 
 def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=["models/RIRBOX/ablation2/rirbox_model3_MRSTFT_MLPDEPTH4.pth", 3, 4],
                                                  validation_iterations=10):
@@ -203,46 +204,74 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation_res
     fig, axs = plt.subplots(1,5, figsize=(14, 5))
     fig.suptitle(f'Metric accuracy validation. MESH2IR vs {results_csv.split("/")[-1].split(".")[0]}')
 
-    model_names = ["Baseline", "RIRBOX", "Hybrid"]
+    # Prepare the data for the box plot
+    model_names = ["Baseline", "RIRBOX"]#, "Hybrid"]
     colors = ['C0', 'C1', 'C2']
 
+    mean_marker = Line2D([], [], color='w', marker='^', markerfacecolor='green', markersize=10, label='Mean')
+
     # EDR
-    axs[0].bar(model_names, [df_mean["mesh2ir_edr"], df_mean["rirbox_edr"], df_mean["hybrid_edr"]],
-                yerr=[df_std["mesh2ir_edr"], df_std["rirbox_edr"], df_std["hybrid_edr"]],
-                color=colors, capsize=20)
+    # axs[0].bar(model_names, [df_mean["mesh2ir_edr"], df_mean["rirbox_edr"], df_mean["hybrid_edr"]],
+    #             yerr=[df_std["mesh2ir_edr"], df_std["rirbox_edr"], df_std["hybrid_edr"]],
+    #             color=colors, capsize=20)
+    # axs[0].boxplot([df["mesh2ir_edr"], df["rirbox_edr"], df["hybrid_edr"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+    axs[0].boxplot([df["mesh2ir_edr"], df["rirbox_edr"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[0].set_title('EDR')
-    axs[0].set_ylabel('Mean Error')
+    axs[0].set_ylabel('EDR Error')
+    # Add green triangle to the legend that says it represents mean
+    # Create a custom legend entry for the mean marker
+    axs[0].legend(handles=[mean_marker])
 
     # MRSTFT
-    axs[1].bar(model_names, [df_mean["mesh2ir_mrstft"], df_mean["rirbox_mrstft"], df_mean["hybrid_mrstft"]],
-                yerr=[df_std["mesh2ir_mrstft"], df_std["rirbox_mrstft"], df_std["hybrid_mrstft"]],
-                color=colors, capsize=20)
+    # axs[1].bar(model_names, [df_mean["mesh2ir_mrstft"], df_mean["rirbox_mrstft"], df_mean["hybrid_mrstft"]],
+    #             yerr=[df_std["mesh2ir_mrstft"], df_std["rirbox_mrstft"], df_std["hybrid_mrstft"]],
+    #             color=colors, capsize=20)
+    # axs[1].set_title('MRSTFT')
+    # axs[1].set_ylabel('Mean Error')
+    # axs[1].boxplot([df["mesh2ir_mrstft"], df["rirbox_mrstft"], df["hybrid_mrstft"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+    axs[1].boxplot([df["mesh2ir_mrstft"], df["rirbox_mrstft"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[1].set_title('MRSTFT')
-    axs[1].set_ylabel('Mean Error')
+    axs[1].set_ylabel('MRSTFT Error')
+    axs[1].legend(handles=[mean_marker])
 
     # C80
-    axs[2].bar(model_names, [df_mean["mesh2ir_c80"], df_mean["rirbox_c80"], df_mean["hybrid_c80"]],
-                yerr=[df_std["mesh2ir_c80"], df_std["rirbox_c80"], df_std["hybrid_c80"]],
-                color=colors, capsize=20)
+    # axs[2].bar(model_names, [df_mean["mesh2ir_c80"], df_mean["rirbox_c80"], df_mean["hybrid_c80"]],
+    #             yerr=[df_std["mesh2ir_c80"], df_std["rirbox_c80"], df_std["hybrid_c80"]],
+    #             color=colors, capsize=20)
+    # axs[2].set_title('C80')
+    # axs[2].set_ylabel('Mean Error')
+    # axs[2].boxplot([df["mesh2ir_c80"], df["rirbox_c80"], df["hybrid_c80"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+    axs[2].boxplot([df["mesh2ir_c80"], df["rirbox_c80"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[2].set_title('C80')
-    axs[2].set_ylabel('Mean Error')
+    axs[2].set_ylabel('C80 Error')
+    axs[2].legend(handles=[mean_marker])
 
     # # delete axs 2
     # fig.delaxes(axs[2])
 
     # D
-    axs[3].bar(model_names, [df_mean["mesh2ir_D"], df_mean["rirbox_D"], df_mean["hybrid_D"]],
-                yerr=[df_std["mesh2ir_D"], df_std["rirbox_D"], df_std["hybrid_D"]],
-                color=colors, capsize=20)
+    # axs[3].bar(model_names, [df_mean["mesh2ir_D"], df_mean["rirbox_D"], df_mean["hybrid_D"]],
+    #             yerr=[df_std["mesh2ir_D"], df_std["rirbox_D"], df_std["hybrid_D"]],
+    #             color=colors, capsize=20)
+    # axs[3].set_title('D')
+    # axs[3].set_ylabel('Mean Error')
+    # axs[3].boxplot([df["mesh2ir_D"], df["rirbox_D"], df["hybrid_D"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+    axs[3].boxplot([df["mesh2ir_D"], df["rirbox_D"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[3].set_title('D')
-    axs[3].set_ylabel('Mean Error')
+    axs[3].set_ylabel('D Error')
+    axs[3].legend(handles=[mean_marker])
 
     # RT60
-    axs[4].bar(model_names, [df_mean["mesh2ir_rt60"], df_mean["rirbox_rt60"], df_mean["hybrid_rt60"]],
-                yerr=[df_std["mesh2ir_rt60"], df_std["rirbox_rt60"], df_std["hybrid_rt60"]],
-                color=colors, capsize=20)
+    # axs[4].bar(model_names, [df_mean["mesh2ir_rt60"], df_mean["rirbox_rt60"], df_mean["hybrid_rt60"]],
+    #             yerr=[df_std["mesh2ir_rt60"], df_std["rirbox_rt60"], df_std["hybrid_rt60"]],
+    #             color=colors, capsize=20)
+    # axs[4].set_title('RT60')
+    # axs[4].set_ylabel('Mean Error')
+    # axs[4].boxplot([df["mesh2ir_rt60"], df["rirbox_rt60"], df["hybrid_rt60"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+    axs[4].boxplot([df["mesh2ir_rt60"], df["rirbox_rt60"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[4].set_title('RT60')
-    axs[4].set_ylabel('Mean Error')
+    axs[4].set_ylabel('RT60 Error')
+    axs[4].legend(handles=[mean_marker])
 
     for ax in axs:
         ax.grid(ls="--", alpha=0.5, axis='y')
@@ -269,12 +298,12 @@ def main():
         # validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=model_config, validation_iterations=2815)
     
     results_csvs = [
-        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH2.csv",
-        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH2.csv",
-        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH3.csv",
-        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH3.csv",
         "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4.csv",
         "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4.csv",
+        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH3.csv",
+        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH3.csv",
+        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH2.csv",
+        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH2.csv",
     ]
 
     for results_csv in results_csvs:
