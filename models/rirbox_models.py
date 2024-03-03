@@ -15,7 +15,7 @@ from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 from models.mesh2ir_models import MESH_NET, data_for_meshnet
 
 class ShoeboxToRIR(nn.Module):
-    def __init__(self,sample_rate=16000, max_order=15, rir_length=3968, start_from_ir_onset=False):
+    def __init__(self,sample_rate : int = 16000, max_order : int = 15, rir_length : int = 3968, start_from_ir_onset : bool = False):
         '''
         start_from_ir_onset will place the IR onset at t_samples = 41.
         Computationally, this avoids keeping a bunch of zeroes in memory, and having more space for ISM echoes to roam free.
@@ -43,16 +43,7 @@ class ShoeboxToRIR(nn.Module):
             shoebox_rir_batch (list of torch.Tensor): batch of rir. shape (batch_size, rir_length)
             shoebox_ir_onset_batch (tensor) : shape B
         '''
-        # Get shoebox parameters from RIRBox latent space.
-        room_dimensions = input[:, 0:3]
-        mic_position = input[:, 3:6]*room_dimensions
-        source_position = input[:, 6:9]*room_dimensions
-        absorption = torch.cat((input[:, 9].unsqueeze(1).expand(-1,4),
-                                input[:, 10].unsqueeze(1),
-                                input[:, 11].unsqueeze(1)), dim=1)  # (batch_size, 6) # west, east, south, north, floor, ceiling
-        absorption = (absorption*0.84) + 0.01 # Constrain to realistic absorption values
-        absorption = absorption.unsqueeze(1)  # (batch_size, n_bands=1, n_walls=6)
-        # n_bands=1 for now, because the backpropagatable ISM code does not support multiple bands yet.
+        room_dimensions, mic_position, source_position, absorption = ShoeboxToRIR.extract_shoebox_from_latent_representation(input)
         
         # Batch simulate rir
         shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions, mic_position.unsqueeze(1), source_position, absorption,
@@ -70,11 +61,20 @@ class ShoeboxToRIR(nn.Module):
         return shoebox_rir_batch_2, shoebox_ir_onset_batch
     
     @staticmethod
-    def get_a_good_window_length(fs=16000, center_frequency=500):
-        filter_transition_band = center_frequency *1 #* 0.2 # a good approximation.
-        filter_order = fs / filter_transition_band # a good approximation.
-        window_length = (filter_order // 2)*2  + 1
-        return window_length
+    def extract_shoebox_from_latent_representation(input):
+        assert(input.shape[1] == 12)
+        # Get shoebox parameters from RIRBox latent space.
+        room_dimensions = input[:, 0:3]
+        mic_position = input[:, 3:6]*room_dimensions
+        source_position = input[:, 6:9]*room_dimensions
+        absorption = torch.cat((input[:, 9].unsqueeze(1).expand(-1,4),
+                                input[:, 10].unsqueeze(1),
+                                input[:, 11].unsqueeze(1)), dim=1)  # (batch_size, 6) # west, east, south, north, floor, ceiling
+        absorption = (absorption*0.84) + 0.01 # Constrain to realistic absorption values
+        absorption = absorption.unsqueeze(1)  # (batch_size, n_bands=1, n_walls=6)
+        # n_bands=1 for now, because the backpropagatable ISM code does not support multiple bands yet.
+        return(room_dimensions,mic_position,source_position,absorption)
+
 
 class MeshToShoebox(nn.Module):
     '''
@@ -168,16 +168,20 @@ class RIRBox_FULL(nn.Module):
     '''
     combines both parts of the RIRBox model for simple inference.
     '''
-    def __init__(self, mesh_to_sbox : MeshToShoebox, sbox_to_rir : ShoeboxToRIR):
+    def __init__(self, mesh_to_sbox : MeshToShoebox, sbox_to_rir : ShoeboxToRIR, return_sbox : bool = True):
         super().__init__()
         self.mesh_to_sbox = mesh_to_sbox.eval()
         self.sbox_to_rir = sbox_to_rir.eval()
+        self.return_sbox = return_sbox
         print("RIRBox_FULL initialized.")
 
     def forward(self, x, edge_index, batch, batch_oracle_mic_pos : Tensor, batch_oracle_src_pos : Tensor):
         latent_shoebox_batch = self.mesh_to_sbox(x, edge_index, batch, batch_oracle_mic_pos, batch_oracle_src_pos)
         shoebox_rir_batch, shoebox_origin_batch = self.sbox_to_rir(latent_shoebox_batch)
-        return shoebox_rir_batch, shoebox_origin_batch
+        if not self.return_sbox :
+            return shoebox_rir_batch, shoebox_origin_batch
+        else :
+            return shoebox_rir_batch, shoebox_origin_batch, latent_shoebox_batch
 
 class RIRBox_MESH2IR_Hybrid(nn.Module):
     '''
