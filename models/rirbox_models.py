@@ -74,7 +74,26 @@ class ShoeboxToRIR(nn.Module):
         absorption = absorption.unsqueeze(1)  # (batch_size, n_bands=1, n_walls=6)
         # n_bands=1 for now, because the backpropagatable ISM code does not support multiple bands yet.
         return(room_dimensions,mic_position,source_position,absorption)
-
+    
+    @staticmethod
+    def respatialize_rirbox(rir : torch.Tensor, dp_onset_in_samples : int):
+        '''
+        Use this if you used the start_from_ir_onset option on ShoeboxToRIR and you want to have the RIR match the actual distance between mic and src.
+        This is only implemented non-batch wise for now.
+        dp onset in samples is distance between mic and src * sample rate / sound speed
+        '''
+        window_length=81
+        if dp_onset_in_samples > (window_length//2):
+            # pad rir by dp_onset_in_samples - (window_length//2)
+            rir = torch.cat((torch.zeros(rir.shape[0], dp_onset_in_samples-(window_length//2),device=rir.device), rir), dim=1)
+            # crop rir_ribox
+            rir = rir[:,:3968]
+        if dp_onset_in_samples < (window_length//2):
+            # crop rir
+            rir = rir[:,(window_length//2)-dp_onset_in_samples:]
+        origin = torch.tensor([dp_onset_in_samples],device=rir.device)
+        return rir, origin
+        
 
 class MeshToShoebox(nn.Module):
     '''
