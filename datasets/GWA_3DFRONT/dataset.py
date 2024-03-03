@@ -39,9 +39,10 @@ def edge_matrix_from_face_matrix(face_matrix):
     return edge_matrix
 
 class GWA_3DFRONT_Dataset(Dataset):
-    def __init__(self, csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront.csv", rir_std_normalization=False):
+    def __init__(self, csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront.csv", rir_std_normalization=False, gwa_scaling_compensation=False):
         self.csv_file=csv_file
         self.rir_std_normalization = rir_std_normalization
+        self.gwa_scaling_compensation = gwa_scaling_compensation
         self.sample_rate=16000
         self.data = pd.read_csv(csv_file)
         print('GWA_3DFRONT csv loaded at ', csv_file)
@@ -72,7 +73,7 @@ class GWA_3DFRONT_Dataset(Dataset):
         return x.astype('float32'), edge_matrix.astype('long')
     
     @staticmethod
-    def _load_rir(label_rir_path, rir_std_normalization=True):
+    def _load_rir(label_rir_path, rir_std_normalization=True, gwa_scaling_compensation=False):
         # Load RIR
         label_rir, fs = librosa.load(label_rir_path)
         
@@ -89,6 +90,9 @@ class GWA_3DFRONT_Dataset(Dataset):
 
         # Preprocess RIR (standardization by std)
         if rir_std_normalization : label_rir = mesh2ir_rir_preprocessing(label_rir)
+
+        if gwa_scaling_compensation: label_rir = label_rir / 0.0625029951333999
+
         label_rir = np.array([label_rir]).astype('float32')
 
         # find origin of RIR
@@ -99,6 +103,7 @@ class GWA_3DFRONT_Dataset(Dataset):
     @staticmethod
     def _estimate_origin(label_rir):
         peak_indexes, _ = find_peaks(label_rir[0],height=0.05*np.max(label_rir), distance=40)
+        # peak_indexes, _ = find_peaks(label_rir[0],height=0.8*np.max(label_rir), distance=40) # Only activate this for find_mystery_scaling.py
         label_origin = peak_indexes[0]
         return label_origin
 
