@@ -12,10 +12,17 @@ import math
 
 from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 
-from models.mesh2ir_models import MESH_NET, data_for_meshnet, STAGE1_G
+from models.mesh2ir_models import MESH_NET, data_for_meshnet
 
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate=16000, max_order=15, rir_length=3968, start_from_ir_onset=False):
+        '''
+        start_from_ir_onset will place the IR onset at t_samples = 41.
+        Computationally, this avoids keeping a bunch of zeroes in memory, and having more space for ISM echoes to roam free.
+        Afterwards, you will need to "respatialize" the sound. Basically, you need to delay the sound by mic-src distance * sample rate / sound speed
+        During training, we aim to only train from IR onset and onwards, so this option is beneficial.
+        TODO add option for module to do this automatically.
+        '''
         super().__init__()
         self.sample_rate=sample_rate
         self.sound_speed=343
@@ -33,7 +40,7 @@ class ShoeboxToRIR(nn.Module):
             input (torch.Tensor) : shoebox parameters. shape B * 12. (Room_dimensions (3) [0.0,+inf], mic_position (3) [0.0,1.0], source_position (3) [0.0,1.0], absorption (3) [0.0,1.0]) # Walls, floor, ceiling
 
         Returns:
-            shoebox_rir_batch (list of torch.Tensor): batch of rir. shape (batch_size, rir_length*)
+            shoebox_rir_batch (list of torch.Tensor): batch of rir. shape (batch_size, rir_length)
             shoebox_ir_onset_batch (tensor) : shape B
         '''
         # Get shoebox parameters from RIRBox latent space.
