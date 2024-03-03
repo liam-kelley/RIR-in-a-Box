@@ -106,7 +106,10 @@ class GWA_3DFRONT_Dataset(Dataset):
     def _estimate_origin(label_rir):
         peak_indexes, _ = find_peaks(label_rir[0],height=0.05*np.max(label_rir), distance=40)
         # peak_indexes, _ = find_peaks(label_rir[0],height=0.8*np.max(label_rir), distance=40) # Only activate this for find_mystery_scaling.py
-        label_origin = peak_indexes[0]
+        try:
+            label_origin = peak_indexes[0]
+        except IndexError:
+            label_origin = 0
         return label_origin
 
     def __getitem__(self, index):
