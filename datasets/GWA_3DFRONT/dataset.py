@@ -109,6 +109,7 @@ class GWA_3DFRONT_Dataset(Dataset):
         try:
             label_origin = peak_indexes[0]
         except IndexError:
+            print("No peak found in loaded RIR. Returning 0 as origin.")
             label_origin = 0
         return label_origin
 
