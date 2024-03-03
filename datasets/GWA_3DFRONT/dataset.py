@@ -89,9 +89,11 @@ class GWA_3DFRONT_Dataset(Dataset):
         else: label_rir = label_rir[0:crop_length]
 
         # Preprocess RIR (standardization by std)
-        if rir_std_normalization : label_rir = mesh2ir_rir_preprocessing(label_rir)
+        if rir_std_normalization :
+            label_rir = mesh2ir_rir_preprocessing(label_rir)
 
-        if gwa_scaling_compensation: label_rir = label_rir / 0.0625029951333999
+        if gwa_scaling_compensation:
+            label_rir = label_rir / 0.0625029951333999
 
         label_rir = np.array([label_rir]).astype('float32')
 
@@ -118,7 +120,7 @@ class GWA_3DFRONT_Dataset(Dataset):
 
         # get all the data
         x, edge_index = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
-        label_rir, label_origin = GWA_3DFRONT_Dataset._load_rir(label_rir_path, self.rir_std_normalization)
+        label_rir, label_origin = GWA_3DFRONT_Dataset._load_rir(label_rir_path, self.rir_std_normalization, self.gwa_scaling_compensation)
         src_pos = string_to_array(df["Source_Pos"]).astype('float32')
         mic_pos = string_to_array(df["Receiver_Pos"]).astype('float32')
 
