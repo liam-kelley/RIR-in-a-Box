@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from models.mesh2ir_models import MESH_NET, STAGE1_G, MESH2IR_FULL
 from models.rirbox_models import MeshToShoebox, ShoeboxToRIR, RIRBox_FULL, RIRBox_MESH2IR_Hybrid
 from models.utility import load_mesh_net, load_GAN, load_mesh_to_shoebox
+from training.utility import filter_rir_like_rirbox
 from tools.pyLiam.LKTimer import LKTimer
 from tqdm import tqdm
 import pandas as pd
@@ -13,14 +14,15 @@ import argparse
 from scipy.signal import stft
 
 rirbox_path = "models/RIRBOX/ablation2/rirbox_model3_MRSTFT_MLPDEPTH4.pth" # Ideally would just use 1 config file for everything
-dataset_path = "datasets/GWA_3DFRONT/gwa_3Dfront_validation_dp_only.csv"
+dataset_path = "datasets/GWA_3DFRONT/gwa_3Dfront_validation.csv"
 RIRBOX_MAX_ORDER = 15
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-TOA_SYNCHRONIZATION = False
+TOA_SYNCHRONIZATION = True
 SCALE_MESH2IR_BY_ITS_ESTIMATED_STD = True # If True, cancels out the std normalization used during mesh2ir's training
 SCALE_MESH2IR_GWA_SCALING_COMPENSATION = True # If true, cancels out the scaling compensation mesh2ir learned from the GWA dataset during training.
 MESH2IR_USES_LABEL_ORIGIN = False
 RESPATIALIZE_RIRBOX = True
+FILTER_MESH2IR_IN_HYBRID = False
 
 ############################################ Data #############################################
 
@@ -91,8 +93,11 @@ with torch.no_grad():
         virtual_shoebox = ShoeboxToRIR.extract_shoebox_from_latent_representation(latent_vector)
 
         # Hybrid model
-        # rir_mesh2ir_filtered = filter_rir_like_rirbox(rir_mesh2ir) # Optional
-        hybrid_rir, hybrid_origin = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir, origin_mesh2ir)
+        if FILTER_MESH2IR_IN_HYBRID :
+            rir_mesh2ir_filtered = filter_rir_like_rirbox(rir_mesh2ir)
+            hybrid_rir, hybrid_origin = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir_filtered, origin_mesh2ir)
+        else:
+            hybrid_rir, hybrid_origin = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir, origin_mesh2ir)
         if RESPATIALIZE_RIRBOX: hybrid_rir, hybrid_origin = ShoeboxToRIR.respatialize_rirbox(hybrid_rir, dp_onset_in_samples)
 
         ############################ Plotting #############################
@@ -119,6 +124,7 @@ with torch.no_grad():
         else:
             axs[0].plot(rir_mesh2ir[max(0,int(label_origin[0]-41)):], label="MESH2IR", color='blue')
         axs[0].set_xlim(0, 4096)
+        axs[0].set_ylim(0.0, 1.0)
         axs[0].grid(ls="--", alpha=0.5)
         axs[0].legend()
 
@@ -130,6 +136,7 @@ with torch.no_grad():
         else:
             axs[1].plot(rir_rirbox[max(0,int(origin_rirbox[0]-41)):], label="RIRBOX", color='orange')
         axs[1].set_xlim(0, 4096)
+        axs[1].set_ylim(0.0, 1.0)
         axs[1].grid(ls="--", alpha=0.5)
         axs[1].legend()
 
@@ -141,6 +148,7 @@ with torch.no_grad():
         else:
             axs[2].plot(label_rir[max(0,int(label_origin[0]-41)):], label="GT", color='green')
         axs[2].set_xlim(0, 4096)
+        axs[2].set_ylim(0.0, 1.0)
         axs[2].grid(ls="--", alpha=0.5)
         axs[2].legend()
 
@@ -152,6 +160,7 @@ with torch.no_grad():
         else:
             axs[3].plot(hybrid_rir[max(0,int(hybrid_origin[0]-41)):], label="Hybrid", color='C3')
         axs[3].set_xlim(0, 4096)
+        axs[3].set_ylim(0.0, 1.0)
         axs[3].grid(ls="--", alpha=0.5)
         axs[3].legend()
 

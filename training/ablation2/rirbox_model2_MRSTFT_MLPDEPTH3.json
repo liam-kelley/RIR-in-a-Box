@@ -7,7 +7,7 @@
 
     "PRETRAINED_MESHNET": true,
     "TRAIN_MESHNET": false,
-    "train_dataset": "GWA_3DFRONT",
+    "train_dataset": "datasets/GWA_3DFRONT/gwa_3Dfront_train.csv",
 
     "LEARNING_RATE": 0.001,
     "EPOCHS": 1,

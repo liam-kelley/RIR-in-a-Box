@@ -6,14 +6,16 @@ from models.mesh2ir_models import MESH_NET, STAGE1_G, MESH2IR_FULL
 from models.rirbox_models import MeshToShoebox, ShoeboxToRIR, RIRBox_FULL, RIRBox_MESH2IR_Hybrid
 from models.utility import load_mesh_net, load_GAN, load_mesh_to_shoebox
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
+from training.utility import filter_rir_like_rirbox
 from tools.pyLiam.LKTimer import LKTimer
 from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 from matplotlib.lines import Line2D
+from json import load
 
-def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=["models/RIRBOX/ablation2/rirbox_model3_MRSTFT_MLPDEPTH4.pth", 3, 4],
+def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config="./training/ablation2/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.json",
                                                  validation_iterations=10):
     '''
     Validation of the metric accuracy of the MESH2IR and RIRBOX models on the GWA_3DFRONT dataset.
@@ -21,20 +23,25 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=["models/RIRBOX/ab
 
     ############################################ Config ############################################
 
+    TOA_SYNCHRONIZATION = True
+    SCALE_MESH2IR_BY_ITS_ESTIMATED_STD = True # If True, cancels out the std normalization used during mesh2ir's training
+    SCALE_MESH2IR_GWA_SCALING_COMPENSATION = True # If true, cancels out the scaling compensation mesh2ir learned from the GWA dataset during training.
+    MESH2IR_USES_LABEL_ORIGIN = False
+    RESPATIALIZE_RIRBOX = True
+    FILTER_MESH2IR_IN_HYBRID = False
+
+    with open(model_config, 'r') as file: config = load(file)
+    config['RIRBOX_MAX_ORDER'] = 15 # Feel free to increase this value maybe?
+
+    config["DATALOADER_NUM_WORKERS"] = 10
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-    BATCH_SIZE = 1 # Batch validation ?
-    RIRBOX_MAX_ORDER = 15 # please make sure it's the same as the one used during training TODO do this better
-    DATALOADER_NUM_WORKERS = 4 #12
-
-    SCALE_MESH2IR_BACK = True
-
-    RIRBOX_PATH = model_config[0]
-    RIRBOX_MODEL_ARCHITECTURE = model_config[1]
-    MLP_DEPTH = model_config[2]
+    config['BATCH_SIZE'] = 1
+    if config['SAVE_PATH'] == "": config['SAVE_PATH'] = "./models/RIRBOX/"+ model_config.split("/")[-2] + "/"+ model_config.split("/")[-1].split(".")[0] + ".pth"
 
     print("PARAMETERS:")
-    print("    > BATCH_SIZE = ", BATCH_SIZE)
-    print("    > DEVICE = ", DEVICE)
+    for key, value in config.items():
+        print(f"    > {key} = {value}")
+    print("")
 
     ############################################ Models #############################################
 
@@ -47,10 +54,9 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=["models/RIRBOX/ab
     print("")
 
     # Init Rirbox
-    mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=RIRBOX_MODEL_ARCHITECTURE, MLP_Depth=MLP_DEPTH)
-    if RIRBOX_PATH is not None:
-        mesh_to_shoebox = load_mesh_to_shoebox(mesh_to_shoebox, RIRBOX_PATH)
-    shoebox_to_rir = ShoeboxToRIR(16000, max_order=RIRBOX_MAX_ORDER)
+    mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=config['RIRBOX_MODEL_ARCHITECTURE'], MLP_Depth=config['MLP_DEPTH'])
+    if config['SAVE_PATH'] is not None: mesh_to_shoebox = load_mesh_to_shoebox(mesh_to_shoebox, config['SAVE_PATH'])
+    shoebox_to_rir = ShoeboxToRIR(16000, max_order=config['RIRBOX_MAX_ORDER'], rir_length=3968, start_from_ir_onset=True)
     rirbox = RIRBox_FULL(mesh_to_shoebox, shoebox_to_rir).eval().to(DEVICE)
     print("")
 
@@ -64,14 +70,14 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=["models/RIRBOX/ab
 
     # data
     dataset=GWA_3DFRONT_Dataset(csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront_validation.csv",rir_std_normalization=False)
-    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False,
-                            num_workers=DATALOADER_NUM_WORKERS, pin_memory=False,
+    dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=False,
+                            num_workers=config['DATALOADER_NUM_WORKERS'], pin_memory=False,
                             collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
     print("")
 
     # metrics
     edc=EnergyDecay_Loss(frequency_wise=True,
-                            synchronize_TOA=True, 
+                            synchronize_TOA=TOA_SYNCHRONIZATION, 
                             normalize_dp=False,
                             normalize_decay_curve=False,
                             deemphasize_early_reflections=False,
@@ -79,7 +85,7 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=["models/RIRBOX/ab
                             crop_to_same_length=True).to(DEVICE)
     
     mrstft=MRSTFT_Loss(sample_rate=16000,device=DEVICE,
-                            synchronize_TOA=True,
+                            synchronize_TOA=TOA_SYNCHRONIZATION,
                             deemphasize_early_reflections=False,
                             normalize_dp=False,
                             pad_to_same_length=False,
@@ -110,21 +116,36 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=["models/RIRBOX/ab
             label_rir_batch = label_rir_batch.to(DEVICE)
             label_origin_batch = label_origin_batch.to(DEVICE)
 
+            # Find Ground Truth theoretical direct path onset
+            distance = torch.linalg.norm(mic_pos_batch[0]-src_pos_batch[0])
+            dp_onset_in_samples = int(distance*16000/343)
+
+            ############################ Forward passes #############################
+
             # MESH2IR
             rir_mesh2ir = mesh2ir(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
             assert(rir_mesh2ir.shape[1] == 4096)
-            if SCALE_MESH2IR_BACK:
-                rir_mesh2ir = rir_mesh2ir*torch.mean(rir_mesh2ir[:,-64:], dim=1).unsqueeze(1).expand(-1, 4096)
+            if SCALE_MESH2IR_BY_ITS_ESTIMATED_STD: rir_mesh2ir = rir_mesh2ir*torch.mean(rir_mesh2ir[:,-64:], dim=1).unsqueeze(1).expand(-1, 4096)
+            if SCALE_MESH2IR_GWA_SCALING_COMPENSATION: rir_mesh2ir = rir_mesh2ir / 0.0625029951333999
+            
             rir_mesh2ir = rir_mesh2ir[:3968]
-            # origin_mesh2ir = torch.tensor([GWA_3DFRONT_Dataset._estimate_origin(rir_mesh2ir.cpu().numpy())]).to(DEVICE)
-            origin_mesh2ir = label_origin_batch
+            if MESH2IR_USES_LABEL_ORIGIN: origin_mesh2ir = label_origin_batch
+            else : origin_mesh2ir = torch.tensor([GWA_3DFRONT_Dataset._estimate_origin(rir_mesh2ir.cpu().numpy())])
 
             # RIRBOX
-            rir_rirbox, origin_rirbox = rirbox(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
+            rir_rirbox, origin_rirbox, latent_vector = rirbox(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
+            if RESPATIALIZE_RIRBOX: rir_rirbox, origin_rirbox = ShoeboxToRIR.respatialize_rirbox(rir_rirbox, dp_onset_in_samples)
+            virtual_shoebox = ShoeboxToRIR.extract_shoebox_from_latent_representation(latent_vector)
+            
+            # Hybrid model
+            if FILTER_MESH2IR_IN_HYBRID :
+                rir_mesh2ir_filtered = filter_rir_like_rirbox(rir_mesh2ir)
+                hybrid_rir, origin_hybrid = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir_filtered, origin_mesh2ir)
+            else:
+                hybrid_rir, origin_hybrid = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir, origin_mesh2ir)
+            if RESPATIALIZE_RIRBOX: hybrid_rir, origin_hybrid = ShoeboxToRIR.respatialize_rirbox(hybrid_rir, dp_onset_in_samples)
 
-            # Hybrid
-            # rir_mesh2ir_filtered = filter_rir_like_rirbox(rir_mesh2ir)
-            hybrid_rir, origin_hybrid = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir, origin_mesh2ir)
+            ############################ Get losses #############################
 
             # Compute losses
             loss_mesh2ir_edr = edc(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
@@ -138,32 +159,6 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=["models/RIRBOX/ab
             loss_hybrid_edr = edc(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
             loss_hybrid_mrstft = mrstft(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
             loss_hybrid_c80, loss_hybrid_D, loss_hybrid_rt60, _ = acm(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
-
-            # # plot rirs with subplots
-            plot_rirs = False
-            if plot_rirs:
-                fig, axs = plt.subplots(3, 1, figsize=(9, 9))
-                fig.suptitle('RIR comparison between MESH2IR and RIRBOX')
-                axs[0].plot(rir_mesh2ir[0].cpu().numpy(), label="MESH2IR", color='blue')
-                axs[0].axvline(x=origin_mesh2ir.cpu().numpy(), color='red', linestyle='--', label='Origin')
-                axs[0].set_title('MESH2IR')
-                axs[0].grid(ls="--", alpha=0.5)
-                axs[0].legend()
-                axs[0].set_xlim(0, 4096)
-                axs[1].plot(rir_rirbox[0].cpu().numpy(), label="RIRBOX", color='orange')
-                axs[1].axvline(x=origin_rirbox.cpu().numpy(), color='red', linestyle='--', label='Origin')
-                axs[1].set_title('RIRBOX')
-                axs[1].legend()
-                axs[1].grid(ls="--", alpha=0.5)
-                axs[1].set_xlim(0, 4096)
-                axs[2].plot(abs(label_rir_batch[0].cpu().numpy()), label="GT", color='green')
-                axs[2].axvline(x=label_origin_batch.cpu().numpy(), color='red', linestyle='--', label='Origin')
-                axs[2].set_title('GT')
-                axs[2].grid(ls="--", alpha=0.5)
-                axs[2].legend()
-                axs[2].set_xlim(0, 4096)
-                plt.tight_layout()
-                plt.show()
 
             # Append to dataframe
             my_list.append([loss_mesh2ir_edr.cpu().item(),
@@ -193,7 +188,7 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=["models/RIRBOX/ab
                                         "mesh2ir_D", "rirbox_D", "hybrid_D",
                                         "mesh2ir_rt60", "rirbox_rt60", "hybrid_rt60"])
     df = df.apply(np.sqrt) # removes the square from the MSEs
-    df.to_csv("./validation_results/" + RIRBOX_PATH.split("/")[-1].split(".")[0] + ".csv")
+    df.to_csv("./validation_results/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv")
 
 def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation_results/model.csv"):
     df = pd.read_csv(results_csv)
@@ -281,29 +276,33 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation_res
 
 def main():
     # parser = argparse.ArgumentParser()
-    # parser.add_argument('--RIRBOX_PATH', type=str, default="./models/RIRBOX/RIRBOX_Model2_Finetune_worldly-lion-25.pth",
+    # parser.add_argument('--config['SAVE_PATH']', type=str, default="./models/RIRBOX/RIRBOX_Model2_Finetune_worldly-lion-25.pth",
     #                     help='Path to rirbox model to validate.')
     # args, _ = parser.parse_known_args()
 
     model_configs = [
-        ["./models/RIRBOX/ablation2/rirbox_model2_MRSTFT_MLPDEPTH2.pth", 2, 2],
-        ["./models/RIRBOX/ablation2/rirbox_model2_MRSTFT_MLPDEPTH3.pth", 2, 3],
-        ["./models/RIRBOX/ablation2/rirbox_model2_MRSTFT_MLPDEPTH4.pth", 2, 4],
-        ["./models/RIRBOX/ablation2/rirbox_model3_MRSTFT_MLPDEPTH2.pth", 3, 2],
-        ["./models/RIRBOX/ablation2/rirbox_model3_MRSTFT_MLPDEPTH3.pth", 3, 3],
-        ["./models/RIRBOX/ablation2/rirbox_model3_MRSTFT_MLPDEPTH4.pth", 3, 4]
+        # "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH2.json",
+        # "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH3.json",
+        "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH4.json",
+        "./training/ablation2/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.json",
+        # "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH2.json",
+        # "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH3.json",
+        "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH4.json",
+        "./training/ablation2/rirbox_model2_MRSTFT_EDR_MLPDEPTH4.json",
     ]
     
-    # for model_config in model_configs:
-        # validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=model_config, validation_iterations=2815)
+    for model_config in model_configs:
+        validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=model_config, validation_iterations=2815)
     
     results_csvs = [
-        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4.csv",
-        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4.csv",
-        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH3.csv",
-        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH3.csv",
-        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH2.csv",
-        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH2.csv",
+        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH2.json",
+        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH3.json",
+        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4.json",
+        "./validation_results/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.json",
+        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH2.json",
+        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH3.json",
+        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4.json",
+        "./validation_results/rirbox_model2_MRSTFT_EDR_MLPDEPTH4.json",
     ]
 
     for results_csv in results_csvs:
