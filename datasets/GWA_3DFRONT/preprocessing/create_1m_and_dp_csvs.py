@@ -8,9 +8,9 @@ from tqdm import tqdm
 '''
 You should have run formay_csv.py and any other relevant preprocessing script before this one.
 This script created these csvs
-gwa_3Dfront_1m.csv
-gwa_3Dfront_dp.csv
-gwa_3Dfront_nondp.csv
+gwa_3Dfront_[...]_1m.csv
+gwa_3Dfront_[...]_dp.csv
+gwa_3Dfront_[...]_nondp.csv
 '''
 
 def string_to_array(s):
@@ -24,7 +24,7 @@ def string_to_array(s):
 
 # 1m
 def create_1m_csv():
-    df = pd.read_csv('./datasets/GWA_3DFRONT/gwa_3Dfront.csv')
+    df = pd.read_csv('./datasets/GWA_3DFRONT/gwa_3Dfront_train.csv')
 
     df["Source_Pos"] = df["Source_Pos"].apply(string_to_array)
     df["Receiver_Pos"] = df["Receiver_Pos"].apply(string_to_array)
@@ -33,13 +33,13 @@ def create_1m_csv():
 
     df = df[abs(df["Distance"] - 1) < 0.1]
 
-    df.to_csv('./datasets/GWA_3DFRONT/gwa_3Dfront_1m_only.csv', index=False)
+    df.to_csv('./datasets/GWA_3DFRONT/gwa_3Dfront_train_1m_only.csv', index=False)
 
     print("done")
 
 # Direct path only and no dp
 def create_peak_info_csv():
-    dataset_path="./datasets/GWA_3DFRONT/gwa_3Dfront.csv"
+    dataset_path="./datasets/GWA_3DFRONT/gwa_3Dfront_train.csv"
     df = pd.read_csv(dataset_path)
     df["Source_Pos"] = df["Source_Pos"].apply(string_to_array)
     df["Receiver_Pos"] = df["Receiver_Pos"].apply(string_to_array)
@@ -48,7 +48,7 @@ def create_peak_info_csv():
     
     dataset=GWA_3DFRONT_Dataset(csv_file=dataset_path, rir_std_normalization=False, gwa_scaling_compensation=True)
     dataloader = DataLoader(dataset, shuffle=False,
-                            num_workers=8, pin_memory=False,
+                            num_workers=10, pin_memory=False,
                             collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
     peak_onset = []
     peak_amplitude = []
@@ -61,20 +61,20 @@ def create_peak_info_csv():
     df["peak_onset"] = peak_onset
     df["peak_amplitude"] = peak_amplitude
 
-    df.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_with_peak_info.csv", index=False)
+    df.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_with_peak_info.csv", index=False)
 
 def create_dp_csv():
-    df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_with_peak_info.csv")
+    df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_with_peak_info.csv")
 
     df_dp = df[(abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude"]-1) < 0.5)]
-    df_dp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_dp_only.csv", index=False)
+    df_dp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_dp_only.csv", index=False)
 
     df_nondp = df[~((abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude"]-1) < 0.5))]
-    df_nondp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_nondp_only.csv", index=False)
+    df_nondp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_nondp_only.csv", index=False)
 
     print("done")
 
 if __name__ == "__main__":
-    # create_1m_csv()
+    create_1m_csv()
     create_peak_info_csv()
     create_dp_csv()
