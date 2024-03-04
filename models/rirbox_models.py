@@ -73,7 +73,7 @@ class ShoeboxToRIR(nn.Module):
         absorption = (absorption*0.84) + 0.01 # Constrain to realistic absorption values
         absorption = absorption.unsqueeze(1)  # (batch_size, n_bands=1, n_walls=6)
         # n_bands=1 for now, because the backpropagatable ISM code does not support multiple bands yet.
-        return(room_dimensions,mic_position,source_position,absorption)
+        return[room_dimensions,mic_position,source_position,absorption]
     
     @staticmethod
     def respatialize_rirbox(rir : torch.Tensor, dp_onset_in_samples : int):

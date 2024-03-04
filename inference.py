@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 import argparse
 from scipy.signal import stft
 
-rirbox_path = "models/RIRBOX/ablation2/rirbox_model3_MRSTFT_MLPDEPTH4.pth" # Ideally would just use 1 config file for everything
-dataset_path = "datasets/GWA_3DFRONT/gwa_3Dfront_validation.csv"
+rirbox_path = "models/RIRBOX/ablation2/rirbox_model2_MRSTFT_MLPDEPTH4.pth" # Ideally would just use 1 config file for everything
+dataset_path = "datasets/GWA_3DFRONT/gwa_3Dfront_validation_dp_only.csv"
 RIRBOX_MAX_ORDER = 15
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 TOA_SYNCHRONIZATION = True
@@ -50,7 +50,7 @@ mesh2ir = MESH2IR_FULL(mesh_net, net_G).eval().to(DEVICE)
 print("")
 
 # Init RIRBox
-mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=3, MLP_Depth=4).eval().to(DEVICE)
+mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=2, MLP_Depth=4).eval().to(DEVICE)
 mesh_to_shoebox = load_mesh_to_shoebox(mesh_to_shoebox, rirbox_path)
 shoebox_to_rir = ShoeboxToRIR(16000, max_order=RIRBOX_MAX_ORDER, rir_length=3968, start_from_ir_onset=True).eval().to(DEVICE)
 rirbox = RIRBox_FULL(mesh_to_shoebox, shoebox_to_rir, return_sbox=True).eval().to(DEVICE)
@@ -102,6 +102,9 @@ with torch.no_grad():
 
         ############################ Plotting #############################
 
+        def format_text(batch_of_coords):
+            return [float(str(coord)[:5]) for coord in batch_of_coords.squeeze().cpu().numpy().tolist()]
+
         # preprocessing for plotting
         rir_mesh2ir = abs(rir_mesh2ir[0].cpu().numpy())
         rir_rirbox = abs(rir_rirbox[0].cpu().numpy())
@@ -139,6 +142,8 @@ with torch.no_grad():
         axs[1].set_ylim(0.0, 1.0)
         axs[1].grid(ls="--", alpha=0.5)
         axs[1].legend()
+        axs[1].text(0.7, 0.75, f"Room dim {format_text(virtual_shoebox[0])}\nMic pos {format_text(virtual_shoebox[1])}\nSrc pos {format_text(virtual_shoebox[2])}\nAbsorption {format_text(virtual_shoebox[3])[3:]}",
+                    horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
 
         axs[2].set_title('GT')
         if not TOA_SYNCHRONIZATION:
@@ -151,8 +156,10 @@ with torch.no_grad():
         axs[2].set_ylim(0.0, 1.0)
         axs[2].grid(ls="--", alpha=0.5)
         axs[2].legend()
+        axs[2].text(0.7, 0.85, f"GT Mic pos {format_text(mic_pos_batch)}\nGT Src pos {format_text(src_pos_batch)}",
+                    horizontalalignment='center', verticalalignment='center', transform=axs[2].transAxes)
 
-        axs[3].set_title('Hybrid')
+        axs[3].set_title('(RIRBOX + MESH2IR) Hybrid. Mixing point based on estimated RIRBOX room dimensions.')
         if not TOA_SYNCHRONIZATION:
             axs[3].plot(hybrid_rir, label="Hybrid", color='C3')
             axs[3].axvline(x=hybrid_origin, color='red', linestyle='--', label='Origin')
@@ -163,6 +170,8 @@ with torch.no_grad():
         axs[3].set_ylim(0.0, 1.0)
         axs[3].grid(ls="--", alpha=0.5)
         axs[3].legend()
+        axs[3].text(0.7, 0.75, f"Room dim {format_text(virtual_shoebox[0])}\nMic pos {format_text(virtual_shoebox[1])}\nSrc pos {format_text(virtual_shoebox[2])}\nAbsorption {format_text(virtual_shoebox[3])[3:]}",
+                    horizontalalignment='center', verticalalignment='center', transform=axs[3].transAxes)
 
         plt.tight_layout()
         plt.show()
