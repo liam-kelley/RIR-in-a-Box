@@ -13,8 +13,9 @@ import matplotlib.pyplot as plt
 import argparse
 from scipy.signal import stft
 
-rirbox_path = "models/RIRBOX/ablation2/rirbox_model2_MRSTFT_MLPDEPTH4.pth" # Ideally would just use 1 config file for everything
-dataset_path = "datasets/GWA_3DFRONT/gwa_3Dfront_validation_dp_only.csv"
+rirbox_path = "models/RIRBOX/ablation3_different_datasets/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_dp.pth" # Ideally would just use 1 config file for everything
+dataset_path = "datasets/GWA_3DFRONT/gwa_3Dfront_validation_nondp_only.csv"
+plot_stft = False
 RIRBOX_MAX_ORDER = 15
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 TOA_SYNCHRONIZATION = True
@@ -131,7 +132,7 @@ with torch.no_grad():
         axs[0].grid(ls="--", alpha=0.5)
         axs[0].legend()
 
-        axs[1].set_title('RIRBOX')
+        axs[1].set_title('RIRBOX : ' + " ".join(rirbox_path.split('/')[-1].split('.')[0].split('_')[1:]))
         if not TOA_SYNCHRONIZATION:
             axs[1].plot(rir_rirbox, label="RIRBOX", color='orange')
             axs[1].axvline(x=origin_rirbox, color='red', linestyle='--', label='Origin')
@@ -176,32 +177,32 @@ with torch.no_grad():
         plt.tight_layout()
         plt.show()
 
+        if plot_stft:
+            # # plot rirs with subplots
+            fig, axs = plt.subplots(4, 1, figsize=(9, 9))
 
-        # # plot rirs with subplots
-        fig, axs = plt.subplots(4, 1, figsize=(9, 9))
+            f, t, Zxx = stft(abs(np.array(rir_mesh2ir, dtype=float)), 16000, nperseg=256)
+            axs[0].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
+            axs[0].set_title("MESH2IR STFT Magnitude")
+            axs[0].set_ylabel('Frequency [Hz]')
+            axs[0].set_xlabel('Time [sec]')
 
-        f, t, Zxx = stft(abs(np.array(rir_mesh2ir, dtype=float)), 16000, nperseg=256)
-        axs[0].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
-        axs[0].set_title("MESH2IR STFT Magnitude")
-        axs[0].set_ylabel('Frequency [Hz]')
-        axs[0].set_xlabel('Time [sec]')
+            f, t, Zxx = stft(abs(np.array(rir_rirbox, dtype=float)), 16000, nperseg=256)
+            axs[1].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
+            axs[1].set_title("RIRBOX STFT Magnitude")
+            axs[1].set_ylabel('Frequency [Hz]')
+            axs[1].set_xlabel('Time [sec]')
 
-        f, t, Zxx = stft(abs(np.array(rir_rirbox, dtype=float)), 16000, nperseg=256)
-        axs[1].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
-        axs[1].set_title("RIRBOX STFT Magnitude")
-        axs[1].set_ylabel('Frequency [Hz]')
-        axs[1].set_xlabel('Time [sec]')
+            f, t, Zxx = stft(abs(np.array(label_rir, dtype=float)), 16000, nperseg=256)
+            axs[2].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
+            axs[2].set_title("GT STFT Magnitude")
+            axs[2].set_ylabel('Frequency [Hz]')
+            axs[2].set_xlabel('Time [sec]')
 
-        f, t, Zxx = stft(abs(np.array(label_rir, dtype=float)), 16000, nperseg=256)
-        axs[2].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
-        axs[2].set_title("GT STFT Magnitude")
-        axs[2].set_ylabel('Frequency [Hz]')
-        axs[2].set_xlabel('Time [sec]')
-
-        f, t, Zxx = stft(abs(np.array(hybrid_rir, dtype=float)), 16000, nperseg=256)
-        axs[3].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
-        axs[3].set_title("Hybrid STFT Magnitude")
-        axs[3].set_ylabel('Frequency [Hz]')
-        axs[3].set_xlabel('Time [sec]')
-        plt.tight_layout()
-        plt.show()
+            f, t, Zxx = stft(abs(np.array(hybrid_rir, dtype=float)), 16000, nperseg=256)
+            axs[3].pcolormesh(t, f, np.abs(Zxx), shading='gouraud')
+            axs[3].set_title("Hybrid STFT Magnitude")
+            axs[3].set_ylabel('Frequency [Hz]')
+            axs[3].set_xlabel('Time [sec]')
+            plt.tight_layout()
+            plt.show()

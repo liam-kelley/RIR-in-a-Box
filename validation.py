@@ -69,7 +69,7 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config="./training/ablati
     ################################################################################################
 
     # data
-    dataset=GWA_3DFRONT_Dataset(csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront_validation.csv",rir_std_normalization=False)
+    dataset=GWA_3DFRONT_Dataset(csv_file="datasets/GWA_3DFRONT/gwa_3Dfront_validation_dp_only.csv",rir_std_normalization=False)
     dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=False,
                             num_workers=config['DATALOADER_NUM_WORKERS'], pin_memory=False,
                             collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
@@ -130,7 +130,7 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config="./training/ablati
             
             rir_mesh2ir = rir_mesh2ir[:3968]
             if MESH2IR_USES_LABEL_ORIGIN: origin_mesh2ir = label_origin_batch
-            else : origin_mesh2ir = torch.tensor([GWA_3DFRONT_Dataset._estimate_origin(rir_mesh2ir.cpu().numpy())])
+            else : origin_mesh2ir = torch.tensor([GWA_3DFRONT_Dataset._estimate_origin(rir_mesh2ir.cpu().numpy())]).to(DEVICE)
 
             # RIRBOX
             rir_rirbox, origin_rirbox, latent_vector = rirbox(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
@@ -281,28 +281,44 @@ def main():
     # args, _ = parser.parse_known_args()
 
     model_configs = [
+        "training/ablation3_different_datasets/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_1m.json",
+        "training/ablation3_different_datasets/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_dp.json",
+        "training/ablation3_different_datasets/rirbox_model3_MRSTFT_MSDist_MLPDEPTH4_1m.json",
+        "training/ablation3_different_datasets/rirbox_model3_MRSTFT_MSDist_MLPDEPTH4_dp.json",
+        "training/ablation3_different_datasets/rirbox_model2_MRSTFT_MLPDEPTH4_1m.json",
+        "training/ablation3_different_datasets/rirbox_model2_MRSTFT_MLPDEPTH4_dp.json",
+        "training/ablation3_different_datasets/rirbox_model3_MRSTFT_MLPDEPTH4_1m.json",
+        "training/ablation3_different_datasets/rirbox_model3_MRSTFT_MLPDEPTH4_dp.json",
         # "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH2.json",
         # "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH3.json",
-        "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH4.json",
-        "./training/ablation2/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.json",
+        # "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH4.json",
+        # "./training/ablation2/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.json",
         # "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH2.json",
         # "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH3.json",
-        "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH4.json",
-        "./training/ablation2/rirbox_model2_MRSTFT_EDR_MLPDEPTH4.json",
+        # "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH4.json",
+        # "./training/ablation2/rirbox_model2_MRSTFT_EDR_MLPDEPTH4.json",
     ]
     
-    for model_config in model_configs:
-        validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=model_config, validation_iterations=2815)
+    # for model_config in model_configs:
+    #     validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=model_config, validation_iterations=2815)
     
     results_csvs = [
-        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH2.json",
-        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH3.json",
-        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4.json",
-        "./validation_results/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.json",
-        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH2.json",
-        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH3.json",
-        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4.json",
-        "./validation_results/rirbox_model2_MRSTFT_EDR_MLPDEPTH4.json",
+        "./validation_results/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_1m.csv",
+        "./validation_results/rirbox_model3_MRSTFT_MSDist_MLPDEPTH4_1m.csv",
+        "./validation_results/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_dp.csv",
+        "./validation_results/rirbox_model3_MRSTFT_MSDist_MLPDEPTH4_dp.csv",
+        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4_1m.csv",
+        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4_1m.csv",
+        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4_dp.csv",
+        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4_dp.csv",
+        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH2.csv",
+        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH3.csv",
+        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4.csv",
+        # "./validation_results/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.csv",
+        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH2.csv",
+        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH3.csv",
+        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4.csv",
+        # "./validation_results/rirbox_model2_MRSTFT_EDR_MLPDEPTH4.csv",
     ]
 
     for results_csv in results_csvs:

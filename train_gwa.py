@@ -17,6 +17,8 @@ import time
 import gc
 import copy
 import os
+from torch.nn import MSELoss
+
 
 ############################################ Config ############################################
 
@@ -29,7 +31,7 @@ DEVICE = config['DEVICE']
 if not torch.cuda.is_available(): DEVICE = 'cpu'
 DATALOADER_NUM_WORKERS = 10
 config["DATALOADER_NUM_WORKERS"] = DATALOADER_NUM_WORKERS
-if config["SAVE_PATH"] == "": config["SAVE_PATH"] = "./models/RIRBOX" + args.config[10:-5] + ".pth"
+if config["SAVE_PATH"] == "": config["SAVE_PATH"] = "./models/RIRBOX/" + args.config.split("/")[-2] + "/" + args.config.split("/")[-1] + ".pth"
 
 print("PARAMETERS:")
 for key, value in config.items():
@@ -39,12 +41,6 @@ print("")
 if config['do_wandb']:
     wandb.init(project="RIRBox3",config=config)
     print("")
-
-# og_config = copy.deepcopy(config)
-# config['EDC_LOSS_WEIGHT'] = 0.0
-# config['C80_LOSS_WEIGHT'] = 0.0
-# config['D_LOSS_WEIGHT'] = 0.0
-# config['RT60_LOSS_WEIGHT'] = 0.0
 
 ############################################ Inits ############################################
 
@@ -87,8 +83,14 @@ acm=AcousticianMetrics_Loss(sample_rate=dataset.sample_rate,
                             normalize_total_energy=False,
                             pad_to_same_length=False,
                             MeanAroundMedian_pruning=False).to(DEVICE)
+mse = MSELoss().to(DEVICE)
 
-loss_edr, loss_mrstft, loss_c80, loss_D, loss_rt60 = torch.tensor([0.0]), torch.tensor([0.0]), torch.tensor([0.0]), torch.tensor([0.0]), torch.tensor([0.0])
+loss_edr = torch.tensor([0.0])
+loss_mrstft = torch.tensor([0.0])
+loss_c80 = torch.tensor([0.0])
+loss_D = torch.tensor([0.0])
+loss_rt60 = torch.tensor([0.0])
+loss_mic_src_distance = torch.tensor([0.0])
 print("")
 
 # optimizer
@@ -125,10 +127,16 @@ for epoch in range(config['EPOCHS']):
             latent_shoebox_batch = mesh_to_shoebox(x_batch, edge_index_batch ,batch_indexes, mic_pos_batch, src_pos_batch)
 
         # Freeing memory
-        del x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch
+        del x_batch, edge_index_batch, batch_indexes
+
+        with timer.time("Computing mic src distance loss"):
+            _, sbox_mic_position, sbox_src_position, _ = ShoeboxToRIR.extract_shoebox_from_latent_representation(latent_shoebox_batch)
+            mic_src_distance_loss = mse(torch.linalg.norm(mic_pos_batch - src_pos_batch, dim=1), torch.linalg.norm(sbox_mic_position-sbox_src_position, dim=1))
+
+        del mic_pos_batch, src_pos_batch
 
         with timer.time("Getting shoebox rir"):
-            shoebox_rir_batch, shoebox_origin_batch = shoebox_to_rir(latent_shoebox_batch) # shoebox_rir_batch is a list of tensors (batch_size, TODO rir_lengths(i)) , shoebox_origin_batch is a (batch_size) tensor)
+            shoebox_rir_batch, shoebox_origin_batch = shoebox_to_rir(latent_shoebox_batch) # shoebox_rir_batch (batch_size, rir_length) , shoebox_origin_batch (batch_size)
 
         # Freeing memory
         del latent_shoebox_batch
@@ -151,7 +159,8 @@ for epoch in range(config['EPOCHS']):
                         + loss_mrstft * config['MRSTFT_LOSS_WEIGHT']\
                         + loss_c80 * config['C80_LOSS_WEIGHT']\
                         + loss_D * config['D_LOSS_WEIGHT']\
-                        + loss_rt60 * config['RT60_LOSS_WEIGHT']
+                        + loss_rt60 * config['RT60_LOSS_WEIGHT']\
+                        + mic_src_distance_loss * config['MIC_SRC_DISTANCE_LOSS_WEIGHT']
         
         # Freeing memory
         del shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch
@@ -175,7 +184,8 @@ for epoch in range(config['EPOCHS']):
                                "loss_mrstft":loss_mrstft,
                                "loss_c80":loss_c80,
                                "loss_D":loss_D,
-                               "loss_rt60":loss_rt60}.items():
+                               "loss_rt60":loss_rt60,
+                               "loss_mic_src_distance":mic_src_distance_loss}.items():
                 if isinstance(value, torch.Tensor) : wandb.log({key: value.item()})
                 elif isinstance(value, float): wandb.log({key: value})
             wandb.log(timer.get_logs())
@@ -191,13 +201,6 @@ for epoch in range(config['EPOCHS']):
             time_load = 0
         
         del total_loss, losses
-
-        # if iterations == config['MAX_ITERATIONS'] // 2:
-        #     config['LEARNING_RATE'] = config['LEARNING_RATE'] / 2
-        #     config['EDC_LOSS_WEIGHT'] = og_config['EDC_LOSS_WEIGHT']
-        #     config['C80_LOSS_WEIGHT'] = og_config['C80_LOSS_WEIGHT']
-        #     config['D_LOSS_WEIGHT'] = og_config['D_LOSS_WEIGHT']
-        #     config['RT60_LOSS_WEIGHT'] = og_config['RT60_LOSS_WEIGHT']
 
         if iterations >= config['MAX_ITERATIONS']:
             break
