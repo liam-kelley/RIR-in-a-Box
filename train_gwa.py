@@ -49,8 +49,9 @@ if config['do_wandb']:
 ############################################ Inits ############################################
 
 # data
-dataset=GWA_3DFRONT_Dataset(csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront_train.csv", rir_std_normalization=False, gwa_scaling_compensation=True)
-dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=True,
+dataset=GWA_3DFRONT_Dataset(csv_file=config['train_dataset'],
+                            rir_std_normalization=False, gwa_scaling_compensation=True)
+dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=False,
                         num_workers=DATALOADER_NUM_WORKERS, pin_memory=False,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
 print("")
