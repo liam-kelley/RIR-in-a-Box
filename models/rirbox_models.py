@@ -112,12 +112,16 @@ class MeshToShoebox(nn.Module):
     -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.  
     -> LOSS: on RIR
     '''
-    def __init__(self, meshnet : MESH_NET = None, model : int = 2, MLP_Depth : int = 3):
+    def __init__(self, meshnet : MESH_NET = None, model : int = 2, MLP_Depth : int = 3,
+                       dropout_p : float = 0.5, random_noise : bool = False):
         super().__init__()
         assert model in [2,3, 4], "Model 2 or 3 or 4 only"
         # Model type
         self.model=model
         self.MLP_depth=MLP_Depth
+        self.dropout = nn.Dropout(dropout_p)
+        self.random_noise = random_noise
+        hidden_size=64
 
         # Load (pretrained) mesh net
         if meshnet == None: self.meshnet = MESH_NET()
@@ -125,19 +129,19 @@ class MeshToShoebox(nn.Module):
 
         # Linear layers
         if self.model == 2 :
-            self.lin3 = torch.nn.Linear(14, 48)
-            if self.MLP_depth >= 3: self.lin4 = torch.nn.Linear(48, 48)
-            if self.MLP_depth >= 4: self.lin6 = torch.nn.Linear(48, 48)
-            self.lin5 = torch.nn.Linear(48, 12)
+            self.lin3 = torch.nn.Linear(14, hidden_size) ; nn.init.kaiming_normal_(self.lin3.weight, mode="fan_out")
+            if self.MLP_depth >= 3: self.lin4 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin4.weight, mode="fan_out")
+            if self.MLP_depth >= 4: self.lin6 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin6.weight, mode="fan_out")
+            self.lin5 = torch.nn.Linear(hidden_size, 12) ; nn.init.xavier_normal_(self.lin5.weight)
         if self.model == 3 :
-            self.lin3 = torch.nn.Linear(14, 32)
-            if self.MLP_depth >= 3:self.lin4 = torch.nn.Linear(32, 32)
-            if self.MLP_depth >= 4: self.lin9 = torch.nn.Linear(32, 32)
-            self.lin5 = torch.nn.Linear(32, 6)
-            self.lin6 = torch.nn.Linear(12, 32)
-            if self.MLP_depth >= 3:self.lin7 = torch.nn.Linear(32, 32)
-            if self.MLP_depth >= 4: self.lin10 = torch.nn.Linear(32, 32)
-            self.lin8 = torch.nn.Linear(32, 6)
+            self.lin3 = torch.nn.Linear(14, hidden_size) ; nn.init.kaiming_normal_(self.lin3.weight, mode="fan_out")
+            if self.MLP_depth >= 3:self.lin4 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin4.weight, mode="fan_out")
+            if self.MLP_depth >= 4: self.lin9 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin9.weight, mode="fan_out")
+            self.lin5 = torch.nn.Linear(hidden_size, 6) ; nn.init.xavier_normal_(self.lin5.weight)
+            self.lin6 = torch.nn.Linear(12, hidden_size) ; nn.init.kaiming_normal_(self.lin6.weight, mode="fan_out")
+            if self.MLP_depth >= 3:self.lin7 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin7.weight, mode="fan_out")
+            if self.MLP_depth >= 4: self.lin10 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin10.weight, mode="fan_out")
+            self.lin8 = torch.nn.Linear(hidden_size, 6) ; nn.init.xavier_normal_(self.lin8.weight)
 
         # Activation
         self.softplus = torch.nn.Softplus()
@@ -147,12 +151,15 @@ class MeshToShoebox(nn.Module):
         data = data_for_meshnet(x, edge_index, batch) # the pretrained mesh_net we use uses a data struct for input data.
         x = self.meshnet(data)
 
+        # add tiny random noise to x to explore latent space more ???
+        if self.random_noise : x = x + torch.rand_like(x, device=x.device)*1e-4
+
         x = torch.cat((x, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
 
         if self.model == 2 :
-            x = F.relu(self.lin3(x))
-            if self.MLP_depth >= 3: x = F.relu(self.lin4(x))
-            if self.MLP_depth >= 4: x = F.relu(self.lin6(x))
+            x = self.dropout(F.relu(self.lin3(x)))
+            if self.MLP_depth >= 3: x = self.dropout(F.relu(self.lin4(x)))
+            if self.MLP_depth >= 4: x = self.dropout(F.relu(self.lin6(x)))
             x = self.lin5(x)
 
             softplus_output = self.softplus(x[:,0:3])
@@ -162,9 +169,9 @@ class MeshToShoebox(nn.Module):
             return(x)
         
         if self.model == 3 :
-            x = F.relu(self.lin3(x))
-            if self.MLP_depth >=3: x = F.relu(self.lin4(x))
-            if self.MLP_depth >=4: x = F.relu(self.lin9(x))
+            x = self.dropout(F.relu(self.lin3(x)))
+            if self.MLP_depth >=3: x = self.dropout(F.relu(self.lin4(x)))
+            if self.MLP_depth >=4: x = self.dropout(F.relu(self.lin9(x)))
             x = self.lin5(x)
 
             room_dims = self.softplus(x[:,0:3])
@@ -172,9 +179,9 @@ class MeshToShoebox(nn.Module):
 
             x = torch.cat((room_dims, absorptions, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
 
-            x = F.relu(self.lin6(x))
-            if self.MLP_depth >= 3: x = F.relu(self.lin7(x))
-            if self.MLP_depth >= 4: x = F.relu(self.lin10(x))
+            x = self.dropout(F.relu(self.lin6(x)))
+            if self.MLP_depth >= 3: x = self.dropout(F.relu(self.lin7(x)))
+            if self.MLP_depth >= 4: x = self.dropout(F.relu(self.lin10(x)))
             x = self.lin8(x)
 
             mic_and_src_pos = torch.sigmoid(x)

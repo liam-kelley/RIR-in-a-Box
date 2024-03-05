@@ -23,7 +23,7 @@ from torch.nn import MSELoss
 ############################################ Config ############################################
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default="./training/default/rirbox_model2_finetune_default.json", help='Path to configuration file.')
+parser.add_argument('--config', type=str, default="training/default/rirbox_default.json", help='Path to configuration file.')
 args, _ = parser.parse_known_args()
 with open(args.config, 'r') as file: config = load(file)
 
@@ -31,7 +31,8 @@ DEVICE = config['DEVICE']
 if not torch.cuda.is_available(): DEVICE = 'cpu'
 DATALOADER_NUM_WORKERS = 10
 config["DATALOADER_NUM_WORKERS"] = DATALOADER_NUM_WORKERS
-if config["SAVE_PATH"] == "": config["SAVE_PATH"] = "./models/RIRBOX/" + args.config.split("/")[-2] + "/" + args.config.split("/")[-1] + ".pth"
+if config["SAVE_PATH"] == "":
+    config["SAVE_PATH"] = "./models/RIRBOX/" + args.config.split("/")[-2] + "/" + args.config.split("/")[-1].split('.')[0] + ".pth"
 
 print("PARAMETERS:")
 for key, value in config.items():
@@ -47,17 +48,18 @@ if config['do_wandb']:
 # data
 dataset=GWA_3DFRONT_Dataset(csv_file=config['train_dataset'],
                             rir_std_normalization=False, gwa_scaling_compensation=True)
-dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=False,
+dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=config["SHUFFLE_DATASET"],
                         num_workers=DATALOADER_NUM_WORKERS, pin_memory=False,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
 print("")
 
 # models
 mesh_net = MESH_NET()
-if config['PRETRAINED_MESHNET']:
-    mesh_net = load_mesh_net(mesh_net, "./models/MESH2IR/mesh_net_epoch_175.pth")
-mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=config['RIRBOX_MODEL_ARCHITECTURE'], MLP_Depth=config["MLP_DEPTH"]).to(DEVICE)
-shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=config['ISM_MAX_ORDER'], rir_length=3968, start_from_ir_onset=True).to(DEVICE)
+if config['PRETRAINED_MESHNET']: mesh_net = load_mesh_net(mesh_net, "./models/MESH2IR/mesh_net_epoch_175.pth")
+if not config['TRAIN_MESHNET']: mesh_net = mesh_net.eval()
+mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=config['RIRBOX_MODEL_ARCHITECTURE'], MLP_Depth=config["MLP_DEPTH"],
+                                dropout_p=config['DROPOUT_P'],random_noise=config["RANDOM_NOISE_AFTER_MESHNET"]).train().to(DEVICE)
+shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=config['ISM_MAX_ORDER'], rir_length=3968, start_from_ir_onset=True).eval().to(DEVICE)
 print("")
 
 # losses

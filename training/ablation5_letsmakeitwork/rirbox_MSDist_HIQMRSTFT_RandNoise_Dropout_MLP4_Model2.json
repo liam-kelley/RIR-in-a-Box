@@ -1,5 +1,5 @@
 {
-    "SAVE_PATH": "models/RIRBOX/rirbox.pth",
+    "SAVE_PATH": "",
     
     "RIRBOX_MODEL_ARCHITECTURE": 2,
     "MLP_DEPTH": 4,
