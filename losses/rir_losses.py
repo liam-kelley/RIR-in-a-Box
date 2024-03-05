@@ -272,10 +272,21 @@ class EnergyBins_Loss(BaseRIRLoss):
 class MRSTFT_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, device='cpu',
                  synchronize_TOA=False, deemphasize_early_reflections=False, normalize_dp=False,
-                pad_to_same_length=False, crop_to_same_length=True):
+                pad_to_same_length=False, crop_to_same_length=True, hi_q_temporal=False):
         super().__init__()
 
-        if sample_rate == 16000:
+        if sample_rate == 16000 and hi_q_temporal:
+            self.mrstft = auraloss.freq.MultiResolutionSTFTLoss(
+                    fft_sizes = [64, 128, 256, 512, 1024],
+                    hop_sizes = [16, 32, 64, 128, 256],
+                    win_lengths = [64, 128, 256, 512, 1024],
+                    scale=None,
+                    n_bins=None,
+                    sample_rate=sample_rate,
+                    perceptual_weighting=True,
+                    device=device,
+                )
+        elif sample_rate == 16000 and not hi_q_temporal:
             self.mrstft = auraloss.freq.MultiResolutionSTFTLoss(
                     fft_sizes = [256, 512, 1024], # 16000 sample rate
                     hop_sizes = [64, 128, 256],
@@ -311,6 +322,7 @@ class MRSTFT_Loss(BaseRIRLoss):
         if self.pad_to_same_length == self.crop_to_same_length:
             print("pad_to_same_length and crop_to_same_length can't be both True or both False. Defaulting to crop.")
             self.pad_to_same_length, self.crop_to_same_length = False, True
+        self.hi_q_temporal=hi_q_temporal
 
         # Options print
         print("MRSTFT_Loss Initialized", end='\n    ')
@@ -319,6 +331,7 @@ class MRSTFT_Loss(BaseRIRLoss):
         if self.normalize_dp: print("> with normalization", end='\n    ')
         if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
         if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
+        if self.hi_q_temporal: print("> with high quality temporal resolution", end='\n    ')
         print("")
     
     def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
