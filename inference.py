@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import argparse
 from scipy.signal import stft
 
-rirbox_path = "models/RIRBOX/ablation3_different_datasets/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_dp.pth" # Ideally would just use 1 config file for everything
+rirbox_path = "models/RIRBOX/ablation4_model_type_and_depth_fixed/rirbox_model2_MRSTFT_MLPDEPTH4_dp.json.pth" # Ideally would just use 1 config file for everything
 dataset_path = "datasets/GWA_3DFRONT/gwa_3Dfront_validation_nondp_only.csv"
 plot_stft = False
 RIRBOX_MAX_ORDER = 15

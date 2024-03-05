@@ -74,7 +74,8 @@ mrstft=MRSTFT_Loss(sample_rate=dataset.sample_rate,
                    deemphasize_early_reflections=False,
                    normalize_dp=False,
                    pad_to_same_length=False,
-                   crop_to_same_length=True).to(DEVICE)
+                   crop_to_same_length=True,
+                   hi_q_temporal=config['MRSTFT_HI_Q_TEMPORAL']).to(DEVICE)
 acm=AcousticianMetrics_Loss(sample_rate=dataset.sample_rate,
                             synchronize_TOA=True, 
                             crop_to_same_length=True,
