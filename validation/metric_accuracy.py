@@ -110,7 +110,7 @@ def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, 
                                         "mesh2ir_D", "rirbox_D", "hybrid_D",
                                         "mesh2ir_rt60", "rirbox_rt60", "hybrid_rt60"])
     df = df.apply(np.sqrt) # removes the square from the MSEs
-    save_path = "./validation/results/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
+    save_path = "./validation/results_acc/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
     if not os.path.exists(os.path.dirname(save_path)):
         os.makedirs(os.path.dirname(save_path))
     df.to_csv(save_path)
