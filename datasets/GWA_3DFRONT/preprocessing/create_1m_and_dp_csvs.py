@@ -66,15 +66,40 @@ def create_peak_info_csv():
 def create_dp_csv():
     df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_with_peak_info.csv")
 
-    df_dp = df[(abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude"]-1) < 0.5)]
+    df["peak_amplitude_normalized_by_distance"] = df["peak_amplitude"] * df["Distance"]
+
+    df_dp = df[(abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude_normalized_by_distance"]-1) < 0.3)]
     df_dp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_dp_only.csv", index=False)
 
-    df_nondp = df[~((abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude"]-1) < 0.5))]
+    df_nondp = df[~((abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude_normalized_by_distance"]-1) < 0.3))]
     df_nondp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_nondp_only.csv", index=False)
+
+    df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_with_peak_info.csv")
+
+    df["peak_amplitude_normalized_by_distance"] = df["peak_amplitude"] * df["Distance"]
+
+    df_dp = df[(abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude_normalized_by_distance"]-1) < 0.3)]
+    df_dp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_dp_only.csv", index=False)
+
+    df_nondp = df[~((abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude_normalized_by_distance"]-1) < 0.3))]
+    df_nondp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_nondp_only.csv", index=False)
 
     print("done")
 
+def create_nonzero_csv():
+    df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_with_peak_info.csv")
+
+    df_non_zero = df[(abs(df["peak_amplitude"]) > 0.2)]
+    df_non_zero.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_nonzero_only.csv", index=False)
+
+    df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_with_peak_info.csv")
+
+    df_non_zero = df[(abs(df["peak_amplitude"]) > 0.2 * 0.0625029951333999)]
+    df_non_zero.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_nonzero_only.csv", index=False)
+    print("done")
+
 if __name__ == "__main__":
-    create_1m_csv()
-    create_peak_info_csv()
+    # create_1m_csv()
+    # create_peak_info_csv()
     create_dp_csv()
+    # create_nonzero_csv()

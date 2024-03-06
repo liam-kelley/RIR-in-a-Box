@@ -39,10 +39,11 @@ def edge_matrix_from_face_matrix(face_matrix):
     return edge_matrix
 
 class GWA_3DFRONT_Dataset(Dataset):
-    def __init__(self, csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront.csv", rir_std_normalization=False, gwa_scaling_compensation=False):
+    def __init__(self, csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront.csv", rir_std_normalization=False, gwa_scaling_compensation=False, normalize_by_distance=False):
         self.csv_file=csv_file
         self.rir_std_normalization = rir_std_normalization
         self.gwa_scaling_compensation = gwa_scaling_compensation
+        self.normalize_by_distance = normalize_by_distance
         self.sample_rate=16000
         self.data = pd.read_csv(csv_file)
         print('GWA_3DFRONT csv loaded at ', csv_file)
@@ -73,7 +74,7 @@ class GWA_3DFRONT_Dataset(Dataset):
         return x.astype('float32'), edge_matrix.astype('long')
     
     @staticmethod
-    def _load_rir(label_rir_path, rir_std_normalization=True, gwa_scaling_compensation=False):
+    def _load_rir(label_rir_path, rir_std_normalization=True, gwa_scaling_compensation=False, normalize_by_distance=False):
         # Load RIR
         label_rir, fs = librosa.load(label_rir_path)
         
@@ -95,6 +96,10 @@ class GWA_3DFRONT_Dataset(Dataset):
         if gwa_scaling_compensation:
             label_rir = label_rir / 0.0625029951333999
 
+        if normalize_by_distance:
+            distance_at_every_sample = np.arange(crop_length) * 343 / 16000
+            label_rir = label_rir * distance_at_every_sample
+
         label_rir = np.array([label_rir]).astype('float32')
 
         # find origin of RIR
@@ -105,7 +110,6 @@ class GWA_3DFRONT_Dataset(Dataset):
     @staticmethod
     def _estimate_origin(label_rir):
         peak_indexes, _ = find_peaks(label_rir[0],height=0.05*np.max(label_rir), distance=40)
-        # peak_indexes, _ = find_peaks(label_rir[0],height=0.8*np.max(label_rir), distance=40) # Only activate this for find_mystery_scaling.py
         try:
             label_origin = peak_indexes[0]
         except IndexError:
@@ -124,7 +128,7 @@ class GWA_3DFRONT_Dataset(Dataset):
 
         # get all the data
         x, edge_index = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
-        label_rir, label_origin = GWA_3DFRONT_Dataset._load_rir(label_rir_path, self.rir_std_normalization, self.gwa_scaling_compensation)
+        label_rir, label_origin = GWA_3DFRONT_Dataset._load_rir(label_rir_path, self.rir_std_normalization, self.gwa_scaling_compensation, self.normalize_by_distance)
         src_pos = string_to_array(df["Source_Pos"]).astype('float32')
         mic_pos = string_to_array(df["Receiver_Pos"]).astype('float32')
 
