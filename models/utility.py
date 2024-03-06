@@ -79,7 +79,7 @@ def load_all_models_for_inference(model_config : str, START_FROM_IR_ONSET=True, 
     print("")
 
     # Init Hybrid Model
-    hybrid = RIRBox_MESH2IR_Hybrid(mesh_to_shoebox, shoebox_to_rir, return_sbox=False).eval().to(DEVICE)
+    hybrid = RIRBox_MESH2IR_Hybrid(mesh_to_shoebox, shoebox_to_rir).eval().to(DEVICE)
     print("")
 
     return mesh2ir, rirbox, hybrid, config, DEVICE
