@@ -148,7 +148,7 @@ def ssl_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
         os.makedirs(os.path.dirname(save_path))
     df.to_csv(save_path)
 
-def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation/results_acc/***.csv"):
+def view_results_ssl_mesh2ir_vs_rirbox(results_csv="./validation/results_ssl/***.csv"):
     df = pd.read_csv(results_csv)
 
     fig, ax = plt.subplots(1,1, figsize=(3.5, 5))
@@ -171,12 +171,3 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation/res
 
     plt.tight_layout()
     plt.show()
-
-
-# ssl_mesh2ir_vs_rirbox(model_config="training/configs/ablation5_letsmakeitwork/rirbox_MSDist_HIQMRSTFT_Dropout_MLP4_Hidden128_Model3_DistInLatent.json",
-#                       validation_csv="datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv",
-#                       validation_iterations=30,
-#                       SHOW_TAU_PLOTS = False,
-#                       SHOW_SSL_PLOTS = False)
-
-view_results_metric_accuracy_mesh2ir_vs_rirbox("validation/results_ssl/ablation5_letsmakeitwork/rirbox_MSDist_HIQMRSTFT_Dropout_MLP4_Hidden128_Model3_DistInLatent.csv")
