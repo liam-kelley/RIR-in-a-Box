@@ -11,3 +11,6 @@ absorption_coeffs_analysis/
 # Work on MAM + gwa analysis
 gwaMAManalysis/
 playing_with_GWA.py
+
+validation/results_acc/
+validation/results_ssl/

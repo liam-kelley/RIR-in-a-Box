@@ -2,7 +2,7 @@ import os
 import glob
 from validation.metric_accuracy import metric_accuracy_mesh2ir_vs_rirbox, view_results_metric_accuracy_mesh2ir_vs_rirbox
 
-DO_METRIC_ACCURACY = True
+DO_METRIC_ACCURACY = False
 VISUALIZE_METRIC_ACCURACY = True
 
 model_configs = [
@@ -25,7 +25,7 @@ if DO_METRIC_ACCURACY:
 if VISUALIZE_METRIC_ACCURACY:
     results_csvs = model_configs
     for i in range(len(results_csvs)):
-        results_csvs[i] = "validation/results/" + results_csvs[i].split("/")[-2] + "/" + results_csvs[i].split("/")[-1].split(".")[0] + ".csv" 
+        results_csvs[i] = "validation/results_acc/" + results_csvs[i].split("/")[-2] + "/" + results_csvs[i].split("/")[-1].split(".")[0] + ".csv" 
 
     for results_csv in results_csvs:
         view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv=results_csv)
