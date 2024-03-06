@@ -1,0 +1,37 @@
+{
+    "SAVE_PATH": "",
+    
+    "RIRBOX_MODEL_ARCHITECTURE": 3,
+    "MLP_DEPTH": 4,
+    "HIDDEN_LAYER_SIZE": 128,
+    "RANDOM_NOISE_AFTER_MESHNET": false,
+    "DIST_IN_LATENT_VECTOR" : true,
+    "DROPOUT_P": 0.5,
+    "ISM_MAX_ORDER": 15,
+    "NORMALIZE_BY_DIST" : true,
+
+    "PRETRAINED_MESHNET": true,
+    "TRAIN_MESHNET": false,
+    "train_dataset": "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_dp_only.csv",
+
+    "LEARNING_RATE": 1e-4,
+    "EPOCHS": 2,
+    "MAX_ITERATIONS": 12000,
+    "BATCH_SIZE": 8,
+    "SHUFFLE_DATASET": true,
+    "DEVICE": "cuda",
+
+    "do_wandb": true,
+
+    "EDC_TOA_SYNC": false,
+    "EDC_LOSS_WEIGHT": 0.0,
+
+    "MRSTFT_HI_Q_TEMPORAL": true,
+    "MRSTFT_LOSS_WEIGHT": 1.0,
+
+    "D_LOSS_WEIGHT": 0.0,
+    "C80_LOSS_WEIGHT": 0.0,
+    "RT60_LOSS_WEIGHT":10.0,
+
+    "MIC_SRC_DISTANCE_LOSS_WEIGHT": 4.0
+}

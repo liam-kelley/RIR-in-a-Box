@@ -24,7 +24,7 @@ def string_to_array(s):
 
 # 1m
 def create_1m_csv():
-    df = pd.read_csv('./datasets/GWA_3DFRONT/gwa_3Dfront_train.csv')
+    df = pd.read_csv('./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train.csv')
 
     df["Source_Pos"] = df["Source_Pos"].apply(string_to_array)
     df["Receiver_Pos"] = df["Receiver_Pos"].apply(string_to_array)
@@ -33,13 +33,13 @@ def create_1m_csv():
 
     df = df[abs(df["Distance"] - 1) < 0.1]
 
-    df.to_csv('./datasets/GWA_3DFRONT/gwa_3Dfront_train_1m_only.csv', index=False)
+    df.to_csv('./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_1m_only.csv', index=False)
 
     print("done")
 
 # Direct path only and no dp
 def create_peak_info_csv():
-    dataset_path="./datasets/GWA_3DFRONT/gwa_3Dfront_train.csv"
+    dataset_path="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train.csv"
     df = pd.read_csv(dataset_path)
     df["Source_Pos"] = df["Source_Pos"].apply(string_to_array)
     df["Receiver_Pos"] = df["Receiver_Pos"].apply(string_to_array)
@@ -61,41 +61,41 @@ def create_peak_info_csv():
     df["peak_onset"] = peak_onset
     df["peak_amplitude"] = peak_amplitude
 
-    df.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_with_peak_info.csv", index=False)
+    df.to_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_with_peak_info.csv", index=False)
 
 def create_dp_csv():
-    df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_with_peak_info.csv")
+    df = pd.read_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_with_peak_info.csv")
 
     df["peak_amplitude_normalized_by_distance"] = df["peak_amplitude"] * df["Distance"]
 
     df_dp = df[(abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude_normalized_by_distance"]-1) < 0.3)]
-    df_dp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_dp_only.csv", index=False)
+    df_dp.to_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_dp_only.csv", index=False)
 
     df_nondp = df[~((abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude_normalized_by_distance"]-1) < 0.3))]
-    df_nondp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_nondp_only.csv", index=False)
+    df_nondp.to_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_nondp_only.csv", index=False)
 
-    df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_with_peak_info.csv")
+    df = pd.read_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_with_peak_info.csv")
 
     df["peak_amplitude_normalized_by_distance"] = df["peak_amplitude"] * df["Distance"]
 
     df_dp = df[(abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude_normalized_by_distance"]-1) < 0.3)]
-    df_dp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_dp_only.csv", index=False)
+    df_dp.to_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv", index=False)
 
     df_nondp = df[~((abs(df["peak_onset"] - df["delay"]) < 20) & (abs(df["peak_amplitude_normalized_by_distance"]-1) < 0.3))]
-    df_nondp.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_nondp_only.csv", index=False)
+    df_nondp.to_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_nondp_only.csv", index=False)
 
     print("done")
 
 def create_nonzero_csv():
-    df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_with_peak_info.csv")
+    df = pd.read_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_with_peak_info.csv")
 
     df_non_zero = df[(abs(df["peak_amplitude"]) > 0.2)]
-    df_non_zero.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_train_nonzero_only.csv", index=False)
+    df_non_zero.to_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_nonzero_only.csv", index=False)
 
-    df = pd.read_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_with_peak_info.csv")
+    df = pd.read_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_with_peak_info.csv")
 
     df_non_zero = df[(abs(df["peak_amplitude"]) > 0.2 * 0.0625029951333999)]
-    df_non_zero.to_csv("./datasets/GWA_3DFRONT/gwa_3Dfront_validation_nonzero_only.csv", index=False)
+    df_non_zero.to_csv("./datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_nonzero_only.csv", index=False)
     print("done")
 
 if __name__ == "__main__":

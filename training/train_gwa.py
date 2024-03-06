@@ -23,7 +23,7 @@ from torch.nn import MSELoss
 ############################################ Config ############################################
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default="training/default/rirbox_default.json", help='Path to configuration file.')
+parser.add_argument('--config', type=str, default="training/configs/default/rirbox_default.json", help='Path to configuration file.')
 args, _ = parser.parse_known_args()
 with open(args.config, 'r') as file: config = load(file)
 

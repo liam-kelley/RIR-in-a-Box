@@ -39,7 +39,7 @@ def edge_matrix_from_face_matrix(face_matrix):
     return edge_matrix
 
 class GWA_3DFRONT_Dataset(Dataset):
-    def __init__(self, csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront.csv", rir_std_normalization=False, gwa_scaling_compensation=False, normalize_by_distance=False):
+    def __init__(self, csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_std_normalization=False, gwa_scaling_compensation=False, normalize_by_distance=False):
         self.csv_file=csv_file
         self.rir_std_normalization = rir_std_normalization
         self.gwa_scaling_compensation = gwa_scaling_compensation
