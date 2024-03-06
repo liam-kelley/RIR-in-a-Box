@@ -3,6 +3,8 @@ __pycache__
 archived_code
 wandb
 
+diego/
+
 # Work on absorption coeffs regression
 absorption_coeffs_analysis/
 
