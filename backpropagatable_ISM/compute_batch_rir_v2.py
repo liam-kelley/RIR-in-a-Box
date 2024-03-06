@@ -171,7 +171,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
                            batch_absorption : torch.Tensor,
                            max_order : int, fs : float = 16000.0, sound_speed: float = 343.0,
                            output_length: Optional[int] = None, window_length: int = 81,
-                           start_from_ir_onset : bool = False
+                           start_from_ir_onset : bool = False,
+                           normalized_distance : bool = False
 ) -> Tensor:
     """
     Simulate room impulse responses (RIRs) using image source method (ISM).
@@ -206,8 +207,11 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
         batch_IR_onset = fs * torch.linalg.norm(batch_mic_position.squeeze(1)-batch_source_position, dim=1) / sound_speed # squeezing n_channels for now
 
     #attenuate image sources
-    epsilon = 1e-10
-    batch_img_src_att = batch_att[..., None] / (batch_dist[:, None, ...] + epsilon) # (batch_size, n_band, n_image_source, n_mics=1)
+    if not normalized_distance:
+        epsilon = 1e-10
+        batch_img_src_att = batch_att[..., None] / (batch_dist[:, None, ...] + epsilon) # (batch_size, n_band, n_image_source, n_mics=1)
+    else :
+        batch_img_src_att = batch_att[..., None]
     del batch_dist, batch_att
 
     ##### MY OWN BATCH ISM IMPLEMENTATION ###########

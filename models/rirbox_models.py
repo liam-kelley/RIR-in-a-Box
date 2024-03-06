@@ -15,7 +15,7 @@ from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 from models.mesh2ir_models import MESH_NET, data_for_meshnet
 
 class ShoeboxToRIR(nn.Module):
-    def __init__(self,sample_rate : int = 16000, max_order : int = 15, rir_length : int = 3968, start_from_ir_onset : bool = False):
+    def __init__(self,sample_rate : int = 16000, max_order : int = 15, rir_length : int = 3968, start_from_ir_onset : bool = False, normalized_distance=False):
         '''
         start_from_ir_onset will place the IR onset at t_samples = 41.
         Computationally, this avoids keeping a bunch of zeroes in memory, and having more space for ISM echoes to roam free.
@@ -30,6 +30,7 @@ class ShoeboxToRIR(nn.Module):
         self.rir_length=rir_length
         self.window_length=81
         self.start_from_ir_onset = start_from_ir_onset
+        self.normalized_distance= normalized_distance
         print("ShoeboxToRIR initialized.")
 
     def forward(self, input : torch.Tensor):
@@ -49,14 +50,15 @@ class ShoeboxToRIR(nn.Module):
         shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions, mic_position.unsqueeze(1), source_position, absorption,
                                                     self.max_order, self.sample_rate, output_length=self.rir_length,
                                                     window_length=self.window_length,
-                                                    start_from_ir_onset=self.start_from_ir_onset)
+                                                    start_from_ir_onset=self.start_from_ir_onset,
+                                                    normalized_distance=self.normalized_distance)
 
         # Get shoebox ir onset
-        if self.start_from_ir_onset:
-            shoebox_ir_onset_batch = torch.tensor([self.window_length//2], device=mic_position.device).repeat(mic_position.shape[0])
-        else :
-            distances = norm(mic_position-source_position, dim=1)
-            shoebox_ir_onset_batch = self.window_length//2 + (self.sample_rate*distances/self.sound_speed)
+        # if self.start_from_ir_onset:
+        #     shoebox_ir_onset_batch = torch.tensor([self.window_length//2], device=mic_position.device).repeat(mic_position.shape[0])
+        # else :
+        distances = norm(mic_position-source_position, dim=1)
+        shoebox_ir_onset_batch = self.window_length//2 + (self.sample_rate*distances/self.sound_speed)
 
         return shoebox_rir_batch_2, shoebox_ir_onset_batch
     
@@ -65,6 +67,7 @@ class ShoeboxToRIR(nn.Module):
         assert(input.shape[1] == 12)
         # Get shoebox parameters from RIRBox latent space.
         room_dimensions = input[:, 0:3]
+        room_dimensions = room_dimensions + torch.ones_like(room_dimensions)
         mic_position = input[:, 3:6]*room_dimensions
         source_position = input[:, 6:9]*room_dimensions
         absorption = torch.cat((input[:, 9].unsqueeze(1).expand(-1,4),
@@ -112,8 +115,8 @@ class MeshToShoebox(nn.Module):
     -> (3 room dim + 3 mic pos + 3 src pos + 3 absorption) embedding.  
     -> LOSS: on RIR
     '''
-    def __init__(self, meshnet : MESH_NET = None, model : int = 2, MLP_Depth : int = 3,
-                       dropout_p : float = 0.5, random_noise : bool = False):
+    def __init__(self, meshnet : MESH_NET = None, model : int = 2, MLP_Depth : int = 3, hidden_size : int = 64,
+                       dropout_p : float = 0.5, random_noise : bool = False, distance_in_latent_vector : bool = False):
         super().__init__()
         assert model in [2,3, 4], "Model 2 or 3 or 4 only"
         # Model type
@@ -121,7 +124,14 @@ class MeshToShoebox(nn.Module):
         self.MLP_depth=MLP_Depth
         self.dropout = nn.Dropout(dropout_p)
         self.random_noise = random_noise
-        hidden_size=64
+        self.hidden_size=hidden_size
+        self.distance_in_latent_vector = distance_in_latent_vector
+        if not self.distance_in_latent_vector :
+            self.latent_vector_size = 14
+            self.model3_intermediate_latent_vector_size = 12
+        else :
+            self.latent_vector_size = 15
+            self.model3_intermediate_latent_vector_size = 13
 
         # Load (pretrained) mesh net
         if meshnet == None: self.meshnet = MESH_NET()
@@ -129,16 +139,16 @@ class MeshToShoebox(nn.Module):
 
         # Linear layers
         if self.model == 2 :
-            self.lin3 = torch.nn.Linear(14, hidden_size) ; nn.init.kaiming_normal_(self.lin3.weight, mode="fan_out")
+            self.lin3 = torch.nn.Linear(self.latent_vector_size, hidden_size) ; nn.init.kaiming_normal_(self.lin3.weight, mode="fan_out")
             if self.MLP_depth >= 3: self.lin4 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin4.weight, mode="fan_out")
             if self.MLP_depth >= 4: self.lin6 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin6.weight, mode="fan_out")
             self.lin5 = torch.nn.Linear(hidden_size, 12) ; nn.init.xavier_normal_(self.lin5.weight)
         if self.model == 3 :
-            self.lin3 = torch.nn.Linear(14, hidden_size) ; nn.init.kaiming_normal_(self.lin3.weight, mode="fan_out")
+            self.lin3 = torch.nn.Linear(self.latent_vector_size, hidden_size) ; nn.init.kaiming_normal_(self.lin3.weight, mode="fan_out")
             if self.MLP_depth >= 3:self.lin4 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin4.weight, mode="fan_out")
             if self.MLP_depth >= 4: self.lin9 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin9.weight, mode="fan_out")
             self.lin5 = torch.nn.Linear(hidden_size, 6) ; nn.init.xavier_normal_(self.lin5.weight)
-            self.lin6 = torch.nn.Linear(12, hidden_size) ; nn.init.kaiming_normal_(self.lin6.weight, mode="fan_out")
+            self.lin6 = torch.nn.Linear(self.model3_intermediate_latent_vector_size, hidden_size) ; nn.init.kaiming_normal_(self.lin6.weight, mode="fan_out")
             if self.MLP_depth >= 3:self.lin7 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin7.weight, mode="fan_out")
             if self.MLP_depth >= 4: self.lin10 = torch.nn.Linear(hidden_size, hidden_size) ; nn.init.kaiming_normal_(self.lin10.weight, mode="fan_out")
             self.lin8 = torch.nn.Linear(hidden_size, 6) ; nn.init.xavier_normal_(self.lin8.weight)
@@ -154,7 +164,11 @@ class MeshToShoebox(nn.Module):
         # add tiny random noise to x to explore latent space more ???
         if self.random_noise : x = x + torch.rand_like(x, device=x.device)*1e-4
 
-        x = torch.cat((x, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
+        if not self.distance_in_latent_vector : 
+            x = torch.cat((x, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
+        else :
+            batch_oracle_distances = norm(batch_oracle_mic_pos-batch_oracle_src_pos, dim=1).unsqueeze(1)
+            x = torch.cat((x, batch_oracle_mic_pos, batch_oracle_src_pos, batch_oracle_distances), dim=1)
 
         if self.model == 2 :
             x = self.dropout(F.relu(self.lin3(x)))
@@ -177,7 +191,10 @@ class MeshToShoebox(nn.Module):
             room_dims = self.softplus(x[:,0:3])
             absorptions = torch.sigmoid(x[:,3:6])
 
-            x = torch.cat((room_dims, absorptions, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
+            if not self.distance_in_latent_vector :
+                x = torch.cat((room_dims, absorptions, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
+            else :
+                x = torch.cat((room_dims, absorptions, batch_oracle_mic_pos, batch_oracle_src_pos, batch_oracle_distances), dim=1)
 
             x = self.dropout(F.relu(self.lin6(x)))
             if self.MLP_depth >= 3: x = self.dropout(F.relu(self.lin7(x)))
@@ -261,11 +278,13 @@ class RIRBox_MESH2IR_Hybrid(nn.Module):
             shoebox_rirs.append(temp_shoebox_rir)
         
         # Recombine and pad your newly fabricated rirs. Enjoy!
-        shoebox_rir_batch = torch.nn.utils.rnn.pad_sequence(shoebox_rirs, batch_first=True, padding_value=0.0)
+        # shoebox_rir_batch = torch.nn.utils.rnn.pad_sequence(shoebox_rirs, batch_first=True, padding_value=0.0)
         shoebox_origin_batch = torch.tensor([window_length//2], device=shoebox_rir_batch.device).repeat(shoebox_rir_batch.shape[0])
-
+        
         return shoebox_rir_batch, shoebox_origin_batch
     
     @staticmethod
     def get_batch_mixing_point(room_volume_batch : torch.Tensor):
-        return torch.floor(0.002 * torch.sqrt(room_volume_batch) * 16000).int
+        constant = 0.002 # used in that paper diego sent
+        constant = 0.004 # I like this one better TODO validation search needed
+        return torch.floor(constant * torch.sqrt(room_volume_batch) * 16000).int
