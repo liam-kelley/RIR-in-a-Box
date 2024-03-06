@@ -13,12 +13,12 @@ import matplotlib.pyplot as plt
 import argparse
 from scipy.signal import stft
 
-rirbox_path = "models/RIRBOX/ablation4_model_type_and_depth_fixed/rirbox_model2_MRSTFT_MLPDEPTH4_dp.json.pth" # Ideally would just use 1 config file for everything
-dataset_path = "datasets/GWA_3DFRONT/gwa_3Dfront_validation_nondp_only.csv"
+rirbox_path = "models/RIRBOX/ablation5_letsmakeitwork/rirbox_moreMSDist_HIQMRSTFT_Dropout_MLP4_Model2.pth" # TODO Ideally would just use 1 config file for everything
+dataset_path = "datasets/GWA_3DFRONT/gwa_3Dfront_validation_dp_only.csv"
 plot_stft = False
 RIRBOX_MAX_ORDER = 15
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-TOA_SYNCHRONIZATION = True
+TOA_SYNCHRONIZATION = False
 SCALE_MESH2IR_BY_ITS_ESTIMATED_STD = True # If True, cancels out the std normalization used during mesh2ir's training
 SCALE_MESH2IR_GWA_SCALING_COMPENSATION = True # If true, cancels out the scaling compensation mesh2ir learned from the GWA dataset during training.
 MESH2IR_USES_LABEL_ORIGIN = False
@@ -51,9 +51,11 @@ mesh2ir = MESH2IR_FULL(mesh_net, net_G).eval().to(DEVICE)
 print("")
 
 # Init RIRBox
-mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=2, MLP_Depth=4).eval().to(DEVICE)
+mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=2, MLP_Depth=4, hidden_size=128,
+                                distance_in_latent_vector=True).eval().to(DEVICE)
 mesh_to_shoebox = load_mesh_to_shoebox(mesh_to_shoebox, rirbox_path)
-shoebox_to_rir = ShoeboxToRIR(16000, max_order=RIRBOX_MAX_ORDER, rir_length=3968, start_from_ir_onset=True).eval().to(DEVICE)
+shoebox_to_rir = ShoeboxToRIR(16000, max_order=RIRBOX_MAX_ORDER, rir_length=3968,
+                              start_from_ir_onset=True, normalized_distance=False).eval().to(DEVICE)
 rirbox = RIRBox_FULL(mesh_to_shoebox, shoebox_to_rir, return_sbox=True).eval().to(DEVICE)
 print("")
 
@@ -90,8 +92,11 @@ with torch.no_grad():
         
         # RIRBOX
         rir_rirbox, origin_rirbox, latent_vector = rirbox(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
-        if RESPATIALIZE_RIRBOX: rir_rirbox, origin_rirbox = ShoeboxToRIR.respatialize_rirbox(rir_rirbox, dp_onset_in_samples)
+        if RESPATIALIZE_RIRBOX:
+            rir_rirbox, origin_rirbox = ShoeboxToRIR.respatialize_rirbox(rir_rirbox, dp_onset_in_samples)
+            # rir_rirbox, origin_rirbox = ShoeboxToRIR.respatialize_rirbox(rir_rirbox, origin_rirbox[0].cpu().int().item())
         virtual_shoebox = ShoeboxToRIR.extract_shoebox_from_latent_representation(latent_vector)
+        rirbox_distance=torch.linalg.norm(virtual_shoebox[1][0]-virtual_shoebox[2][0])
 
         # Hybrid model
         if FILTER_MESH2IR_IN_HYBRID :
@@ -99,7 +104,9 @@ with torch.no_grad():
             hybrid_rir, hybrid_origin = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir_filtered, origin_mesh2ir)
         else:
             hybrid_rir, hybrid_origin = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir, origin_mesh2ir)
-        if RESPATIALIZE_RIRBOX: hybrid_rir, hybrid_origin = ShoeboxToRIR.respatialize_rirbox(hybrid_rir, dp_onset_in_samples)
+        if RESPATIALIZE_RIRBOX:
+            hybrid_rir, hybrid_origin = ShoeboxToRIR.respatialize_rirbox(hybrid_rir, dp_onset_in_samples)
+            # hybrid_rir, hybrid_origin = ShoeboxToRIR.respatialize_rirbox(hybrid_rir, hybrid_origin[0].cpu().int().item())
 
         ############################ Plotting #############################
 
@@ -130,6 +137,8 @@ with torch.no_grad():
         axs[0].set_xlim(0, 4096)
         axs[0].set_ylim(0.0, 1.0)
         axs[0].grid(ls="--", alpha=0.5)
+        # axs[0].text(0.7, 0.85, f"IR onset : {origin_mesh2ir[0]}",
+        #             horizontalalignment='center', verticalalignment='center', transform=axs[0].transAxes)
         axs[0].legend()
 
         axs[1].set_title('RIRBOX : ' + " ".join(rirbox_path.split('/')[-1].split('.')[0].split('_')[1:]))
@@ -143,7 +152,7 @@ with torch.no_grad():
         axs[1].set_ylim(0.0, 1.0)
         axs[1].grid(ls="--", alpha=0.5)
         axs[1].legend()
-        axs[1].text(0.7, 0.75, f"Room dim {format_text(virtual_shoebox[0])}\nMic pos {format_text(virtual_shoebox[1])}\nSrc pos {format_text(virtual_shoebox[2])}\nAbsorption {format_text(virtual_shoebox[3])[3:]}",
+        axs[1].text(0.7, 0.65, f"Room dim {format_text(virtual_shoebox[0])}\nAbsorption {format_text(virtual_shoebox[3])[3:]}\nMic pos {format_text(virtual_shoebox[1])}\nSrc pos {format_text(virtual_shoebox[2])}\nMic-Src Distance : {float(str(rirbox_distance.cpu().item())[:5])}", # \nIR onset : {origin_rirbox[0]}
                     horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
 
         axs[2].set_title('GT')
@@ -157,7 +166,7 @@ with torch.no_grad():
         axs[2].set_ylim(0.0, 1.0)
         axs[2].grid(ls="--", alpha=0.5)
         axs[2].legend()
-        axs[2].text(0.7, 0.85, f"GT Mic pos {format_text(mic_pos_batch)}\nGT Src pos {format_text(src_pos_batch)}",
+        axs[2].text(0.7, 0.75, f"GT Mic pos {format_text(mic_pos_batch)}\nGT Src pos {format_text(src_pos_batch)}\nGT Mic-Src Distance : {float(str(distance.cpu().item())[:5])}", # \nIR onset : {label_origin[0]}
                     horizontalalignment='center', verticalalignment='center', transform=axs[2].transAxes)
 
         axs[3].set_title('(RIRBOX + MESH2IR) Hybrid. Mixing point based on estimated RIRBOX room dimensions.')
@@ -171,7 +180,7 @@ with torch.no_grad():
         axs[3].set_ylim(0.0, 1.0)
         axs[3].grid(ls="--", alpha=0.5)
         axs[3].legend()
-        axs[3].text(0.7, 0.75, f"Room dim {format_text(virtual_shoebox[0])}\nMic pos {format_text(virtual_shoebox[1])}\nSrc pos {format_text(virtual_shoebox[2])}\nAbsorption {format_text(virtual_shoebox[3])[3:]}",
+        axs[3].text(0.7, 0.65, f"Room dim {format_text(virtual_shoebox[0])}\nAbsorption {format_text(virtual_shoebox[3])[3:]}\nMic pos {format_text(virtual_shoebox[1])}\nSrc pos {format_text(virtual_shoebox[2])}\nMic-Src Distance : {float(str(rirbox_distance.cpu().item())[:5])}", # \nIR onset : {hybrid_origin[0]}
                     horizontalalignment='center', verticalalignment='center', transform=axs[3].transAxes)
 
         plt.tight_layout()

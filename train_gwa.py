@@ -27,10 +27,8 @@ parser.add_argument('--config', type=str, default="training/default/rirbox_defau
 args, _ = parser.parse_known_args()
 with open(args.config, 'r') as file: config = load(file)
 
-DEVICE = config['DEVICE']
-if not torch.cuda.is_available(): DEVICE = 'cpu'
-DATALOADER_NUM_WORKERS = 10
-config["DATALOADER_NUM_WORKERS"] = DATALOADER_NUM_WORKERS
+DEVICE = config['DEVICE'] if torch.cuda.is_available() else 'cpu'
+config["DATALOADER_NUM_WORKERS"] = 10
 if config["SAVE_PATH"] == "":
     config["SAVE_PATH"] = "./models/RIRBOX/" + args.config.split("/")[-2] + "/" + args.config.split("/")[-1].split('.')[0] + ".pth"
 
@@ -47,9 +45,9 @@ if config['do_wandb']:
 
 # data
 dataset=GWA_3DFRONT_Dataset(csv_file=config['train_dataset'],
-                            rir_std_normalization=False, gwa_scaling_compensation=True)
+                            rir_std_normalization=False, gwa_scaling_compensation=True, normalize_by_distance=config['NORMALIZE_BY_DIST'])
 dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=config["SHUFFLE_DATASET"],
-                        num_workers=DATALOADER_NUM_WORKERS, pin_memory=False,
+                        num_workers=config["DATALOADER_NUM_WORKERS"], pin_memory=False,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
 print("")
 
@@ -57,35 +55,35 @@ print("")
 mesh_net = MESH_NET()
 if config['PRETRAINED_MESHNET']: mesh_net = load_mesh_net(mesh_net, "./models/MESH2IR/mesh_net_epoch_175.pth")
 if not config['TRAIN_MESHNET']: mesh_net = mesh_net.eval()
-mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=config['RIRBOX_MODEL_ARCHITECTURE'], MLP_Depth=config["MLP_DEPTH"],
-                                dropout_p=config['DROPOUT_P'],random_noise=config["RANDOM_NOISE_AFTER_MESHNET"]).train().to(DEVICE)
-shoebox_to_rir = ShoeboxToRIR(dataset.sample_rate, max_order=config['ISM_MAX_ORDER'], rir_length=3968, start_from_ir_onset=True).eval().to(DEVICE)
+mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net,
+                                model=config['RIRBOX_MODEL_ARCHITECTURE'],
+                                MLP_Depth=config["MLP_DEPTH"],
+                                hidden_size=config['HIDDEN_LAYER_SIZE'],
+                                dropout_p=config['DROPOUT_P'],
+                                random_noise=config["RANDOM_NOISE_AFTER_MESHNET"],
+                                distance_in_latent_vector=config["DIST_IN_LATENT_VECTOR"]).train().to(DEVICE)
+shoebox_to_rir = ShoeboxToRIR(sample_rate=dataset.sample_rate,
+                              max_order=config['ISM_MAX_ORDER'],
+                              rir_length=3300, #rir_length=3968,
+                              start_from_ir_onset=True,
+                              normalized_distance=config['NORMALIZE_BY_DIST']).eval().to(DEVICE)
 print("")
 
 # losses
 edc=EnergyDecay_Loss(frequency_wise=True,
                      synchronize_TOA=config['EDC_TOA_SYNC'],
-                     normalize_dp=False,
-                     normalize_decay_curve=False,
-                     deemphasize_early_reflections=False,
                      pad_to_same_length=False,
                      crop_to_same_length=True).to(DEVICE)
 mrstft=MRSTFT_Loss(sample_rate=dataset.sample_rate,
                    device=DEVICE,
                    synchronize_TOA=True,
-                   deemphasize_early_reflections=False,
-                   normalize_dp=False,
                    pad_to_same_length=False,
                    crop_to_same_length=True,
                    hi_q_temporal=config['MRSTFT_HI_Q_TEMPORAL']).to(DEVICE)
 acm=AcousticianMetrics_Loss(sample_rate=dataset.sample_rate,
                             synchronize_TOA=True, 
                             crop_to_same_length=True,
-                            normalize_dp=False,
-                            frequency_wise=False,
-                            normalize_total_energy=False,
-                            pad_to_same_length=False,
-                            MeanAroundMedian_pruning=False).to(DEVICE)
+                            pad_to_same_length=False).to(DEVICE)
 mse = MSELoss().to(DEVICE)
 
 loss_edr = torch.tensor([0.0])
@@ -192,15 +190,15 @@ for epoch in range(config['EPOCHS']):
                 if isinstance(value, torch.Tensor) : wandb.log({key: value.item()})
                 elif isinstance(value, float): wandb.log({key: value})
             wandb.log(timer.get_logs())
-            if iterations % DATALOADER_NUM_WORKERS == 0:
-                wandb.log({"Loading data": time_load/DATALOADER_NUM_WORKERS})
+            if iterations % config["DATALOADER_NUM_WORKERS"] == 0:
+                wandb.log({"Loading data": time_load/config["DATALOADER_NUM_WORKERS"]})
             total_time = sum([ timer.get_logs()[key] for key in timer.get_logs()]) + time_load_remember
             wandb.log({"Total time": total_time})
         
         # print(iterations)
-        if iterations % DATALOADER_NUM_WORKERS == 0:
-            # print("Loading data: ", time_load/DATALOADER_NUM_WORKERS)
-            time_load_remember = time_load/DATALOADER_NUM_WORKERS
+        if iterations % config["DATALOADER_NUM_WORKERS"] == 0:
+            # print("Loading data: ", time_load/config["DATALOADER_NUM_WORKERS"])
+            time_load_remember = time_load/config["DATALOADER_NUM_WORKERS"]
             time_load = 0
         
         del total_loss, losses

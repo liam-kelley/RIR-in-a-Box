@@ -14,9 +14,11 @@ import matplotlib.pyplot as plt
 import argparse
 from matplotlib.lines import Line2D
 from json import load
+import os
 
 def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config="./training/ablation2/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.json",
-                                                 validation_iterations=10):
+                                                 validation_csv="datasets/GWA_3DFRONT/gwa_3Dfront_validation_dp_only.csv",
+                                                 validation_iterations=0):
     '''
     Validation of the metric accuracy of the MESH2IR and RIRBOX models on the GWA_3DFRONT dataset.
     '''
@@ -29,15 +31,12 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config="./training/ablati
     MESH2IR_USES_LABEL_ORIGIN = False
     RESPATIALIZE_RIRBOX = True
     FILTER_MESH2IR_IN_HYBRID = False
+    ISM_MAX_ORDER = 15
 
     with open(model_config, 'r') as file: config = load(file)
-    config['RIRBOX_MAX_ORDER'] = 15 # Feel free to increase this value maybe?
-
-    config["DATALOADER_NUM_WORKERS"] = 10
+    config['ISM_MAX_ORDER'] = ISM_MAX_ORDER
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-    config['BATCH_SIZE'] = 1
     if config['SAVE_PATH'] == "": config['SAVE_PATH'] = "./models/RIRBOX/"+ model_config.split("/")[-2] + "/"+ model_config.split("/")[-1].split(".")[0] + ".pth"
-
     print("PARAMETERS:")
     for key, value in config.items():
         print(f"    > {key} = {value}")
@@ -46,17 +45,25 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config="./training/ablati
     ############################################ Models #############################################
 
     # Init baseline
-    mesh_net = MESH_NET()
-    mesh_net = load_mesh_net(mesh_net, "./models/MESH2IR/mesh_net_epoch_175.pth").eval().to(DEVICE)
-    net_G = STAGE1_G()
-    net_G = load_GAN(net_G, "./models/MESH2IR/netG_epoch_175.pth").eval().to(DEVICE)
+    mesh_net = load_mesh_net(MESH_NET(), "./models/MESH2IR/mesh_net_epoch_175.pth")
+    net_G = load_GAN(STAGE1_G(), "./models/MESH2IR/netG_epoch_175.pth")
     mesh2ir = MESH2IR_FULL(mesh_net, net_G).eval().to(DEVICE)
     print("")
 
     # Init Rirbox
-    mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net, model=config['RIRBOX_MODEL_ARCHITECTURE'], MLP_Depth=config['MLP_DEPTH'])
-    if config['SAVE_PATH'] is not None: mesh_to_shoebox = load_mesh_to_shoebox(mesh_to_shoebox, config['SAVE_PATH'])
-    shoebox_to_rir = ShoeboxToRIR(16000, max_order=config['RIRBOX_MAX_ORDER'], rir_length=3968, start_from_ir_onset=True)
+    mesh_to_shoebox = load_mesh_to_shoebox(MeshToShoebox(meshnet=mesh_net,
+                                                        model=config['RIRBOX_MODEL_ARCHITECTURE'],
+                                                        MLP_Depth=config['MLP_DEPTH'],
+                                                        hidden_size=config['HIDDEN_LAYER_SIZE'],
+                                                        dropout_p=False,
+                                                        random_noise=False,
+                                                        distance_in_latent_vector=config["DIST_IN_LATENT_VECTOR"]),
+                                            config['SAVE_PATH'])
+    shoebox_to_rir = ShoeboxToRIR(sample_rate=16000,
+                                  max_order=config['ISM_MAX_ORDER'],
+                                  rir_length=3968,
+                                  start_from_ir_onset=True,
+                                  normalized_distance=False)
     rirbox = RIRBox_FULL(mesh_to_shoebox, shoebox_to_rir).eval().to(DEVICE)
     print("")
 
@@ -69,41 +76,31 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config="./training/ablati
     ################################################################################################
 
     # data
-    dataset=GWA_3DFRONT_Dataset(csv_file="datasets/GWA_3DFRONT/gwa_3Dfront_validation_dp_only.csv",rir_std_normalization=False)
-    dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=False,
-                            num_workers=config['DATALOADER_NUM_WORKERS'], pin_memory=False,
+    dataset=GWA_3DFRONT_Dataset(csv_file=validation_csv,rir_std_normalization=False)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False,
+                            num_workers=10, pin_memory=False,
                             collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
     print("")
 
     # metrics
     edc=EnergyDecay_Loss(frequency_wise=True,
-                            synchronize_TOA=TOA_SYNCHRONIZATION, 
-                            normalize_dp=False,
-                            normalize_decay_curve=False,
-                            deemphasize_early_reflections=False,
-                            pad_to_same_length=False,
-                            crop_to_same_length=True).to(DEVICE)
-    
-    mrstft=MRSTFT_Loss(sample_rate=16000,device=DEVICE,
                             synchronize_TOA=TOA_SYNCHRONIZATION,
-                            deemphasize_early_reflections=False,
-                            normalize_dp=False,
                             pad_to_same_length=False,
                             crop_to_same_length=True).to(DEVICE)
-    
+    mrstft=MRSTFT_Loss(sample_rate=dataset.sample_rate,
+                        device=DEVICE,
+                        synchronize_TOA=True,
+                        pad_to_same_length=False,
+                        crop_to_same_length=True,
+                        hi_q_temporal=True).to(DEVICE)
     acm=AcousticianMetrics_Loss(sample_rate=16000,
                                 synchronize_TOA=True,
                                 crop_to_same_length=True,
-                                normalize_dp=False,
-                                frequency_wise=False,
-                                normalize_total_energy=False,
-                                pad_to_same_length=False,
-                                MeanAroundMedian_pruning=False).to(DEVICE)
+                                pad_to_same_length=False).to(DEVICE)
     print("")
 
     with torch.no_grad():
         my_list = []
-
         i = 0
         # iterate over the dataset
         for x_batch, edge_index_batch, batch_indexes, label_rir_batch, label_origin_batch, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Metric validation"):
@@ -188,7 +185,10 @@ def validation_metric_accuracy_mesh2ir_vs_rirbox(model_config="./training/ablati
                                         "mesh2ir_D", "rirbox_D", "hybrid_D",
                                         "mesh2ir_rt60", "rirbox_rt60", "hybrid_rt60"])
     df = df.apply(np.sqrt) # removes the square from the MSEs
-    df.to_csv("./validation_results/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv")
+    save_path = "./validation_results/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
+    if not os.path.exists(os.path.dirname(save_path)):
+        os.makedirs(os.path.dirname(save_path))
+    df.to_csv(save_path)
 
 def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation_results/model.csv"):
     df = pd.read_csv(results_csv)
@@ -275,51 +275,18 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation_res
     plt.show()
 
 def main():
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--config['SAVE_PATH']', type=str, default="./models/RIRBOX/RIRBOX_Model2_Finetune_worldly-lion-25.pth",
-    #                     help='Path to rirbox model to validate.')
-    # args, _ = parser.parse_known_args()
-
     model_configs = [
-        "training/ablation3_different_datasets/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_1m.json",
-        "training/ablation3_different_datasets/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_dp.json",
-        "training/ablation3_different_datasets/rirbox_model3_MRSTFT_MSDist_MLPDEPTH4_1m.json",
-        "training/ablation3_different_datasets/rirbox_model3_MRSTFT_MSDist_MLPDEPTH4_dp.json",
-        "training/ablation3_different_datasets/rirbox_model2_MRSTFT_MLPDEPTH4_1m.json",
-        "training/ablation3_different_datasets/rirbox_model2_MRSTFT_MLPDEPTH4_dp.json",
-        "training/ablation3_different_datasets/rirbox_model3_MRSTFT_MLPDEPTH4_1m.json",
-        "training/ablation3_different_datasets/rirbox_model3_MRSTFT_MLPDEPTH4_dp.json",
-        # "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH2.json",
-        # "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH3.json",
-        # "./training/ablation2/rirbox_model3_MRSTFT_MLPDEPTH4.json",
-        # "./training/ablation2/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.json",
-        # "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH2.json",
-        # "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH3.json",
-        # "./training/ablation2/rirbox_model2_MRSTFT_MLPDEPTH4.json",
-        # "./training/ablation2/rirbox_model2_MRSTFT_EDR_MLPDEPTH4.json",
+        # "training/ablation5_letsmakeitwork/rirbox_moremoreMSDist_HIQMRSTFT_Dropout_MLP4_Model3.json",
+        "training/ablation5_letsmakeitwork/rirbox_moreMSDist_HIQMRSTFT_Dropout_MLP4_Model2.json",
+        # "training/ablation5_letsmakeitwork/rirbox_MSDist_HIQMRSTFT_Dropout_MLP4_Model2.json",
     ]
     
     # for model_config in model_configs:
-    #     validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=model_config, validation_iterations=2815)
+    #     validation_metric_accuracy_mesh2ir_vs_rirbox(model_config=model_config, validation_csv="datasets/GWA_3DFRONT/gwa_3Dfront_validation_nonzero_only.csv")
     
-    results_csvs = [
-        "./validation_results/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_1m.csv",
-        "./validation_results/rirbox_model3_MRSTFT_MSDist_MLPDEPTH4_1m.csv",
-        "./validation_results/rirbox_model2_MRSTFT_MSDist_MLPDEPTH4_dp.csv",
-        "./validation_results/rirbox_model3_MRSTFT_MSDist_MLPDEPTH4_dp.csv",
-        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4_1m.csv",
-        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4_1m.csv",
-        "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4_dp.csv",
-        "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4_dp.csv",
-        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH2.csv",
-        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH3.csv",
-        # "./validation_results/rirbox_model3_MRSTFT_MLPDEPTH4.csv",
-        # "./validation_results/rirbox_model3_MRSTFT_EDR_MLPDEPTH4.csv",
-        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH2.csv",
-        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH3.csv",
-        # "./validation_results/rirbox_model2_MRSTFT_MLPDEPTH4.csv",
-        # "./validation_results/rirbox_model2_MRSTFT_EDR_MLPDEPTH4.csv",
-    ]
+    results_csvs = model_configs
+    for i in range(len(results_csvs)):
+        results_csvs[i] = "validation_results/" + results_csvs[i].split("/")[1] + "/" + results_csvs[i].split("/")[2].split(".")[0] + ".csv" 
 
     for results_csv in results_csvs:
         view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv=results_csv)
