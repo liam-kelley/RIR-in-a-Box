@@ -6,6 +6,7 @@ from models.rirbox_models import MeshToShoebox, ShoeboxToRIR, RIRBox_FULL, RIRBo
 from training.utility import filter_rir_like_rirbox
 import torch
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
+from json import load as json_load
 
 def load_mesh_net(mesh_net_obj,mesh_net_path):
     '''
@@ -45,7 +46,7 @@ def load_mesh_to_shoebox(mesh_to_shoebox_obj,mesh_to_shoebox_path):
     return mesh_to_shoebox_obj
 
 def load_all_models_for_inference(model_config : str, START_FROM_IR_ONSET=True, ISM_MAX_ORDER=None):
-    with open(model_config, 'r') as file: config = load(file)
+    with open(model_config, 'r') as file: config = json_load(file)
     if ISM_MAX_ORDER is not None: config['ISM_MAX_ORDER'] = ISM_MAX_ORDER
     DEVICE = 'cuda' if is_available() else 'cpu'
     if config['SAVE_PATH'] == "": config['SAVE_PATH'] = "./models/RIRBOX/"+ model_config.split("/")[-2] + "/"+ model_config.split("/")[-1].split(".")[0] + ".pth"
