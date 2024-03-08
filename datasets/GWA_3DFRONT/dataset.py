@@ -23,28 +23,14 @@ def string_to_array(s):
     # Convert each element to float and create a numpy array
     return np.array([float(e) for e in elements])
 
-def edge_matrix_from_face_matrix(face_matrix):
-    '''
-    DEPRECATED
-    '''
-    # Iterate over face_matrix to extract edges
-    edges = []
-    for f in face_matrix:
-        face_edges = [(f[i], f[(i+1) % len(f)]) for i in range(len(f))]
-        for e in face_edges:
-            if e not in edges and (e[1], e[0]) not in edges:  # Avoid duplicates
-                edges.append(e)
-    # Convert edges list to a numpy array
-    edge_matrix = np.array(edges)
-    return edge_matrix
-
 class GWA_3DFRONT_Dataset(Dataset):
-    def __init__(self, csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_std_normalization=False, gwa_scaling_compensation=False, normalize_by_distance=False):
+    def __init__(self, csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_length = 3968, sample_rate=16000,
+                 rir_std_normalization=False, gwa_scaling_compensation=False):
         self.csv_file=csv_file
         self.rir_std_normalization = rir_std_normalization
         self.gwa_scaling_compensation = gwa_scaling_compensation
-        self.normalize_by_distance = normalize_by_distance
-        self.sample_rate=16000
+        self.sample_rate=sample_rate
+        self.rir_length=rir_length
         self.data = pd.read_csv(csv_file)
         print('GWA_3DFRONT csv loaded at ', csv_file)
 
@@ -73,31 +59,26 @@ class GWA_3DFRONT_Dataset(Dataset):
         edge_matrix = m.edge_matrix() # edge_matrix = edge_matrix_from_face_matrix(m.face_matrix())
         return x.astype('float32'), edge_matrix.astype('long')
     
-    @staticmethod
-    def _load_rir(label_rir_path, rir_std_normalization=True, gwa_scaling_compensation=False, normalize_by_distance=False, rir_length=3968):
+    def _load_rir(self, label_rir_path):
         # Load RIR
-        label_rir, fs = librosa.load(label_rir_path,duration=rir_length/16000)
+        label_rir, fs = librosa.load(label_rir_path,duration=self.rir_length/self.sample_rate)
         
         # Resample to 16kHz
-        label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=16000)
+        label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=self.sample_rate)
 
         # crop or pad all rirs to same length
         length = label_rir.size
-        if(length<rir_length):
-            zeros = np.zeros(rir_length-length)
+        if(length<self.rir_length):
+            zeros = np.zeros(self.rir_length-length)
             label_rir = np.concatenate([label_rir,zeros])
-        else: label_rir = label_rir[0:rir_length]
+        else: label_rir = label_rir[0:self.rir_length]
 
-        # Preprocess RIR (standardization by std)
-        if rir_std_normalization :
+        # MESH2IR Preprocess RIR (standardization by std)
+        if self.rir_std_normalization :
             label_rir = mesh2ir_rir_preprocessing(label_rir)
 
-        if gwa_scaling_compensation:
+        if self.gwa_scaling_compensation:
             label_rir = label_rir / 0.0625029951333999
-
-        if normalize_by_distance: # deprecated. Now done inside loss function
-            distance_at_every_sample = np.arange(rir_length) * 343 / 16000
-            label_rir = label_rir * distance_at_every_sample
 
         label_rir = np.array([label_rir]).astype('float32')
 
@@ -127,7 +108,7 @@ class GWA_3DFRONT_Dataset(Dataset):
 
         # get all the data
         x, edge_index = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
-        label_rir, label_origin = GWA_3DFRONT_Dataset._load_rir(label_rir_path, self.rir_std_normalization, self.gwa_scaling_compensation, self.normalize_by_distance)
+        label_rir, label_origin = self._load_rir(label_rir_path)
         src_pos = string_to_array(df["Source_Pos"]).astype('float32')
         mic_pos = string_to_array(df["Receiver_Pos"]).astype('float32')
 
