@@ -19,9 +19,9 @@ class ShoeboxToRIR(nn.Module):
         '''
         start_from_ir_onset will place the IR onset at t_samples = 41.
         Computationally, this avoids keeping a bunch of zeroes in memory, and having more space for ISM echoes to roam free.
-        Afterwards, you will need to "respatialize" the sound. Basically, you need to delay the sound by mic-src distance * sample rate / sound speed
-        During training, we aim to only train from IR onset and onwards, so this option is beneficial.
-        TODO add option for module to do this automatically.
+        WARNING: THIS IS ONLY USEFUL IF YOU USE THE SYNCHRONIZE TOA OPTION ON THE LOSSES.
+        IF YOU DONT USE THE SYNCHRONIZE TOA OPTION, THEN YOU WON'T BE ABLE TO COMPUTE THE LOSS CORRECTLY,
+            OR YOU WILL HAVE TO MANUALLY RESYNCHRONIZE THE RIR, NON-BATCHWISE, SO THIS IS ONLY GOOD FOR INFERENCE. BUT EVEN THEN... WHY?
         '''
         super().__init__()
         self.sample_rate=sample_rate
@@ -47,20 +47,24 @@ class ShoeboxToRIR(nn.Module):
         room_dimensions, mic_position, source_position, absorption = ShoeboxToRIR.extract_shoebox_from_latent_representation(input)
         
         # Batch simulate rir
-        shoebox_rir_batch_2=batch_simulate_rir_ism(room_dimensions, mic_position.unsqueeze(1), source_position, absorption,
+        shoebox_rir_batch=batch_simulate_rir_ism(room_dimensions, mic_position.unsqueeze(1), source_position, absorption,
                                                     self.max_order, self.sample_rate, output_length=self.rir_length,
                                                     window_length=self.window_length,
                                                     start_from_ir_onset=self.start_from_ir_onset,
                                                     normalized_distance=self.normalized_distance)
 
-        # Get shoebox ir onset
-        # if self.start_from_ir_onset:
-        #     shoebox_ir_onset_batch = torch.tensor([self.window_length//2], device=mic_position.device).repeat(mic_position.shape[0])
-        # else :
-        distances = norm(mic_position-source_position, dim=1)
-        shoebox_ir_onset_batch = self.window_length//2 + (self.sample_rate*distances/self.sound_speed)
+        # fix IR onset to be correct and comparable to baseline and GT
+        if not self.start_from_ir_onset:
+            # TODO this can cause problems if mic and src in the virtual room are too close. But I don't have time to think about that.
+            shoebox_rir_batch = shoebox_rir_batch[...,self.window_length//2:]
+            distances = norm(mic_position-source_position, dim=1)
+            shoebox_ir_onset_batch = (self.sample_rate*distances/self.sound_speed)
+        if self.start_from_ir_onset:
+            # MAKE SURE TO ONLY ACTIVATE THIS IF YOU ARE DOING INFERENCE, HAVE BATCH WISE 1 AND YOU PLAN ON RESPATIALIZING THE RIR,
+            # OR YOU ARE DOING BATCH IR GENERATION BUT ARE EXCLUSIVELY USING "SYNC IR ONSETS" / "SYNC TOA" OPTIONS IN LOSSES.
+            shoebox_ir_onset_batch = torch.tensor([self.window_length//2], device=mic_position.device).repeat(mic_position.shape[0])
 
-        return shoebox_rir_batch_2, shoebox_ir_onset_batch
+        return shoebox_rir_batch, shoebox_ir_onset_batch
     
     @staticmethod
     def extract_shoebox_from_latent_representation(input):
@@ -82,7 +86,7 @@ class ShoeboxToRIR(nn.Module):
     def respatialize_rirbox(rir : torch.Tensor, dp_onset_in_samples : int):
         '''
         Use this if you used the start_from_ir_onset option on ShoeboxToRIR and you want to have the RIR match the actual distance between mic and src.
-        This is only implemented non-batch wise for now.
+        This is only implemented non-batch wise for now, because doing it batch_wise is a pain.
         dp onset in samples is distance between mic and src * sample rate / sound speed
         '''
         window_length=81

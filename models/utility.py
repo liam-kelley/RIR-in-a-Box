@@ -91,12 +91,15 @@ def print_model_params(model : Module):
 
 def inference_on_all_models(x_batch : torch.Tensor, edge_index_batch : torch.Tensor, batch_indexes : torch.Tensor,
                             mic_pos_batch : torch.Tensor, src_pos_batch : torch.Tensor, label_origin_batch : torch.Tensor,
-                            mesh2ir : MESH2IR_FULL, rirbox : RIRBox_FULL, hybrid : RIRBox_MESH2IR_Hybrid, DEVICE : str,
+                            mesh2ir : MESH2IR_FULL, rirbox : RIRBox_FULL, DEVICE : str,
                             SCALE_MESH2IR_BY_ITS_ESTIMATED_STD : bool = False,
                             SCALE_MESH2IR_GWA_SCALING_COMPENSATION : bool = False,
                             MESH2IR_USES_LABEL_ORIGIN : bool = False,
-                            RESPATIALIZE_RIRBOX : bool = False,
-                            FILTER_MESH2IR_IN_HYBRID : bool = False):
+                            RESPATIALIZE_RIRBOX : bool = True ):
+    '''
+    Use this for inference.
+    Please only use Respatailize_RIRBOX with batch size of 1 and with rirbox model that has start_from_ir_onset=True
+    '''
     # Moving data to device
     x_batch = x_batch.to(DEVICE)
     edge_index_batch = edge_index_batch.to(DEVICE)
@@ -121,16 +124,19 @@ def inference_on_all_models(x_batch : torch.Tensor, edge_index_batch : torch.Ten
     # RIRBOX
     rir_rirbox, origin_rirbox, latent_vector = rirbox(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
     virtual_shoebox = ShoeboxToRIR.extract_shoebox_from_latent_representation(latent_vector)
-    if RESPATIALIZE_RIRBOX: rir_rirbox, origin_rirbox = ShoeboxToRIR.respatialize_rirbox(rir_rirbox, dp_onset_in_samples)
-    
-    # Hybrid model
-    if FILTER_MESH2IR_IN_HYBRID :
-        rir_mesh2ir_filtered = filter_rir_like_rirbox(rir_mesh2ir)
-        hybrid_rir, origin_hybrid = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir_filtered, origin_mesh2ir)
-    else:
-        hybrid_rir, origin_hybrid = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir, origin_mesh2ir)
     if RESPATIALIZE_RIRBOX:
-        hybrid_rir, origin_hybrid = ShoeboxToRIR.respatialize_rirbox(hybrid_rir, dp_onset_in_samples)
+        assert rirbox.sbox_to_rir.start_from_ir_onset, "Respatailize_RIRBOX should only be used with rirbox model that has start_from_ir_onset=True"
+        assert rir_rirbox.shape[0] == 1, "Respatailize_RIRBOX should only be used with batch size of 1"
+        rir_rirbox, origin_rirbox = ShoeboxToRIR.respatialize_rirbox(rir_rirbox, dp_onset_in_samples)
+    
+    # # Hybrid model
+    # if FILTER_MESH2IR_IN_HYBRID :
+    #     rir_mesh2ir_filtered = filter_rir_like_rirbox(rir_mesh2ir)
+    #     hybrid_rir, origin_hybrid = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir_filtered, origin_mesh2ir)
+    # else:
+    #     hybrid_rir, origin_hybrid = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir, origin_mesh2ir)
+    # if RESPATIALIZE_RIRBOX:
+    #     hybrid_rir, origin_hybrid = ShoeboxToRIR.respatialize_rirbox(hybrid_rir, dp_onset_in_samples)
 
-    return rir_mesh2ir, rir_rirbox, hybrid_rir, origin_mesh2ir, origin_rirbox, origin_hybrid, virtual_shoebox
-
+    # return rir_mesh2ir, rir_rirbox, hybrid_rir, origin_mesh2ir, origin_rirbox, origin_hybrid, virtual_shoebox
+    return rir_mesh2ir, rir_rirbox, origin_mesh2ir, origin_rirbox, virtual_shoebox
