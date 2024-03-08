@@ -74,20 +74,19 @@ class GWA_3DFRONT_Dataset(Dataset):
         return x.astype('float32'), edge_matrix.astype('long')
     
     @staticmethod
-    def _load_rir(label_rir_path, rir_std_normalization=True, gwa_scaling_compensation=False, normalize_by_distance=False):
+    def _load_rir(label_rir_path, rir_std_normalization=True, gwa_scaling_compensation=False, normalize_by_distance=False, rir_length=3968):
         # Load RIR
-        label_rir, fs = librosa.load(label_rir_path)
+        label_rir, fs = librosa.load(label_rir_path,duration=rir_length/16000)
         
         # Resample to 16kHz
         label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=16000)
 
         # crop or pad all rirs to same length
-        crop_length = 3968
         length = label_rir.size
-        if(length<crop_length):
-            zeros = np.zeros(crop_length-length)
+        if(length<rir_length):
+            zeros = np.zeros(rir_length-length)
             label_rir = np.concatenate([label_rir,zeros])
-        else: label_rir = label_rir[0:crop_length]
+        else: label_rir = label_rir[0:rir_length]
 
         # Preprocess RIR (standardization by std)
         if rir_std_normalization :
@@ -96,8 +95,8 @@ class GWA_3DFRONT_Dataset(Dataset):
         if gwa_scaling_compensation:
             label_rir = label_rir / 0.0625029951333999
 
-        if normalize_by_distance:
-            distance_at_every_sample = np.arange(crop_length) * 343 / 16000
+        if normalize_by_distance: # deprecated. Now done inside loss function
+            distance_at_every_sample = np.arange(rir_length) * 343 / 16000
             label_rir = label_rir * distance_at_every_sample
 
         label_rir = np.array([label_rir]).astype('float32')
