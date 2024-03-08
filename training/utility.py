@@ -1,5 +1,5 @@
 from json import load
-from backpropagatable_ISM.compute_batch_rir_v2 import BP_filter
+from backpropagatable_ISM.filters import BP_filter
 from torch import arange, Tensor
 from torch.nn.functional import conv1d
 
