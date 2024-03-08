@@ -25,7 +25,7 @@ def string_to_array(s):
 
 def edge_matrix_from_face_matrix(face_matrix):
     '''
-    TODO Need to check if this is OK.
+    DEPRECATED
     '''
     # Iterate over face_matrix to extract edges
     edges = []
@@ -70,7 +70,7 @@ class GWA_3DFRONT_Dataset(Dataset):
         # Get the current mesh
         m = ms.current_mesh()
         x = m.vertex_matrix()
-        edge_matrix = edge_matrix_from_face_matrix(m.face_matrix())
+        edge_matrix = m.edge_matrix() # edge_matrix = edge_matrix_from_face_matrix(m.face_matrix())
         return x.astype('float32'), edge_matrix.astype('long')
     
     @staticmethod
