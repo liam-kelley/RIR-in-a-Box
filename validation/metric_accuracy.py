@@ -11,7 +11,7 @@ from matplotlib.lines import Line2D
 import os
 
 def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_iterations=0,
-                                                 TOA_SYNCHRONIZATION = True,
+                                                 TOA_SYNCHRONIZATION = False, # unjustly helps the mesh2ir model
                                                  SCALE_MESH2IR_BY_ITS_ESTIMATED_STD = True, # If True, cancels out the std normalization used during mesh2ir's training
                                                  SCALE_MESH2IR_GWA_SCALING_COMPENSATION = True, # If true, cancels out the scaling compensation mesh2ir learned from the GWA dataset during training.
                                                  MESH2IR_USES_LABEL_ORIGIN = False,
@@ -35,18 +35,18 @@ def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, 
     # metrics
     edc=EnergyDecay_Loss(frequency_wise=True,
                             synchronize_TOA=TOA_SYNCHRONIZATION,
-                            pad_to_same_length=False,
-                            crop_to_same_length=True).to(DEVICE)
+                            pad_to_same_length=True,
+                            crop_to_same_length=False).to(DEVICE)
     mrstft=MRSTFT_Loss(sample_rate=dataset.sample_rate,
                         device=DEVICE,
-                        synchronize_TOA=True,
-                        pad_to_same_length=False,
-                        crop_to_same_length=True,
+                        synchronize_TOA=TOA_SYNCHRONIZATION,
+                        pad_to_same_length=True,
+                        crop_to_same_length=False,
                         hi_q_temporal=True).to(DEVICE)
     acm=AcousticianMetrics_Loss(sample_rate=16000,
                                 synchronize_TOA=True,
-                                crop_to_same_length=True,
-                                pad_to_same_length=False).to(DEVICE)
+                                crop_to_same_length=False,
+                                pad_to_same_length=True).to(DEVICE)
     print("")
 
     with torch.no_grad():
@@ -78,37 +78,49 @@ def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, 
             loss_rirbox_mrstft = mrstft(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_c80, loss_rirbox_D, loss_rirbox_rt60, _ = acm(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
 
-            loss_hybrid_edr = edc(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
-            loss_hybrid_mrstft = mrstft(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
-            loss_hybrid_c80, loss_hybrid_D, loss_hybrid_rt60, _ = acm(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
+            # loss_hybrid_edr = edc(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
+            # loss_hybrid_mrstft = mrstft(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
+            # loss_hybrid_c80, loss_hybrid_D, loss_hybrid_rt60, _ = acm(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
 
             # Append to dataframe
             my_list.append([loss_mesh2ir_edr.cpu().item(),
                             loss_rirbox_edr.cpu().item(),
-                            loss_hybrid_edr.cpu().item(),
+                            # loss_hybrid_edr.cpu().item(),
                             loss_mesh2ir_mrstft.cpu().item(),
                             loss_rirbox_mrstft.cpu().item(),
-                            loss_hybrid_mrstft.cpu().item(),
+                            # loss_hybrid_mrstft.cpu().item(),
                             loss_mesh2ir_c80.cpu().item(),
                             loss_rirbox_c80.cpu().item(),
-                            loss_hybrid_c80.cpu().item(),
+                            # loss_hybrid_c80.cpu().item(),
                             loss_mesh2ir_D.cpu().item(),
                             loss_rirbox_D.cpu().item(),
-                            loss_hybrid_D.cpu().item(),
+                            # loss_hybrid_D.cpu().item(),
                             loss_mesh2ir_rt60.cpu().item(),
                             loss_rirbox_rt60.cpu().item(),
-                            loss_hybrid_rt60.cpu().item()])
+                            # loss_hybrid_rt60.cpu().item()
+                            ])
 
             i += 1
             if i == validation_iterations:
                 break
 
     # Save as dataframe
-    df = pd.DataFrame(my_list, columns=["mesh2ir_edr", "rirbox_edr", "hybrid_edr",
-                                        "mesh2ir_mrstft", "rirbox_mrstft", "hybrid_mrstft",
-                                        "mesh2ir_c80", "rirbox_c80", "hybrid_c80",
-                                        "mesh2ir_D", "rirbox_D", "hybrid_D",
-                                        "mesh2ir_rt60", "rirbox_rt60", "hybrid_rt60"])
+    df = pd.DataFrame(my_list, columns=["mesh2ir_edr",
+                                        "rirbox_edr",
+                                        # "hybrid_edr",
+                                        "mesh2ir_mrstft",
+                                        "rirbox_mrstft",
+                                        # "hybrid_mrstft",
+                                        "mesh2ir_c80", 
+                                        "rirbox_c80", 
+                                        # "hybrid_c80",
+                                        "mesh2ir_D", 
+                                        "rirbox_D", 
+                                        # "hybrid_D",
+                                        "mesh2ir_rt60", 
+                                        "rirbox_rt60", 
+                                        # "hybrid_rt60"
+                                        ])
     df = df.apply(np.sqrt) # removes the square from the MSEs
     save_path = "./validation/results_acc/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
     if not os.path.exists(os.path.dirname(save_path)):
@@ -123,7 +135,7 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation/res
     df_mean = df.mean()
     df_std = df.std()
 
-    fig, axs = plt.subplots(1,5, figsize=(14, 5))
+    fig, axs = plt.subplots(1,5, figsize=(10, 4))
     fig.suptitle(f'Metric accuracy validation. MESH2IR vs {results_csv.split("/")[-1].split(".")[0]}')
 
     # Prepare the data for the box plot
