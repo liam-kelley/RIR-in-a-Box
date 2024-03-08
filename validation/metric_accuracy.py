@@ -17,7 +17,7 @@ def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, 
                                                  MESH2IR_USES_LABEL_ORIGIN = False,
                                                  RESPATIALIZE_RIRBOX = True,
                                                  FILTER_MESH2IR_IN_HYBRID = False,
-                                                 ISM_MAX_ORDER = 17
+                                                 ISM_MAX_ORDER = 15
                                                  ):
     ''' Validation of the metric accuracy of the MESH2IR and RIRBOX models on the GWA_3DFRONT dataset.'''
 
