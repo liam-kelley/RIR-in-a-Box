@@ -62,27 +62,27 @@ def apply_filter_bank(rir, filter_bank, window_length):
 
 # Tests 3
 
-rirs=torch.rand(8,3998, device='cuda')
-window_length = 81
-fs=16000
-# centers : 125, 250, 500, 1000, 2000, 4000
-f_low_hi=[  (88,177),
-            (177,354),
-            (354,707),
-            (707,1414),
-            (1414,2828),
-            (2828,5657)]
-filter_bank = create_filter_bank(fs, window_length, f_low_hi)
-fig1, ax = plt.subplots(1, 1, figsize=(10, 8))
-for i in range(len(filter_bank)):
-    ax.plot(filter_bank[i].squeeze().cpu().numpy(), label=f"Bandpass at fc low {f_low_hi[i][0]} Hz\nand fc high {f_low_hi[i][1]} Hz")
-ax.legend()
-filtered_rirs = apply_filter_bank(rirs, filter_bank, window_length)
-fig2, axs = plt.subplots(7, 1, figsize=(9, 9.5))
-axs[0].plot(rirs[0].squeeze().cpu().numpy())
-for i in range(6):
-    axs[i+1].plot(filtered_rirs[0,i].squeeze().cpu().numpy())
-plt.show()
+# rirs=torch.rand(8,3998, device='cuda')
+# window_length = 81
+# fs=16000
+# # centers : 125, 250, 500, 1000, 2000, 4000
+# f_low_hi=[  (88,177),
+#             (177,354),
+#             (354,707),
+#             (707,1414),
+#             (1414,2828),
+#             (2828,5657)]
+# filter_bank = create_filter_bank(fs, window_length, f_low_hi)
+# fig1, ax = plt.subplots(1, 1, figsize=(10, 8))
+# for i in range(len(filter_bank)):
+#     ax.plot(filter_bank[i].squeeze().cpu().numpy(), label=f"Bandpass at fc low {f_low_hi[i][0]} Hz\nand fc high {f_low_hi[i][1]} Hz")
+# ax.legend()
+# filtered_rirs = apply_filter_bank(rirs, filter_bank, window_length)
+# fig2, axs = plt.subplots(7, 1, figsize=(9, 9.5))
+# axs[0].plot(rirs[0].squeeze().cpu().numpy())
+# for i in range(6):
+#     axs[i+1].plot(filtered_rirs[0,i].squeeze().cpu().numpy())
+# plt.show()
 
 # Tests 1
 

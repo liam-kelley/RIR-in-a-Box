@@ -2,7 +2,7 @@ from torch import load
 from torch.cuda import is_available
 from torch.nn import Module
 from models.mesh2ir_models import MESH2IR_FULL, MESH_NET, STAGE1_G
-from models.rirbox_models import MeshToShoebox, ShoeboxToRIR, RIRBox_FULL, RIRBox_MESH2IR_Hybrid
+from models.rirbox_models import MeshToShoebox, ShoeboxToRIR, RIRBox_FULL #, RIRBox_MESH2IR_Hybrid
 from training.utility import filter_rir_like_rirbox
 import torch
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
@@ -78,11 +78,12 @@ def load_all_models_for_inference(model_config : str, START_FROM_IR_ONSET=True, 
     rirbox = RIRBox_FULL(mesh_to_shoebox, shoebox_to_rir, return_sbox=True).eval().to(DEVICE)
     print("")
 
-    # Init Hybrid Model
-    hybrid = RIRBox_MESH2IR_Hybrid(mesh_to_shoebox, shoebox_to_rir).eval().to(DEVICE)
-    print("")
+    # # Init Hybrid Model
+    # hybrid = RIRBox_MESH2IR_Hybrid(mesh_to_shoebox, shoebox_to_rir).eval().to(DEVICE)
+    # print("")
 
-    return mesh2ir, rirbox, hybrid, config, DEVICE
+    # return mesh2ir, rirbox, hybrid, config, DEVICE
+    return mesh2ir, rirbox, config, DEVICE
 
 def print_model_params(model : Module):
     # get the total number of parameters

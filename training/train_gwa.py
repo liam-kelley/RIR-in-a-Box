@@ -5,7 +5,7 @@ from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
 from torch.utils.data import DataLoader
 from models.mesh2ir_models import MESH_NET
 from models.rirbox_models import MeshToShoebox, ShoeboxToRIR
-from models.utility import load_mesh_net, load_GAN
+from models.utility import load_mesh_net
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
 from training.utility import filter_rir_like_rirbox
 from tools.pyLiam.LKTimer import LKTimer
@@ -44,8 +44,8 @@ if config['do_wandb']:
 ############################################ Inits ############################################
 
 # data
-dataset=GWA_3DFRONT_Dataset(csv_file=config['train_dataset'],
-                            rir_std_normalization=False, gwa_scaling_compensation=True, normalize_by_distance=config['NORMALIZE_BY_DIST'])
+dataset=GWA_3DFRONT_Dataset(csv_file=config['train_dataset'], rir_length = config['RIR_LENGTH'],
+                            rir_std_normalization=False, gwa_scaling_compensation=True)
 dataloader = DataLoader(dataset, batch_size=config['BATCH_SIZE'], shuffle=config["SHUFFLE_DATASET"],
                         num_workers=config["DATALOADER_NUM_WORKERS"], pin_memory=False,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
@@ -64,19 +64,22 @@ mesh_to_shoebox = MeshToShoebox(meshnet=mesh_net,
                                 distance_in_latent_vector=config["DIST_IN_LATENT_VECTOR"]).train().to(DEVICE)
 shoebox_to_rir = ShoeboxToRIR(sample_rate=dataset.sample_rate,
                               max_order=config['ISM_MAX_ORDER'],
-                              rir_length=3300, #rir_length=3968,
-                              start_from_ir_onset=True,
-                              normalized_distance=config['NORMALIZE_BY_DIST']).eval().to(DEVICE)
+                              rir_length=config['RIR_LENGTH'],
+                              start_from_ir_onset=config['SYNC_IR_ONSET_IN_LOSSES'],
+                              normalized_distance=False).eval().to(DEVICE)
 print("")
 
 # losses
 edc=EnergyDecay_Loss(frequency_wise=True,
-                     synchronize_TOA=config['EDC_TOA_SYNC'],
+                     synchronize_TOA=config['SYNC_IR_ONSET_IN_LOSSES'],
+                     normalize_decay_curve=config['NORMALIZE_DECAY_CURVE'],
+                     normalize_by_distance=config['NORMALIZE_BY_DIST_IN_LOSSES'],
                      pad_to_same_length=False,
                      crop_to_same_length=True).to(DEVICE)
 mrstft=MRSTFT_Loss(sample_rate=dataset.sample_rate,
                    device=DEVICE,
-                   synchronize_TOA=True,
+                   synchronize_TOA=config['SYNC_IR_ONSET_IN_LOSSES'],
+                   normalize_by_distance=config['NORMALIZE_BY_DIST_IN_LOSSES'],
                    pad_to_same_length=False,
                    crop_to_same_length=True,
                    hi_q_temporal=config['MRSTFT_HI_Q_TEMPORAL']).to(DEVICE)
