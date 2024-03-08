@@ -75,18 +75,50 @@ class BaseRIRLoss(torch.nn.Module):
                 estimated_rir_batch=estimated_rir_batch[..., :label_rir_batch.shape[-1]]
         return estimated_rir_batch, label_rir_batch
 
-    def deemphasize_rir_early_reflections(self, estimated_rir_batch : torch.Tensor, label_rir_batch : torch.Tensor, t0 : int = 2000):
-        '''linear ramp up from 0 to 1 on the interval [0,t0] in samples'''
-        device = estimated_rir_batch.device
-        ramp = torch.arange(0, t0, device=device) / t0
-        # Determine the actual length to use (the minimum of t0 and the last dimension of the tensor)
-        actual_length = min(t0, estimated_rir_batch.shape[-1])
-        # Adjust ramp size if necessary
-        if actual_length < t0:
-            ramp = ramp[:actual_length]
-        # Applying the ramp to both estimated_rir_batch and label_rir_batch up to the actual_length
-        estimated_rir_batch[..., :actual_length] = estimated_rir_batch[..., :actual_length] * ramp.unsqueeze(0)
-        label_rir_batch[..., :actual_length] = label_rir_batch[..., :actual_length] * ramp.unsqueeze(0)
+    # def deemphasize_rir_early_reflections(self, estimated_rir_batch : torch.Tensor, label_rir_batch : torch.Tensor, t0 : int = 2000):
+    #     '''
+    #     DEPRECATED
+    #     linear ramp up from 0 to 1 on the interval [0,t0] in samples
+    #     '''
+    #     device = estimated_rir_batch.device
+    #     ramp = torch.arange(0, t0, device=device) / t0
+    #     # Determine the actual length to use (the minimum of t0 and the last dimension of the tensor)
+    #     actual_length = min(t0, estimated_rir_batch.shape[-1])
+    #     # Adjust ramp size if necessary
+    #     if actual_length < t0:
+    #         ramp = ramp[:actual_length]
+    #     # Applying the ramp to both estimated_rir_batch and label_rir_batch up to the actual_length
+    #     estimated_rir_batch[..., :actual_length] = estimated_rir_batch[..., :actual_length] * ramp.unsqueeze(0)
+    #     label_rir_batch[..., :actual_length] = label_rir_batch[..., :actual_length] * ramp.unsqueeze(0)
+
+    #     return estimated_rir_batch, label_rir_batch
+
+    def multiply_rir_by_soundwave_distance_traveled(self, estimated_rir_batch : torch.Tensor, estimated_origin_batch : torch.Tensor,
+                                    label_rir_batch : torch.Tensor, label_origin_batch : torch.Tensor):
+        '''
+        This function multiplies the RIRs by the distance traveled by the soundwave.
+        This has the effect of canceling the effects of sound amplitude decreasing with distance.
+        It doesn't effect sound decreasing from absorbant reflections.
+        '''
+        
+        # FOR ESTIMATED RIR
+        n_estimated = torch.arange(estimated_rir_batch.shape[1], device=estimated_rir_batch.device)
+        n_estimated = n_estimated.unsqueeze(0).expand(estimated_rir_batch.shape[0], -1)
+        
+        # if the RIRBOX model is using start_from_ir_onset
+        if estimated_origin_batch == torch.tensor([81//2], device=estimated_rir_batch.device).repeat(estimated_rir_batch.shape[0]):
+            print("HEY I think you're using start_from_ir_onset in your SBOX2RIR,\n\
+                  so i'm gonna use the label origins for 'respatializing' the scaling")
+            n_estimated = n_estimated - label_origin_batch.unsqueeze(1).expand(-1, estimated_rir_batch.shape[1])
+        
+        n_estimated = n_estimated * (343.0/16000.0)
+        estimated_rir_batch = estimated_rir_batch * n_estimated
+
+        # FOR LABEL RIR
+        n_label = torch.arange(estimated_rir_batch.shape[1], device=estimated_rir_batch.device)
+        n_label = n_label.unsqueeze(0).expand(label_rir_batch.shape[0], -1)
+        n_label = n_label * (343.0/16000.0)
+        label_rir_batch = label_rir_batch * n_label
 
         return estimated_rir_batch, label_rir_batch
 
@@ -97,7 +129,7 @@ class BaseRIRLoss(torch.nn.Module):
 
 class EnergyDecay_Loss(BaseRIRLoss):
     def __init__(self, frequency_wise=False, synchronize_TOA=False, normalize_dp=False, normalize_decay_curve=False,
-                 deemphasize_early_reflections=False, pad_to_same_length=False, crop_to_same_length=True):
+                 normalize_by_distance=False, pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
 
         self.mse=torch.nn.MSELoss(reduction='mean')
@@ -108,7 +140,7 @@ class EnergyDecay_Loss(BaseRIRLoss):
         self.synchronize_TOA=synchronize_TOA
         self.normalize_dp=normalize_dp
         self.normalize_decay_curve=normalize_decay_curve
-        self.deemphasize_early_reflections=deemphasize_early_reflections
+        self.normalize_by_distance=normalize_by_distance
         self.pad_to_same_length=pad_to_same_length
         self.crop_to_same_length=crop_to_same_length
         if self.pad_to_same_length == self.crop_to_same_length:
@@ -121,7 +153,7 @@ class EnergyDecay_Loss(BaseRIRLoss):
         if self.synchronize_TOA: print("> with TOA synchronization", end='\n    ')
         if self.normalize_dp: print("> with TOA normalization", end='\n    ')
         if self.normalize_decay_curve: print("> with decay curve normalization", end='\n    ')
-        if self.deemphasize_early_reflections: print("> with deemphasized early reflections", end='\n    ')
+        if self.normalize_by_distance: print("> with normalization by distance ", end='\n    ')
         if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
         if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
         print("")
@@ -160,6 +192,7 @@ class EnergyDecay_Loss(BaseRIRLoss):
                                                                     (2828,5657)], device=estimated_rir_batch.device)
             estimated_rir_batch = apply_filter_bank(estimated_rir_batch, self.filter_bank, 81)
             ## compute stft square magnitude on 7 bands (nfft//2 + 1))
+            # DEPRECATED
             # estimated_rir_batch=torch.stft(estimated_rir_batch, n_fft=13, return_complex=True)
             # label_rir_batch=torch.stft(label_rir_batch, n_fft=13, return_complex=True)
             # estimated_rir_batch = (estimated_rir_batch.real**2) + (estimated_rir_batch.imag**2)
@@ -191,10 +224,14 @@ class EnergyDecay_Loss(BaseRIRLoss):
         # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
         if self.crop_to_same_length:
             estimated_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
-            
-        # Deemphasize early reflections linearly TODO fix this
-        if self.deemphasize_early_reflections :
-            estimated_rir_batch, label_rir_batch = self.deemphasize_rir_early_reflections(estimated_rir_batch, label_rir_batch, t0=2000)
+
+        if self.normalize_by_distance:
+            estimated_rir_batch, label_rir_batch = self.multiply_rir_by_soundwave_distance_traveled(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
+
+        import matplotlib.pyplot as plt
+        plt.plot(estimated_rir_batch[0].cpu().numpy())
+        plt.plot(label_rir_batch[0].cpu().numpy())
+        plt.show()
 
         # Compute loss
         loss=self.mse(estimated_rir_batch, label_rir_batch)
@@ -203,7 +240,7 @@ class EnergyDecay_Loss(BaseRIRLoss):
 
 class MRSTFT_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, device='cpu',
-                 synchronize_TOA=False, deemphasize_early_reflections=False, normalize_dp=False,
+                 synchronize_TOA=False, normalize_by_distance=False, normalize_dp=False,
                 pad_to_same_length=False, crop_to_same_length=True, hi_q_temporal=False):
         super().__init__()
 
@@ -247,7 +284,7 @@ class MRSTFT_Loss(BaseRIRLoss):
 
         # Options
         self.synchronize_TOA=synchronize_TOA
-        self.deemphasize_early_reflections=deemphasize_early_reflections
+        self.normalize_by_distance=normalize_by_distance
         self.normalize_dp=normalize_dp
         self.pad_to_same_length=pad_to_same_length
         self.crop_to_same_length=crop_to_same_length
@@ -259,7 +296,7 @@ class MRSTFT_Loss(BaseRIRLoss):
         # Options print
         print("MRSTFT_Loss Initialized", end='\n    ')
         if self.synchronize_TOA: print("> with TOA synchronization", end='\n    ')
-        if self.deemphasize_early_reflections: print("> with deemphasized early reflections", end='\n    ')
+        if self.normalize_by_distance: print("> with normalization by distance ", end='\n    ')
         if self.normalize_dp: print("> with normalization", end='\n    ')
         if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
         if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
@@ -290,8 +327,8 @@ class MRSTFT_Loss(BaseRIRLoss):
             estimated_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
 
         # Deemphasize early reflections linearly
-        if self.deemphasize_early_reflections :
-            estimated_rir_batch, label_rir_batch = self.deemphasize_rir_early_reflections(estimated_rir_batch, label_rir_batch)
+        if self.normalize_by_distance :
+            estimated_rir_batch, label_rir_batch = self.multiply_rir_by_soundwave_distance_traveled(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
 
         # There was an error here
         batch_mrstft_loss = self.mrstft( estimated_rir_batch[:,None,:], label_rir_batch[:,None,:] ) # Calculate batch_mrstft # Add a dimension for channels
