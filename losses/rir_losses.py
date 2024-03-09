@@ -317,7 +317,7 @@ class MRSTFT_Loss(BaseRIRLoss):
 
 class AcousticianMetrics_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, synchronize_TOA=True, crop_to_same_length=True, normalize_dp=False, frequency_wise=False,
-                 normalize_total_energy=False, pad_to_same_length=False, MeanAroundMedian_pruning=False):
+                 normalize_total_energy=False, pad_to_same_length=False, MeanAroundMedian_pruning=False, return_values=False):
         super().__init__()
 
         self.mse=torch.nn.MSELoss(reduction='mean')
@@ -334,6 +334,7 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
             print("pad_to_same_length and crop_to_same_length can't be both True or both False. Defaulting to crop.")
             self.pad_to_same_length, self.crop_to_same_length = False, True
         self.MeanAroundMedian_pruning=MeanAroundMedian_pruning
+        self.return_values=return_values
 
         # Options print
         print("AcousticianMetrics_Loss Initialized", end='\n    ')
@@ -409,7 +410,7 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         del batch_before_80ms, batch_after_80ms, lower_integral, top_integral
 
         # D
-        batch_fifty_ms=(0.050**self.sample_rate)*torch.ones(self.batch_size, device=batch_input_rir2.device) # in samples
+        batch_fifty_ms=(0.050*self.sample_rate)*torch.ones(self.batch_size, device=batch_input_rir2.device) # in samples
     
         batch_before_50ms = batch_cut_before_and_after_index(batch_input_rir2, batch_fifty_ms, cut_severity=0.05, return_after=False)
         partial_integral=torch.sum(batch_before_50ms, dim=-1)
@@ -478,7 +479,13 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         input_rt60=6/(input_regressed_beta+1e-10)
         label_rt60=6/(label_regressed_beta+1e-10)
 
+        input_rt30=3/(input_regressed_beta+1e-10)
+        label_rt30=3/(label_regressed_beta+1e-10)
+
         del input_regressed_beta, label_regressed_beta
+
+        if self.return_values:
+            return batch_input_c80, batch_label_c80, batch_input_D, batch_label_D, input_rt60, label_rt60, input_betas, label_betas, input_rt30, label_rt30
 
         # Compute losses
         loss_c80=self.mse(batch_input_c80, batch_label_c80)

@@ -88,8 +88,8 @@ def print_model_params(model : Module):
 def inference_on_all_models(x_batch : torch.Tensor, edge_index_batch : torch.Tensor, batch_indexes : torch.Tensor,
                             mic_pos_batch : torch.Tensor, src_pos_batch : torch.Tensor, label_origin_batch : torch.Tensor,
                             mesh2ir : MESH2IR_FULL, rirbox : RIRBox_FULL, DEVICE : str,
-                            SCALE_MESH2IR_BY_ITS_ESTIMATED_STD : bool = False,
-                            SCALE_MESH2IR_GWA_SCALING_COMPENSATION : bool = False,
+                            SCALE_MESH2IR_BY_ITS_ESTIMATED_STD : bool = True,
+                            SCALE_MESH2IR_GWA_SCALING_COMPENSATION : bool = True,
                             MESH2IR_USES_LABEL_ORIGIN : bool = False,
                             RESPATIALIZE_RIRBOX : bool = True ):
     '''
