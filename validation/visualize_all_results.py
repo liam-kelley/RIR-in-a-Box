@@ -8,7 +8,11 @@ def view_all_validation_results(acc_csv="./validation/results_acc/***.csv",
     df_acc = pd.read_csv(acc_csv)
     df_ssl = pd.read_csv(ssl_csv)
 
-    fig, axs = plt.subplots(1,6, figsize=(14, 5))
+    if "mesh2ir_drr" in df_acc.columns:
+        fig, axs = plt.subplots(1,8, figsize=(14, 4))
+    else:
+        fig, axs = plt.subplots(1,6, figsize=(14, 4))
+
     fig.suptitle(f'Metric accuracy validation. MESH2IR vs {acc_csv.split("/")[-1].split(".")[0]}')
 
     # Prepare the data for the box plot
@@ -54,6 +58,20 @@ def view_all_validation_results(acc_csv="./validation/results_acc/***.csv",
     axs[5].legend(handles=[mean_marker], loc='lower left')
     axs[5].set_ylim(0,0.0005)
 
+
+    if "mesh2ir_drr" in df_acc.columns:
+        # DRR
+        axs[6].boxplot([df_acc["mesh2ir_drr"], df_acc["rirbox_drr"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        axs[6].set_title('DRR')
+        axs[6].set_ylabel('DRR Error')
+        axs[6].legend(handles=[mean_marker])
+
+        # IR ONSET
+        axs[6].boxplot([df_acc["mesh2ir_ir_onset"], df_acc["rirbox_ir_onset"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        axs[6].set_title('IR ONSET')
+        axs[6].set_ylabel('IR ONSET Error')
+        axs[6].legend(handles=[mean_marker], loc="upper right")
+
     for ax in axs:
         ax.grid(ls="--", alpha=0.5, axis='y')
 
@@ -77,6 +95,10 @@ def multiple_models_validation_comparison(results_csvs, acc_folder="./validation
         # drop all unnamed columns
         df_acc = df_acc.loc[:, ~df_acc.columns.str.contains('Unnamed')]
         df_ssl = df_ssl.loc[:, ~df_ssl.columns.str.contains('Unnamed')]
+
+        # # drop all columns that contain the word "drr" or "onset"
+        # df_acc = df_acc[df_acc.columns.drop(list(df_acc.filter(regex='drr')))]
+        # df_acc = df_acc[df_acc.columns.drop(list(df_acc.filter(regex='onset')))]
 
         # Get means and stds
         means_acc = df_acc.mean()
@@ -106,7 +128,10 @@ def multiple_models_validation_comparison(results_csvs, acc_folder="./validation
         normalized_stds_rirbox = stds_rirbox / means_mesh2ir
 
         # plot the means and stds as a single line plot with an error area around the line representing the stds
-        metrics = ['EDR', 'MRSTFT', 'C80', 'D', 'RT60', 'SSL']
+        if "mesh2ir_drr" in df_acc.columns:
+            metrics = ['EDR', 'MRSTFT', 'C80', 'D', 'RT60', 'DRR', 'IR_ONSET', 'SSL']
+        else:
+            metrics = ['EDR', 'MRSTFT', 'C80', 'D', 'RT60', 'SSL']
 
         data_for_plotting = pd.DataFrame({
             'Mean': normalized_means_rirbox,

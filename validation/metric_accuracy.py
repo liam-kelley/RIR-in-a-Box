@@ -3,7 +3,7 @@ import numpy as np
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
 from torch.utils.data import DataLoader
 from models.utility import load_all_models_for_inference, inference_on_all_models
-from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
+from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss, DRR_Loss
 from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -47,6 +47,9 @@ def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, 
                                 synchronize_TOA=True,
                                 crop_to_same_length=False,
                                 pad_to_same_length=True).to(DEVICE)
+    drr=DRR_Loss().to(DEVICE)
+    mse = torch.nn.MSELoss()
+
     print("")
 
     with torch.no_grad():
@@ -72,31 +75,36 @@ def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, 
             loss_mesh2ir_edr = edc(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
             loss_mesh2ir_mrstft = mrstft(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
             loss_mesh2ir_c80, loss_mesh2ir_D, loss_mesh2ir_rt60, _ = acm(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
+            loss_mesh2ir_drr = drr(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
+            loss_mesh2ir_ir_onset = mse(origin_mesh2ir,label_origin_batch)
 
             loss_rirbox_edr = edc(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_mrstft = mrstft(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_c80, loss_rirbox_D, loss_rirbox_rt60, _ = acm(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
-
-            # loss_hybrid_edr = edc(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
-            # loss_hybrid_mrstft = mrstft(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
-            # loss_hybrid_c80, loss_hybrid_D, loss_hybrid_rt60, _ = acm(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
+            loss_rirbox_drr = drr(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
+            loss_rirbox_ir_onset = mse(origin_rirbox,label_origin_batch)
 
             # Append to dataframe
             my_list.append([loss_mesh2ir_edr.cpu().item(),
                             loss_rirbox_edr.cpu().item(),
-                            # loss_hybrid_edr.cpu().item(),
+
                             loss_mesh2ir_mrstft.cpu().item(),
                             loss_rirbox_mrstft.cpu().item(),
-                            # loss_hybrid_mrstft.cpu().item(),
+
                             loss_mesh2ir_c80.cpu().item(),
                             loss_rirbox_c80.cpu().item(),
-                            # loss_hybrid_c80.cpu().item(),
+
                             loss_mesh2ir_D.cpu().item(),
                             loss_rirbox_D.cpu().item(),
-                            # loss_hybrid_D.cpu().item(),
+
                             loss_mesh2ir_rt60.cpu().item(),
                             loss_rirbox_rt60.cpu().item(),
-                            # loss_hybrid_rt60.cpu().item()
+
+                            loss_mesh2ir_drr.cpu().item(),
+                            loss_rirbox_drr.cpu().item(),
+
+                            loss_mesh2ir_ir_onset.cpu().item(),
+                            loss_rirbox_ir_onset.cpu().item()
                             ])
 
             i += 1
@@ -106,19 +114,24 @@ def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, 
     # Save as dataframe
     df = pd.DataFrame(my_list, columns=["mesh2ir_edr",
                                         "rirbox_edr",
-                                        # "hybrid_edr",
+                                        
                                         "mesh2ir_mrstft",
                                         "rirbox_mrstft",
-                                        # "hybrid_mrstft",
+                                        
                                         "mesh2ir_c80", 
                                         "rirbox_c80", 
-                                        # "hybrid_c80",
+                                        
                                         "mesh2ir_D", 
                                         "rirbox_D", 
-                                        # "hybrid_D",
+                                        
                                         "mesh2ir_rt60", 
                                         "rirbox_rt60", 
-                                        # "hybrid_rt60"
+                                        
+                                        "mesh2ir_drr",
+                                        "rirbox_drr",
+
+                                        "mesh2ir_ir_onset",
+                                        "rirbox_ir_onset"
                                         ])
     df = df.apply(np.sqrt) # removes the square from the MSEs
     save_path = "./validation/results_acc/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
@@ -134,11 +147,14 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation/res
     df_mean = df.mean()
     df_std = df.std()
 
-    fig, axs = plt.subplots(1,5, figsize=(10, 4))
+    if "mesh2ir_drr" in df.columns:
+        fig, axs = plt.subplots(1,7, figsize=(14, 4))
+    else:
+        fig, axs = plt.subplots(1,5, figsize=(10, 4))
     fig.suptitle(f'Metric accuracy validation. MESH2IR vs {results_csv.split("/")[-1].split(".")[0]}')
 
     # Prepare the data for the box plot
-    model_names = ["Baseline", "RIRBOX"]#, "Hybrid"]
+    model_names = ["Baseline", "RIRBOX"]
     colors = ['C0', 'C1', 'C2']
 
     mean_marker = Line2D([], [], color='w', marker='^', markerfacecolor='green', markersize=10, label='Mean')
@@ -171,6 +187,19 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation/res
     axs[4].set_title('RT60')
     axs[4].set_ylabel('RT60 Error')
     axs[4].legend(handles=[mean_marker], loc="upper right")
+
+    if "mesh2ir_drr" in df.columns:
+        # DRR
+        axs[5].boxplot([df["mesh2ir_drr"], df["rirbox_drr"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        axs[5].set_title('DRR')
+        axs[5].set_ylabel('DRR Error')
+        axs[5].legend(handles=[mean_marker], loc="upper right")
+
+        # IR ONSET
+        axs[6].boxplot([df["mesh2ir_ir_onset"], df["rirbox_ir_onset"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        axs[6].set_title('IR ONSET')
+        axs[6].set_ylabel('IR ONSET Error')
+        axs[6].legend(handles=[mean_marker], loc="upper right")
 
     for ax in axs:
         ax.grid(ls="--", alpha=0.5, axis='y')
