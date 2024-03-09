@@ -6,7 +6,7 @@ from validation.visualize_all_results import view_all_validation_results, multip
 import copy
 
 DO_METRIC_ACCURACY = True
-DO_SSL = False
+DO_SSL = True
 
 VISUALIZE_METRIC_ACCURACY = False
 VISUALIZE_SSL = False
@@ -25,11 +25,11 @@ for config in configs:
 # Best MRSTFT, C80, =RT60 : "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noDistInLatent.json",
 # Best EDR, D, =RT60, +++SSS : "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json",
 
-configs = [
-    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_4epochs.json",
-    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noDistInLatent.json",
-    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json",
-]
+# configs = [
+#     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_4epochs.json",
+#     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noDistInLatent.json",
+#     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json",
+# ]
 
 results_csvs = copy.deepcopy(configs)
 for i in range(len(results_csvs)):
