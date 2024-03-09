@@ -442,7 +442,7 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
 
         if not self.normalize_total_energy: # RT60 needs to have its edc normalized
             batch_input_edc=batch_input_edc/batch_input_rir2_sum.unsqueeze(1).expand_as(batch_input_edc)
-            batch_label_edc=batch_label_edc/batch_label_rir2_sum.unsqueeze(1).expand_as(batch_input_edc)
+            batch_label_edc=batch_label_edc/batch_label_rir2_sum.unsqueeze(1).expand_as(batch_label_edc)
 
         # pad to same length (if we aren't cropping to same length earlier, then we'll need to this here to make the input and label comparable)
         if self.pad_to_same_length:

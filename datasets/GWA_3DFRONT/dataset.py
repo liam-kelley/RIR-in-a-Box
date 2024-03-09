@@ -25,12 +25,13 @@ def string_to_array(s):
 
 class GWA_3DFRONT_Dataset(Dataset):
     def __init__(self, csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_length = 3968, sample_rate=16000,
-                 rir_std_normalization=False, gwa_scaling_compensation=False):
+                 rir_std_normalization=False, gwa_scaling_compensation=False, dont_load_rirs=False):
         self.csv_file=csv_file
         self.rir_std_normalization = rir_std_normalization
         self.gwa_scaling_compensation = gwa_scaling_compensation
         self.sample_rate=sample_rate
         self.rir_length=rir_length
+        self.dont_load_rirs = dont_load_rirs
         self.data = pd.read_csv(csv_file)
         print('GWA_3DFRONT csv loaded at ', csv_file)
 
@@ -61,10 +62,10 @@ class GWA_3DFRONT_Dataset(Dataset):
     
     def _load_rir(self, label_rir_path):
         # Load RIR
-        label_rir, fs = librosa.load(label_rir_path,duration=self.rir_length/self.sample_rate)
+        label_rir, fs = librosa.load(label_rir_path, sr=self.sample_rate, duration=self.rir_length/self.sample_rate)
         
-        # Resample to 16kHz
-        label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=self.sample_rate)
+        # Resample to 16kHz (Done during loading to save time)
+        # label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=self.sample_rate)
 
         # crop or pad all rirs to same length
         length = label_rir.size
@@ -108,7 +109,8 @@ class GWA_3DFRONT_Dataset(Dataset):
 
         # get all the data
         x, edge_index = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
-        label_rir, label_origin = self._load_rir(label_rir_path)
+        if not self.dont_load_rirs: label_rir, label_origin = self._load_rir(label_rir_path)
+        else: label_rir, label_origin = np.random.rand(self.rir_length).astype('float32'), 0
         src_pos = string_to_array(df["Source_Pos"]).astype('float32')
         mic_pos = string_to_array(df["Receiver_Pos"]).astype('float32')
 

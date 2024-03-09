@@ -18,35 +18,30 @@ def view_all_validation_results(acc_csv="./validation/results_acc/***.csv",
     mean_marker = Line2D([], [], color='w', marker='^', markerfacecolor='green', markersize=10, label='Mean')
 
     # EDR
-    # axs[0].boxplot([df_acc["mesh2ir_edr"], df_acc["rirbox_edr"], df_acc["hybrid_edr"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[0].boxplot([df_acc["mesh2ir_edr"], df_acc["rirbox_edr"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[0].set_title('EDR')
     axs[0].set_ylabel('EDR Error')
     axs[0].legend(handles=[mean_marker])
 
     # MRSTFT
-    # axs[1].boxplot([df_acc["mesh2ir_mrstft"], df_acc["rirbox_mrstft"], df_acc["hybrid_mrstft"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[1].boxplot([df_acc["mesh2ir_mrstft"], df_acc["rirbox_mrstft"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[1].set_title('MRSTFT')
     axs[1].set_ylabel('MRSTFT Error')
     axs[1].legend(handles=[mean_marker])
 
     # C80
-    # axs[2].boxplot([df_acc["mesh2ir_c80"], df_acc["rirbox_c80"], df_acc["hybrid_c80"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[2].boxplot([df_acc["mesh2ir_c80"], df_acc["rirbox_c80"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[2].set_title('C80')
     axs[2].set_ylabel('C80 Error')
     axs[2].legend(handles=[mean_marker])
 
     # D
-    # axs[3].boxplot([df_acc["mesh2ir_D"], df_acc["rirbox_D"], df_acc["hybrid_D"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[3].boxplot([df_acc["mesh2ir_D"], df_acc["rirbox_D"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[3].set_title('D')
     axs[3].set_ylabel('D Error')
     axs[3].legend(handles=[mean_marker])
 
     # RT60
-    # axs[4].boxplot([df_acc["mesh2ir_rt60"], df_acc["rirbox_rt60"], df_acc["hybrid_rt60"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[4].boxplot([df_acc["mesh2ir_rt60"], df_acc["rirbox_rt60"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
     axs[4].set_title('RT60')
     axs[4].set_ylabel('RT60 Error')

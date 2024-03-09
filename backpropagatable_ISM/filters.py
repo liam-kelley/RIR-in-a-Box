@@ -54,7 +54,7 @@ def create_filter_bank(fs, window_length, f_low_hi, device='cuda'):
 def apply_filter_bank(rir, filter_bank, window_length):
     '''
     rir : torch.Tensor of shape (batch_size, num_samples)
-    filter_bank : list of torch.Tensor of shape (1, window_length)
+    filter_bank : torch.Tensor of shape (6, 1, window_length)
     '''
     rir = rir.unsqueeze(1)  # (batch_size, n_bands, num_samples)
     rir = torch.nn.functional.conv1d(rir, filter_bank, padding=window_length // 2)

@@ -11,17 +11,16 @@ If you use ISM_MAX_ORDER = 10, the late energies might be a bit lacking, but you
 
 Here's what I want to test in ablation 6.
 
-- [ ] Train dataset = "dp", "nonzero"
+- [ ] Train dataset = ["dp", "nonzero"]
 
-FAST TRAINING:
-
-- [ ] ISM_MAX_ORDER = 10 but with larger batch size: This is dumb! I'm limited by IO speed.
-- [ ] ISM_MAX_ORDER = 15 but with BATCH_SIZE = 8.
+- [ ] [ISM_MAX_ORDER = 10, BATCH_SIZE = 28, RIR_LENGTH = 3000] / [ISM_MAX_ORDER = 15, BATCH_SIZE = 8, RIR_LENGTH = 3600]
 
 - [ ] RIRBOX_MODEL_ARCHITECTURE = [2 , 3]
 
 - [ ] SYNC_IR_ONSET_IN_LOSSES = [False , True]
-
 - [ ] MRSTFT_HI_Q_TEMPORAL = [False, True]
+- [ ] NORMALIZE_BY_DIST_IN_LOSSES = [False, True]
 
-- [ ] EDC_LOSS_WEIGHT = [0.0, 0.1]
+- [ ] EDC_LOSS_WEIGHT = [0.0, 0.5]
+- [ ] RT60_LOSS_WEIGHT = [0.0, 200]
+- [ ] MIC_SRC_DISTANCE_LOSS_WEIGHT = [0.0, 2.0]

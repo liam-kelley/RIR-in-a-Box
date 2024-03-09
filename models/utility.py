@@ -45,7 +45,7 @@ def load_mesh_to_shoebox(mesh_to_shoebox_obj,mesh_to_shoebox_path):
     mesh_to_shoebox_obj.load_state_dict(state_dict)
     return mesh_to_shoebox_obj
 
-def load_all_models_for_inference(model_config : str, START_FROM_IR_ONSET=True, ISM_MAX_ORDER=None):
+def load_all_models_for_inference(model_config : str, START_FROM_IR_ONSET=False, ISM_MAX_ORDER=None):
     with open(model_config, 'r') as file: config = json_load(file)
     if ISM_MAX_ORDER is not None: config['ISM_MAX_ORDER'] = ISM_MAX_ORDER
     DEVICE = 'cuda' if is_available() else 'cpu'
@@ -78,11 +78,6 @@ def load_all_models_for_inference(model_config : str, START_FROM_IR_ONSET=True, 
     rirbox = RIRBox_FULL(mesh_to_shoebox, shoebox_to_rir, return_sbox=True).eval().to(DEVICE)
     print("")
 
-    # # Init Hybrid Model
-    # hybrid = RIRBox_MESH2IR_Hybrid(mesh_to_shoebox, shoebox_to_rir).eval().to(DEVICE)
-    # print("")
-
-    # return mesh2ir, rirbox, hybrid, config, DEVICE
     return mesh2ir, rirbox, config, DEVICE
 
 def print_model_params(model : Module):

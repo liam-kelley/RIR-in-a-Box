@@ -166,7 +166,7 @@ class MeshToShoebox(nn.Module):
         x = self.meshnet(data)
 
         # add tiny random noise to x to explore latent space more ???
-        if self.random_noise : x = x + torch.rand_like(x, device=x.device)*1e-4
+        if self.random_noise : x = x + torch.rand_like(x, device=x.device)*1e-3
 
         if not self.distance_in_latent_vector : 
             x = torch.cat((x, batch_oracle_mic_pos, batch_oracle_src_pos), dim=1)
