@@ -1,7 +1,7 @@
 import os
 import glob
 from validation.metric_accuracy import metric_accuracy_mesh2ir_vs_rirbox, view_results_metric_accuracy_mesh2ir_vs_rirbox
-from validation.sound_source_localization import sss_mesh2ir_vs_rirbox, view_results_sss_mesh2ir_vs_rirbox
+from validation.sound_source_spatialization import sss_mesh2ir_vs_rirbox, view_results_sss_mesh2ir_vs_rirbox
 from validation.visualize_all_results import view_all_validation_results, multiple_models_validation_comparison
 import copy
 
