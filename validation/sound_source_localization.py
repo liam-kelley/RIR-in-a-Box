@@ -122,8 +122,8 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
                     axs[0].set_title(f"MESH2IR : difference in RIR for Angle {az} degrees")
                     axs[1].set_title(f"RIRBOX : difference in RIR for Angle {az} degrees")
                     for j, rirs in enumerate([rirs_mesh2ir, rirs_rirbox]):#, rirs_hybrid]):
-                        axs[j].plot(rirs[1], alpha=0.5, label="mic 1")
-                        axs[j].plot(rirs[0], alpha=0.5, label="mic 2")
+                        axs[j].plot(rirs[1].cpu().numpy(), alpha=0.5, label="mic 1")
+                        axs[j].plot(rirs[0].cpu().numpy(), alpha=0.5, label="mic 2")
                     for j, tau in enumerate([tau_mesh2ir, tau_rirbox]):#, tau_hybrid]):
                         axs[j].axvline(abs(tau*1e6), ls="dashed", color="black", label="tau * 1e6")
                     for ax in axs:
