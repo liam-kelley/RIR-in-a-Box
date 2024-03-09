@@ -5,21 +5,54 @@ from validation.sound_source_localization import sss_mesh2ir_vs_rirbox, view_res
 from validation.visualize_all_results import view_all_validation_results, multiple_models_validation_comparison
 import copy
 
-DO_METRIC_ACCURACY = True
+DO_METRIC_ACCURACY = False
 DO_SSL = False
 
-VISUALIZE_METRIC_ACCURACY = True
+VISUALIZE_METRIC_ACCURACY = False
 VISUALIZE_SSL = False
 VISUALIZE_ALL = False
-COMPARE_ALL_RESULTS = False
+COMPARE_ALL_RESULTS = True
 
-# Best of /ablation6_Loss_Option_Subset_Architecture so far:
-# "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast.json",
+# model_configs = glob.glob("training/configs/ablation6_Loss_Option_Subset_Architecture/*.json")
+# model_configs = sorted(model_configs)
+# print(model_configs)
 
-model_configs = [
-    "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_RT60_superfast.json",
-    "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_RT60.json",
-    "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast.json",
+# Previous Best baseline (4 epochs though)
+# "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_4epochs.json",
+
+########## ABLATION 6 SUPER OVERALL RESULTS ##########
+# Best MRSTFT, C80, =RT60 : "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noDistInLatent.json",
+# Best EDR, D, =RT60, +++SSS : "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json",
+
+model_configs = [ 
+    "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_4epochs.json",
+            # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json",
+            # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noDistInLatent.json",
+    #     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT.json",
+    #     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_MLP5.json",
+    #     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_MRSTFT_EDR_superfast.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_RT60_superfast.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast_RandNoise.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_superfast.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_MRSTFT_superfast.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_nonzero_HIQMRSTFT_superfast.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_nonzero_HIQMRSTFT_EDR_superfast.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_MRSTFT.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_nonzero_HIQMRSTFT.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_MRSTFT.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_RT60.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_nonzero_HIQMRSTFT_EDR_superfast.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_5epochs.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_20epochs.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_RandNoise.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noNormByDist.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noMSDist.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_RT60_superfast.json",
+    # "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_superfast.json",
 ]
 
 results_csvs = copy.deepcopy(model_configs)

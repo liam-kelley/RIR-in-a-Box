@@ -65,6 +65,7 @@ def multiple_models_validation_comparison(results_csvs, acc_folder="./validation
     
     fig, ax = plt.subplots(figsize=(14, 9))
 
+    print("model, mean EDR, mean MRSTFT, mean C80, mean D, mean RT60, mean SSL, std EDR, std MRSTFT, std C80, std D, std RT60, std SSL")
     for csv in results_csvs:
         df_acc = pd.read_csv(acc_folder + csv)
         df_ssl = pd.read_csv(ssl_folder + csv)
@@ -113,8 +114,14 @@ def multiple_models_validation_comparison(results_csvs, acc_folder="./validation
         }, index=metrics)
 
         data_for_plotting['Mean'].plot(kind='line', yerr=data_for_plotting['Std'], ax=ax, capsize=4, marker='o', linestyle='-', label=csv.split("/")[-1].split(".")[0])
-        # data_for_plotting['Mean'].plot(kind='line', ax=ax, marker='o', linestyle='-', label=csv.split("/")[-1].split(".")[0])
-        print("plotting", csv.split("/")[-1].split(".")[0])
+        
+        # Print a csv of the means and stds
+        print(csv.split("/")[-1].split(".")[0], end=", ")
+        for string in normalized_means_rirbox:
+            print(f"{string:.6f}", end=", ")
+        for string in normalized_stds_rirbox[:-1]:
+            print(f"{string:.6f}", end=", ")
+        print(f"{normalized_stds_rirbox[-1]:.6f}")
 
     
     plt.axhline(y=1, color='black', linestyle='--', label='Baseline MESH2IR', lw=1, alpha=1)

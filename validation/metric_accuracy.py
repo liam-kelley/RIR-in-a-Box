@@ -15,7 +15,6 @@ def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, 
                                                  SCALE_MESH2IR_GWA_SCALING_COMPENSATION = True, # If true, cancels out the scaling compensation mesh2ir learned from the GWA dataset during training.
                                                  MESH2IR_USES_LABEL_ORIGIN = False,
                                                  RESPATIALIZE_RIRBOX = True, # This both activates the respaitialization of the rirbox and the start from ir onset
-                                                 FILTER_MESH2IR_IN_HYBRID = False,
                                                  ISM_MAX_ORDER = 18
                                                  ):
     ''' Validation of the metric accuracy of the MESH2IR and RIRBOX models on the GWA_3DFRONT dataset.'''
