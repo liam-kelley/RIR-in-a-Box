@@ -21,7 +21,7 @@
     "HIDDEN_LAYER_SIZE": 128,
     "DROPOUT_P": 0.5,
     "RANDOM_NOISE_AFTER_MESHNET": false,
-    "DIST_IN_LATENT_VECTOR" : false,
+    "DIST_IN_LATENT_VECTOR" : true,
 
     "ISM_MAX_ORDER": 10,
     "RIR_LENGTH": 3000,

@@ -24,7 +24,7 @@ from torch.nn import MSELoss
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default="training/configs/default/rirbox_default.json", help='Path to configuration file.')
-parser.add_argument('--scheduler', action='store_true', default=False,help='Use the scheduler for training.')
+parser.add_argument('--scheduler', action='store_true', default=False, help='Use the scheduler for training.')
 args, _ = parser.parse_known_args()
 with open(args.config, 'r') as file: config = load(file)
 

@@ -5,15 +5,16 @@ from validation.sound_source_spatialization import sss_mesh2ir_vs_rirbox, view_r
 from validation.visualize_all_results import view_all_validation_results, multiple_models_validation_comparison
 import copy
 
-DO_METRIC_ACCURACY = True
-DO_SSL = True
+DO_METRIC_ACCURACY = False
+DO_SSL = False
 
 VISUALIZE_METRIC_ACCURACY = False
 VISUALIZE_SSL = False
 VISUALIZE_ALL = False
 COMPARE_ALL_RESULTS = True
 
-configs = glob.glob("training/configs/ablation7/*.json")
+configs = glob.glob("training/configs/ablation8_model2again/*Model2*.json")
+configs.extend(glob.glob("training/configs/ablation7/*Model3*.json"))
 configs = sorted(configs)
 for config in configs:
     print(config)
@@ -37,7 +38,9 @@ for i in range(len(results_csvs)):
 if DO_METRIC_ACCURACY:
     validation_csv = "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv"
     for model_config in configs:
-        metric_accuracy_mesh2ir_vs_rirbox(model_config, validation_csv, ISM_MAX_ORDER = 18)
+        metric_accuracy_mesh2ir_vs_rirbox(model_config, validation_csv,
+                                          RESPATIALIZE_RIRBOX=False,
+                                          ISM_MAX_ORDER = 18)
 
 
 if DO_SSL:

@@ -56,13 +56,14 @@ def load_all_models_for_inference(model_config : str, START_FROM_IR_ONSET=False,
     print("")
 
     # Init baseline
-    mesh_net = load_mesh_net(MESH_NET(), "./models/MESH2IR/mesh_net_epoch_175.pth")
-    net_G = load_GAN(STAGE1_G(), "./models/MESH2IR/netG_epoch_175.pth")
-    mesh2ir = MESH2IR_FULL(mesh_net, net_G).eval().to(DEVICE)
+    mesh_net1 = load_mesh_net(MESH_NET(), "./models/MESH2IR/mesh_net_epoch_175.pth").eval()
+    net_G = load_GAN(STAGE1_G(), "./models/MESH2IR/netG_epoch_175.pth").eval()
+    mesh2ir = MESH2IR_FULL(mesh_net1, net_G).eval().to(DEVICE)
     print("")
 
     # Init Rirbox
-    mesh_to_shoebox = load_mesh_to_shoebox(MeshToShoebox(meshnet=mesh_net,
+    mesh_net2 = load_mesh_net(MESH_NET(), "./models/MESH2IR/mesh_net_epoch_175.pth").eval()
+    mesh_to_shoebox = load_mesh_to_shoebox(MeshToShoebox(meshnet=mesh_net2,
                                                         model=config['RIRBOX_MODEL_ARCHITECTURE'],
                                                         MLP_Depth=config['MLP_DEPTH'],
                                                         hidden_size=config['HIDDEN_LAYER_SIZE'],
@@ -103,7 +104,7 @@ def inference_on_all_models(x_batch : torch.Tensor, edge_index_batch : torch.Ten
     mic_pos_batch = mic_pos_batch.to(DEVICE)
     src_pos_batch = src_pos_batch.to(DEVICE)
 
-    # Find Ground Truth theoretical direct path onset
+    # Find Ground Truth theoretical direct path onset (only for batch_size 1)
     distance = torch.linalg.norm(mic_pos_batch[0]-src_pos_batch[0])
     dp_onset_in_samples = int(distance*16000/343)
     
@@ -121,18 +122,8 @@ def inference_on_all_models(x_batch : torch.Tensor, edge_index_batch : torch.Ten
     rir_rirbox, origin_rirbox, latent_vector = rirbox(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch)
     virtual_shoebox = ShoeboxToRIR.extract_shoebox_from_latent_representation(latent_vector)
     if RESPATIALIZE_RIRBOX:
-        assert rirbox.sbox_to_rir.start_from_ir_onset, "Respatailize_RIRBOX should only be used with rirbox model that has start_from_ir_onset=True"
+        assert rirbox.sbox_to_rir.start_from_ir_onset, "Respatialize_RIRBOX should only be used with rirbox model that has start_from_ir_onset=True"
         assert rir_rirbox.shape[0] == 1, "Respatailize_RIRBOX should only be used with batch size of 1"
         rir_rirbox, origin_rirbox = ShoeboxToRIR.respatialize_rirbox(rir_rirbox, dp_onset_in_samples)
     
-    # # Hybrid model
-    # if FILTER_MESH2IR_IN_HYBRID :
-    #     rir_mesh2ir_filtered = filter_rir_like_rirbox(rir_mesh2ir)
-    #     hybrid_rir, origin_hybrid = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir_filtered, origin_mesh2ir)
-    # else:
-    #     hybrid_rir, origin_hybrid = hybrid(x_batch, edge_index_batch, batch_indexes, mic_pos_batch, src_pos_batch, rir_mesh2ir, origin_mesh2ir)
-    # if RESPATIALIZE_RIRBOX:
-    #     hybrid_rir, origin_hybrid = ShoeboxToRIR.respatialize_rirbox(hybrid_rir, dp_onset_in_samples)
-
-    # return rir_mesh2ir, rir_rirbox, hybrid_rir, origin_mesh2ir, origin_rirbox, origin_hybrid, virtual_shoebox
     return rir_mesh2ir, rir_rirbox, origin_mesh2ir, origin_rirbox, virtual_shoebox
