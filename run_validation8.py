@@ -13,7 +13,7 @@ VISUALIZE_SSL = False
 VISUALIZE_ALL = False
 COMPARE_ALL_RESULTS = True
 
-configs = glob.glob("training/configs/ablation7/*.json")
+configs = glob.glob("training/configs/ablation8_with_Scheduler/*.json")
 configs = sorted(configs)
 for config in configs:
     print(config)
