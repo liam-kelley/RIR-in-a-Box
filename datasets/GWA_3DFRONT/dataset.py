@@ -25,13 +25,16 @@ def string_to_array(s):
 
 class GWA_3DFRONT_Dataset(Dataset):
     def __init__(self, csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_length = 3968, sample_rate=16000,
-                 rir_std_normalization=False, gwa_scaling_compensation=False, dont_load_rirs=False):
+                 rir_std_normalization=False, gwa_scaling_compensation=False, dont_load_rirs=False, dont_load_meshes=False):
         self.csv_file=csv_file
         self.rir_std_normalization = rir_std_normalization
         self.gwa_scaling_compensation = gwa_scaling_compensation
         self.sample_rate=sample_rate
         self.rir_length=rir_length
         self.dont_load_rirs = dont_load_rirs
+        self.dont_load_meshes = dont_load_meshes
+        if self.dont_load_meshes:
+            self.a_single_mesh = None
         self.data = pd.read_csv(csv_file)
         print('GWA_3DFRONT csv loaded at ', csv_file)
 
@@ -108,7 +111,11 @@ class GWA_3DFRONT_Dataset(Dataset):
         label_rir_path = os.path.join(self.label_rir_folder, df['rir_name'])
 
         # get all the data
-        x, edge_index = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
+        if not self.dont_load_meshes: x, edge_index = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
+        else:
+            if self.a_single_mesh == None:
+                self.a_single_mesh = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
+            x, edge_index = self.a_single_mesh
         if not self.dont_load_rirs: label_rir, label_origin = self._load_rir(label_rir_path)
         else: label_rir, label_origin = np.random.rand(self.rir_length).astype('float32'), 0
         src_pos = string_to_array(df["Source_Pos"]).astype('float32')

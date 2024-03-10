@@ -46,7 +46,8 @@ def create_peak_info_csv():
     df["Distance"] = ((df["Receiver_Pos"]-df["Source_Pos"])**2).apply(np.sum)**0.5
     df["delay"] = (df["Distance"]/343) * 16000
     
-    dataset=GWA_3DFRONT_Dataset(csv_file=dataset_path, rir_std_normalization=False, gwa_scaling_compensation=True)
+    dataset=GWA_3DFRONT_Dataset(csv_file=dataset_path, rir_std_normalization=False, gwa_scaling_compensation=True,
+                                dont_load_meshes=True)
     dataloader = DataLoader(dataset, shuffle=False,
                             num_workers=10, pin_memory=False,
                             collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
@@ -54,7 +55,7 @@ def create_peak_info_csv():
     peak_amplitude = []
     i = 0
     with torch.no_grad():
-        for x_batch, edge_index_batch, batch_indexes, label_rir_batch, label_origin_batch, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Getting all delays and first peak amplitudes"):
+        for _, _, _, label_rir_batch, label_origin_batch, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Getting all delays and first peak amplitudes"):
             peak_onset.append(label_origin_batch[0].item())
             peak_amplitude.append(label_rir_batch[0,int(label_origin_batch[0].item())].item())
 
