@@ -5,16 +5,18 @@ from validation.sound_source_spatialization import sss_mesh2ir_vs_rirbox, view_r
 from validation.visualize_all_results import view_all_validation_results, multiple_models_validation_comparison
 import copy
 
-DO_METRIC_ACCURACY = False
-DO_SSL = False
+DO_METRIC_ACCURACY = True
+DO_SSL = True
 
 VISUALIZE_METRIC_ACCURACY = False
 VISUALIZE_SSL = False
 VISUALIZE_ALL = False
 COMPARE_ALL_RESULTS = True
 
-configs = glob.glob("training/configs/ablation8_model2again/*Model2*.json")
-configs.extend(glob.glob("training/configs/ablation7/*Model3*.json"))
+RESPATIALIZE_RIRBOX = True
+
+configs = glob.glob("training/configs/ablation9scheduler/*.json")
+# configs.extend(glob.glob("training/configs/ablation7/*Model3*.json"))
 configs = sorted(configs)
 for config in configs:
     print(config)
@@ -25,7 +27,7 @@ for config in configs:
 # Best EDR, D, =RT60, +++SSS : "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json",
 
 # configs = [
-#     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_4epochs.json",
+# #     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_4epochs.json",
 #     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noDistInLatent.json",
 #     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json",
 # ]
@@ -39,7 +41,7 @@ if DO_METRIC_ACCURACY:
     validation_csv = "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv"
     for model_config in configs:
         metric_accuracy_mesh2ir_vs_rirbox(model_config, validation_csv,
-                                          RESPATIALIZE_RIRBOX=False,
+                                          RESPATIALIZE_RIRBOX=RESPATIALIZE_RIRBOX,
                                           ISM_MAX_ORDER = 18)
 
 
@@ -50,7 +52,7 @@ if DO_SSL:
         sss_mesh2ir_vs_rirbox(model_config=model_config,
                               validation_csv=validation_csv,
                               validation_iterations=30,
-                              RESPATIALIZE_RIRBOX=False,
+                              RESPATIALIZE_RIRBOX=RESPATIALIZE_RIRBOX,
                               ISM_MAX_ORDER = 15,
                               SHOW_TAU_PLOTS = False,
                               SHOW_SSL_PLOTS = False,

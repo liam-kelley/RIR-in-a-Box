@@ -1,7 +1,7 @@
 import os
 import glob
 
-# configs = glob.glob("training/configs/ablation8_model2again/*.json")
+configs = glob.glob("training/configs/ablation9scheduler/*.json")
 
 # configs = sorted(configs)
 # for config in configs:
@@ -12,6 +12,6 @@ import glob
 # ]
 
 for i in range(len(configs)):
-    os.system(f"python -m training.train_gwa --config {configs[i]}")
+    os.system(f"python -m training.train_gwa --config {configs[i]} --scheduler")
 
 os.system(f"python -m run_validation")

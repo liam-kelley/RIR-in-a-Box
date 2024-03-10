@@ -34,6 +34,7 @@ if config["SAVE_PATH"] == "":
     config["SAVE_PATH"] = "./models/RIRBOX/" + args.config.split("/")[-2] + "/" + args.config.split("/")[-1].split('.')[0] + ".pth"
 if args.scheduler: config['do_scheduling'] = True
 else: config['do_scheduling'] = False
+config['EPOCHS'] = int(config['EPOCHS'] * 1.2)
 
 print("PARAMETERS:")
 for key, value in config.items():
@@ -41,7 +42,7 @@ for key, value in config.items():
 print("")
 
 if config['do_wandb']:
-    wandb.init(project="RIRBox3",config=config)
+    wandb.init(project="RIRBoxFinal2",config=config)
     print("")
 
 ############################################ Inits ############################################
@@ -104,7 +105,7 @@ print("")
 if not config['TRAIN_MESHNET'] : mesh_to_shoebox.meshnet.requires_grad = False
 optimizer = optim.Adam(mesh_to_shoebox.parameters(), lr=config['LEARNING_RATE'])
 if config['do_scheduling']:
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=config['EPOCHS']//2, gamma=0.1)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=config['EPOCHS']//3, gamma=0.3)
 
 # utility
 timer = LKTimer(print_time=False)
