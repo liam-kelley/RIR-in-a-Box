@@ -1,8 +1,8 @@
 import os
 import glob
 
-configs = glob.glob("training/configs/ablation10_M2_noHiQ/*.json")
-configs.extend(glob.glob("training/configs/ablation11_justMRSTFT/*.json"))
+configs = glob.glob("training/configs/ablation12_M3_noHiQ/*.json")
+# configs.extend(glob.glob("training/configs/ablation11_justMRSTFT/*.json"))
 
 # configs = sorted(configs)
 # for config in configs:
@@ -15,4 +15,4 @@ configs.extend(glob.glob("training/configs/ablation11_justMRSTFT/*.json"))
 for i in range(len(configs)):
     os.system(f"python -m training.train_gwa --config {configs[i]} --scheduler")
 
-os.system(f"python -m run_validation")
+# os.system(f"python -m run_validation")
