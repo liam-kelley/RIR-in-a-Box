@@ -1,0 +1,25 @@
+{
+    "SAVE_PATH": "./models/RIRBOX/RIRBOX_Model2_Finetune.pth",
+    
+    "RIRBOX_MODEL_ARCHITECTURE": 2,
+    "ISM_MAX_ORDER": 15,
+
+    "PRETRAINED_MESHNET": true,
+    "TRAIN_MESHNET": false,
+    "train_dataset": "GWA_3DFRONT",
+
+    "LEARNING_RATE": 0.001,
+    "EPOCHS": 1,
+    "MAX_ITERATIONS": 500,
+    "BATCH_SIZE": 8,
+    "DEVICE": "cuda",
+
+    "do_wandb": true,
+
+    "EDC_TOA_SYNC": true,
+    "EDC_LOSS_WEIGHT": 0.001,
+    "MRSTFT_LOSS_WEIGHT": 1.0,
+    "D_LOSS_WEIGHT": 1000,
+    "C80_LOSS_WEIGHT": 0.0,
+    "RT60_LOSS_WEIGHT":0.0
+}

@@ -1,6 +1,7 @@
 import torch
 from typing import Union, List
 import auraloss
+from backpropagatable_ISM.filters import create_filter_bank, apply_filter_bank
 
 class BaseRIRLoss(torch.nn.Module):
     def __init__(self):
@@ -9,104 +10,121 @@ class BaseRIRLoss(torch.nn.Module):
         self.batch_size=None
         self.sample_rate=None
     
-    def check_input_batches(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
+    def check_input_batches(self, estimated_rir_batch : Union[List[torch.Tensor],torch.Tensor], estimated_origin_batch : torch.Tensor,
                                   label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         # if list of different length tensors, check that they're tensor
-        if isinstance(shoebox_rir_batch, list): assert type(shoebox_rir_batch[0])==torch.Tensor, "shoebox_rir_batch is a list but not of tensors"
+        if isinstance(estimated_rir_batch, list): assert type(estimated_rir_batch[0])==torch.Tensor, "estimated_rir_batch is a list but not of tensors"
         if isinstance(label_rir_batch, list): assert type(label_rir_batch[0])==torch.Tensor, "label_rir_batch is a list but not of tensors"
         
         # check that all batches have the same length and device
-        assert len(shoebox_rir_batch)==len(label_rir_batch) == shoebox_origin_batch.shape[0] == label_origin_batch.shape[0], "Input batch sizes are not the same"
-        assert shoebox_rir_batch[0].device == shoebox_origin_batch.device == label_rir_batch[0].device == label_origin_batch.device, "Input tensor devices are not the same"
+        assert len(estimated_rir_batch)==len(label_rir_batch) == estimated_origin_batch.shape[0] == label_origin_batch.shape[0], "Input batch sizes are not the same"
+        assert estimated_rir_batch[0].device == estimated_origin_batch.device == label_rir_batch[0].device == label_origin_batch.device, "Input tensor devices are not the same"
 
         # Get batch size
-        self.batch_size=shoebox_origin_batch.shape[0]
+        self.batch_size=estimated_origin_batch.shape[0]
     
-    def crop_rirs_to_TOA_origin(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
+    def crop_rirs_to_TOA_origin(self, estimated_rir_batch : Union[List[torch.Tensor],torch.Tensor], estimated_origin_batch : torch.Tensor,
                                     label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         '''Uniformizes the length of the RIRs by cropping them to the Direct Path origin, combines them into a tensor.'''
-        new_shoebox_rir_batch=[]
+        new_estimated_rir_batch=[]
         new_label_rir_batch=[]
         for i in range(self.batch_size):
-            origin_shoebox=int(shoebox_origin_batch[i].item())
+            origin_estimated=int(estimated_origin_batch[i].item())
             origin_label=int(label_origin_batch[i].item())
-            new_shoebox_rir_batch.append(shoebox_rir_batch[i][max(0,origin_shoebox-40):]) # 40 is half the frac delay window size
+            new_estimated_rir_batch.append(estimated_rir_batch[i][max(0,origin_estimated-40):]) # 40 is half the frac delay window size
             new_label_rir_batch.append(label_rir_batch[i][max(0,origin_label-40):])
             
-        shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(new_shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
-        label_rir_batch=torch.nn.utils.rnn.pad_sequence(new_label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
+        estimated_rir_batch=torch.nn.utils.rnn.pad_sequence(new_estimated_rir_batch, batch_first=True).to(estimated_origin_batch.device)
+        label_rir_batch=torch.nn.utils.rnn.pad_sequence(new_label_rir_batch, batch_first=True).to(estimated_origin_batch.device)
 
         # Free memory
         for i in range(self.batch_size):
-            new_shoebox_rir_batch[i] = None
+            new_estimated_rir_batch[i] = None
             new_label_rir_batch[i] = None
-        del new_shoebox_rir_batch
+        del new_estimated_rir_batch
         del new_label_rir_batch
 
-        return shoebox_rir_batch, label_rir_batch
+        return estimated_rir_batch, label_rir_batch
 
-    def normalize_rir_dp(self, shoebox_rir_batch : torch.Tensor, shoebox_origin_batch : torch.Tensor,
+    def normalize_rir_dp(self, estimated_rir_batch : torch.Tensor, estimated_origin_batch : torch.Tensor,
                                 label_rir_batch : torch.Tensor, label_origin_batch : torch.Tensor):
         '''Normalizes the Direct Path amplitude of the RIRs.'''
         assert self.sample_rate!=None, "Sample rate must be set by child class to normalize_rir_dp"
-        shoebox_dp_dist = (shoebox_origin_batch*343.0)/self.sample_rate
+        estimated_dp_dist = (estimated_origin_batch*343.0)/self.sample_rate
         label_dp_dist = (label_origin_batch*343.0)/self.sample_rate
-        shoebox_rir_batch=shoebox_rir_batch*(shoebox_dp_dist.unsqueeze(1))
+        estimated_rir_batch=estimated_rir_batch*(estimated_dp_dist.unsqueeze(1))
         label_rir_batch=label_rir_batch*(label_dp_dist.unsqueeze(1))
-        return shoebox_rir_batch, label_rir_batch
+        return estimated_rir_batch, label_rir_batch
     
-    def pad_rirs_to_same_length(self, shoebox_rir_batch : torch.Tensor, label_rir_batch : torch.Tensor):
+    def pad_rirs_to_same_length(self, estimated_rir_batch : torch.Tensor, label_rir_batch : torch.Tensor):
         '''Pad rirs to same length from the right.'''
-        if shoebox_rir_batch.shape[-1] < label_rir_batch.shape[-1]:
-            shoebox_rir_batch = torch.nn.functional.pad(shoebox_rir_batch, (0, label_rir_batch.shape[-1]-shoebox_rir_batch.shape[-1])) # padding from the beginning because we flipped
-        elif shoebox_rir_batch.shape[-1] > label_rir_batch.shape[-1]:
-            label_rir_batch = torch.nn.functional.pad(label_rir_batch, (0, shoebox_rir_batch.shape[-1]-label_rir_batch.shape[-1])) # padding from the beginning because we flipped
-        return shoebox_rir_batch, label_rir_batch
+        if estimated_rir_batch.shape[-1] < label_rir_batch.shape[-1]:
+            estimated_rir_batch = torch.nn.functional.pad(estimated_rir_batch, (0, label_rir_batch.shape[-1]-estimated_rir_batch.shape[-1])) # padding from the beginning because we flipped
+        elif estimated_rir_batch.shape[-1] > label_rir_batch.shape[-1]:
+            label_rir_batch = torch.nn.functional.pad(label_rir_batch, (0, estimated_rir_batch.shape[-1]-label_rir_batch.shape[-1])) # padding from the beginning because we flipped
+        return estimated_rir_batch, label_rir_batch
 
-    def crop_rirs_to_same_length(self, shoebox_rir_batch : torch.Tensor, label_rir_batch : torch.Tensor):
+    def crop_rirs_to_same_length(self, estimated_rir_batch : torch.Tensor, label_rir_batch : torch.Tensor):
         '''Crop rirs to same length from the right'''
-        if min(shoebox_rir_batch.shape[-1], label_rir_batch.shape[-1]) < 1024: # Had a glitch where the shoebox rir generated was so small that mrstft couldn't perform on it.
-            shoebox_rir_batch, label_rir_batch = self.pad_rirs_to_same_length(shoebox_rir_batch,label_rir_batch[...,:1024])
+        if min(estimated_rir_batch.shape[-1], label_rir_batch.shape[-1]) < 1024: # Had a glitch where the estimated rir generated was so small that mrstft couldn't perform on it.
+            estimated_rir_batch, label_rir_batch = self.pad_rirs_to_same_length(estimated_rir_batch,label_rir_batch[...,:1024])
         else:
-            if shoebox_rir_batch.shape[-1] < label_rir_batch.shape[-1]:
-                label_rir_batch=label_rir_batch[..., :shoebox_rir_batch.shape[-1]]
-            elif shoebox_rir_batch.shape[-1] > label_rir_batch.shape[-1]:
-                shoebox_rir_batch=shoebox_rir_batch[..., :label_rir_batch.shape[-1]]
-        return shoebox_rir_batch, label_rir_batch
+            if estimated_rir_batch.shape[-1] < label_rir_batch.shape[-1]:
+                label_rir_batch=label_rir_batch[..., :estimated_rir_batch.shape[-1]]
+            elif estimated_rir_batch.shape[-1] > label_rir_batch.shape[-1]:
+                estimated_rir_batch=estimated_rir_batch[..., :label_rir_batch.shape[-1]]
+        return estimated_rir_batch, label_rir_batch
 
-    def deemphasize_rir_early_reflections(self, shoebox_rir_batch : torch.Tensor, label_rir_batch : torch.Tensor, t0 : int = 2000):
-        '''linear ramp up from 0 to 1 on the interval [0,t0] in samples'''
-        device = shoebox_rir_batch.device
-        ramp = torch.arange(0, t0, device=device) / t0
-        # Determine the actual length to use (the minimum of t0 and the last dimension of the tensor)
-        actual_length = min(t0, shoebox_rir_batch.shape[-1])
-        # Adjust ramp size if necessary
-        if actual_length < t0:
-            ramp = ramp[:actual_length]
-        # Applying the ramp to both shoebox_rir_batch and label_rir_batch up to the actual_length
-        shoebox_rir_batch[..., :actual_length] = shoebox_rir_batch[..., :actual_length] * ramp.unsqueeze(0)
-        label_rir_batch[..., :actual_length] = label_rir_batch[..., :actual_length] * ramp.unsqueeze(0)
+    def multiply_rir_by_soundwave_distance_traveled(self, estimated_rir_batch : torch.Tensor, estimated_origin_batch : torch.Tensor,
+                                    label_rir_batch : torch.Tensor, label_origin_batch : torch.Tensor):
+        '''
+        This function multiplies the RIRs by the distance traveled by the soundwave.
+        This has the effect of canceling the effects of sound amplitude decreasing with distance.
+        It doesn't effect sound decreasing from absorbant reflections.
+        '''
+        
+        # FOR ESTIMATED RIR
+        n_estimated = torch.arange(estimated_rir_batch.shape[-1], device=estimated_rir_batch.device)
+        if len(estimated_rir_batch.shape) == 2: n_estimated = n_estimated.unsqueeze(0).expand_as(estimated_rir_batch)
+        else: n_estimated = n_estimated.unsqueeze(0).unsqueeze(0).expand_as(estimated_rir_batch)
+        
+        # if the RIRBOX model is using start_from_ir_onset
+        if torch.all(estimated_origin_batch.cpu() == torch.tensor([81//2], device="cpu").repeat(estimated_rir_batch.shape[0])):
+            print("HEY I think you're using start_from_ir_onset in your SBOX2RIR,\n\
+                  so i'm gonna use the label origins for 'respatializing' the scaling")
+            n_estimated = n_estimated - label_origin_batch.unsqueeze(1).expand(-1, estimated_rir_batch.shape[1])
+        
+        n_estimated = n_estimated * (343.0/16000.0)
+        estimated_rir_batch = estimated_rir_batch * n_estimated
 
-        return shoebox_rir_batch, label_rir_batch
+        # FOR LABEL RIR
+        n_label = torch.arange(label_rir_batch.shape[-1], device=label_rir_batch.device)
+        if len(label_rir_batch.shape) == 2: n_label = n_label.unsqueeze(0).expand_as(label_rir_batch)
+        else: n_label = n_label.unsqueeze(0).unsqueeze(0).expand_as(label_rir_batch)
+        n_label = n_label * (343.0/16000.0)
+        label_rir_batch = label_rir_batch * n_label
 
-    def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
+        return estimated_rir_batch, label_rir_batch
+
+    def forward(self, estimated_rir_batch : Union[List[torch.Tensor],torch.Tensor], estimated_origin_batch : torch.Tensor,
                       label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         raise NotImplementedError
 
 
 class EnergyDecay_Loss(BaseRIRLoss):
-    def __init__(self, frequency_wise=False, synchronize_TOA=True, normalize_dp=False, normalize_decay_curve=True,
-                 deemphasize_early_reflections=True, pad_to_same_length=False, crop_to_same_length=True):
+    def __init__(self, frequency_wise=False, synchronize_TOA=False, normalize_dp=False, normalize_decay_curve=False,
+                 normalize_by_distance=False, pad_to_same_length=False, crop_to_same_length=True):
         super().__init__()
 
         self.mse=torch.nn.MSELoss(reduction='mean')
+        self.filter_bank = None
 
         # Options
         self.frequency_wise=frequency_wise # if True, compute loss on 7 frequency bands (EDR)
         self.synchronize_TOA=synchronize_TOA
         self.normalize_dp=normalize_dp
         self.normalize_decay_curve=normalize_decay_curve
-        self.deemphasize_early_reflections=deemphasize_early_reflections
+        self.normalize_by_distance=normalize_by_distance
         self.pad_to_same_length=pad_to_same_length
         self.crop_to_same_length=crop_to_same_length
         if self.pad_to_same_length == self.crop_to_same_length:
@@ -119,163 +137,105 @@ class EnergyDecay_Loss(BaseRIRLoss):
         if self.synchronize_TOA: print("> with TOA synchronization", end='\n    ')
         if self.normalize_dp: print("> with TOA normalization", end='\n    ')
         if self.normalize_decay_curve: print("> with decay curve normalization", end='\n    ')
-        if self.deemphasize_early_reflections: print("> with deemphasized early reflections", end='\n    ')
+        if self.normalize_by_distance: print("> with normalization by distance ", end='\n    ')
         if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
         if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
         print("")
     
-    def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
+    def forward(self, estimated_rir_batch : Union[List[torch.Tensor],torch.Tensor], estimated_origin_batch : torch.Tensor,
                       label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         '''
         args:
-            shoebox_rir_batch: list of torch.Tensor, each tensor is a shoebox rir
-            shoebox_origin_batch: torch.Tensor, each element is the origin of the corresponding shoebox rir
+            estimated_rir_batch: list of torch.Tensor, each tensor is a estimated rir
+            estimated_origin_batch: torch.Tensor, each element is the origin of the corresponding estimated rir
             label_rir_batch: list of torch.Tensor, each tensor is a label rir
             label_origin_batch: torch.Tensor, each element is the origin of the corresponding label rir
         '''
-        self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+        self.check_input_batches(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
 
         # crop rirs to begin from Direct Path
         if self.synchronize_TOA:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+            estimated_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
         else:
-            shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
-            label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
+            estimated_rir_batch=torch.nn.utils.rnn.pad_sequence(estimated_rir_batch, batch_first=True).to(estimated_origin_batch.device)
+            label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(estimated_origin_batch.device)
 
         # normalize direct path amplitudes
         if self.normalize_dp:
-            shoebox_rir_batch, label_rir_batch = self.normalize_rir_dp(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+            estimated_rir_batch, label_rir_batch = self.normalize_rir_dp(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
 
-        # Convert to energy (or compute stft square magnitude on 7 bands (nfft//2 + 1))
+        # If frequency wise (EDR), apply filter bank
         if self.frequency_wise:
-            shoebox_rir_batch=torch.stft(shoebox_rir_batch, n_fft=13, return_complex=True)
-            label_rir_batch=torch.stft(label_rir_batch, n_fft=13, return_complex=True)
-            shoebox_rir_batch = (shoebox_rir_batch.real**2) + (shoebox_rir_batch.imag**2)
-            label_rir_batch = (label_rir_batch.real**2) + (label_rir_batch.imag**2)
-        else:
-            shoebox_rir_batch=torch.pow(shoebox_rir_batch,2)
-            label_rir_batch=torch.pow(label_rir_batch,2)
+            if self.filter_bank == None :
+                # TODO : make fs and window length parameters
+                self.filter_bank = create_filter_bank(16000, 81, [  (88,177), 
+                                                                    (177,354),
+                                                                    (354,707),
+                                                                    (707,1414),
+                                                                    (1414,2828),
+                                                                    (2828,5657)], device=estimated_rir_batch.device)
+            estimated_rir_batch = apply_filter_bank(estimated_rir_batch, self.filter_bank, 81)
+            label_rir_batch = apply_filter_bank(label_rir_batch, self.filter_bank, 81)
+            ## compute stft square magnitude on 7 bands (nfft//2 + 1))
+            # DEPRECATED
+            # estimated_rir_batch=torch.stft(estimated_rir_batch, n_fft=13, return_complex=True)
+            # label_rir_batch=torch.stft(label_rir_batch, n_fft=13, return_complex=True)
+            # estimated_rir_batch = (estimated_rir_batch.real**2) + (estimated_rir_batch.imag**2)
+            # label_rir_batch = (label_rir_batch.real**2) + (label_rir_batch.imag**2)
+
+        # Convert to energy
+        estimated_rir_batch=torch.pow(estimated_rir_batch,2)
+        label_rir_batch=torch.pow(label_rir_batch,2)
 
         # do cumulative sum
-        shoebox_rir_batch=torch.cumsum(torch.flip(shoebox_rir_batch, dims=[-1]), dim=-1) # Cumulative sum starting from the end
+        estimated_rir_batch=torch.cumsum(torch.flip(estimated_rir_batch, dims=[-1]), dim=-1) # Cumulative sum starting from the end
         label_rir_batch=torch.cumsum(torch.flip(label_rir_batch,dims=[-1]), dim=-1) # Cumulative sum starting from the end
         
         # flip
-        shoebox_rir_batch, label_rir_batch = torch.flip(shoebox_rir_batch,dims=[-1]), torch.flip(label_rir_batch,dims=[-1])
+        estimated_rir_batch, label_rir_batch = torch.flip(estimated_rir_batch,dims=[-1]), torch.flip(label_rir_batch,dims=[-1])
 
         # normalize energy decay curves
         if self.normalize_decay_curve:
-            if self.frequency_wise : sb_normalizer=shoebox_rir_batch[...,0,None] ; label_normalizer=label_rir_batch[...,0,None]
-            else: sb_normalizer=shoebox_rir_batch[:,0].unsqueeze(1) ; label_normalizer=label_rir_batch[:,0].unsqueeze(1)
-            shoebox_rir_batch=shoebox_rir_batch/(sb_normalizer+1e-8)
-            label_rir_batch=label_rir_batch/(label_normalizer+1e-8)
-            del sb_normalizer, label_normalizer
+            estimated_normalizer = estimated_rir_batch[...,0].unsqueeze(-1).expand_as(estimated_rir_batch)
+            label_normalizer = label_rir_batch[...,0].unsqueeze(-1).expand_as(label_rir_batch)
+            estimated_rir_batch = estimated_rir_batch / (estimated_normalizer+1e-8)
+            label_rir_batch = label_rir_batch / (label_normalizer+1e-8)
+            del estimated_normalizer, label_normalizer
 
         # pad to same length
         if self.pad_to_same_length:
-            shoebox_rir_batch, label_rir_batch = self.pad_rirs_to_same_length(shoebox_rir_batch, label_rir_batch)
+            estimated_rir_batch, label_rir_batch = self.pad_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
 
         # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
         if self.crop_to_same_length:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(shoebox_rir_batch, label_rir_batch)
-            
-        # Deemphasize early reflections linearly
-        if self.deemphasize_early_reflections :
-            shoebox_rir_batch, label_rir_batch = self.deemphasize_rir_early_reflections(shoebox_rir_batch, label_rir_batch, t0=2000)
+            estimated_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
+
+        if self.normalize_by_distance:
+            estimated_rir_batch, label_rir_batch = self.multiply_rir_by_soundwave_distance_traveled(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
 
         # Compute loss
-        loss=self.mse(shoebox_rir_batch, label_rir_batch)
+        loss=self.mse(estimated_rir_batch, label_rir_batch)
         return loss
     
-
-class EnergyBins_Loss(BaseRIRLoss):
-    def __init__(self, sample_rate=16000, synchronize_TOA=True, normalize_dp=True, frequency_wise=False, 
-                pad_to_same_length=False, crop_to_same_length=True):
-        super().__init__()
-
-        self.sample_rate=sample_rate
-        self.mse=torch.nn.MSELoss(reduction='mean')
-
-        # Options
-        self.synchronize_TOA=synchronize_TOA
-        self.normalize_dp=normalize_dp
-        self.frequency_wise=frequency_wise # if True, compute loss on 7 frequency bands (EDR)
-        self.pad_to_same_length=pad_to_same_length
-        self.crop_to_same_length=crop_to_same_length
-        if self.pad_to_same_length == self.crop_to_same_length:
-            print("pad_to_same_length and crop_to_same_length can't be both True or both False. Defaulting to crop.")
-            self.pad_to_same_length, self.crop_to_same_length = False, True
-
-        # Options print
-        print("EnergyDecay_Loss Initialized", end='\n    ')
-        if self.synchronize_TOA: print("> with TOA synchronization", end='\n    ')
-        if self.normalize_dp: print("> with TOA normalization", end='\n    ')
-        if self.frequency_wise: print("> with frequency-wise decay curves (EDR)", end='\n    ')
-        if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
-        if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
-        print("")
-    
-    def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
-                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
-        '''
-        args:
-            shoebox_rir_batch: list of torch.Tensor, each tensor is a shoebox rir
-            shoebox_origin_batch: torch.Tensor, each element is the origin of the corresponding shoebox rir
-            label_rir_batch: list of torch.Tensor, each tensor is a label rir
-            label_origin_batch: torch.Tensor, each element is the origin of the corresponding label rir
-        '''
-        self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
-
-        # crop rirs to begin from Direct Path
-        if self.synchronize_TOA:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
-        else:
-            shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
-            label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
-
-        # normalize direct path amplitudes
-        if self.normalize_dp:
-            shoebox_rir_batch, label_rir_batch = self.normalize_rir_dp(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
-
-        # Convert to energy (or compute stft square magnitude on 7 bands (nfft//2 + 1))
-        if self.frequency_wise:
-            shoebox_rir_batch=torch.stft(shoebox_rir_batch, n_fft=13, return_complex=True)
-            label_rir_batch=torch.stft(label_rir_batch, n_fft=13, return_complex=True)
-            shoebox_rir_batch = (shoebox_rir_batch.real**2) + (shoebox_rir_batch.imag**2)
-            label_rir_batch = (label_rir_batch.real**2) + (label_rir_batch.imag**2)
-        else:
-            shoebox_rir_batch=torch.pow(shoebox_rir_batch,2)
-            label_rir_batch=torch.pow(label_rir_batch,2)
-
-        # pad to same length
-        if self.pad_to_same_length:
-            shoebox_rir_batch, label_rir_batch = self.pad_rirs_to_same_length(shoebox_rir_batch, label_rir_batch)
-
-        # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
-        if self.crop_to_same_length:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(shoebox_rir_batch, label_rir_batch)
-            
-        # do cumulative sum
-        shoebox_rir_batch=torch.flip(torch.cumsum(torch.flip(shoebox_rir_batch, dims=(-1,)), dim=-1), dims=(-1,))
-        label_rir_batch=torch.flip(torch.cumsum(torch.flip(label_rir_batch, dims=(-1,)), dim=-1), dims=(-1,))
-
-        # Convert to energy bins
-        strides=[i*self.sample_rate for i in [0.005, 0.001, 0.002,0.005,0.01]] # times in ms converted to sample rate
-        shoebox_rir_batch=torch.cat([torch.diff(shoebox_rir_batch[...,::int(stride)]) for stride in strides], dim=-1)
-        label_rir_batch=torch.cat([torch.diff(label_rir_batch[...,::int(stride)]) for stride in strides], dim=-1)
-
-        # Compute loss
-        loss=torch.sqrt(self.mse(shoebox_rir_batch, label_rir_batch))
-        return loss
-
 
 class MRSTFT_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, device='cpu',
-                 synchronize_TOA=True, deemphasize_early_reflections=True, normalize_dp=True,
-                pad_to_same_length=False, crop_to_same_length=True):
+                 synchronize_TOA=False, normalize_by_distance=False, normalize_dp=False,
+                pad_to_same_length=False, crop_to_same_length=True, hi_q_temporal=False):
         super().__init__()
 
-        if sample_rate == 16000:
+        if sample_rate == 16000 and hi_q_temporal:
+            self.mrstft = auraloss.freq.MultiResolutionSTFTLoss(
+                    fft_sizes = [64, 128, 256, 512, 1024],
+                    hop_sizes = [16, 32, 64, 128, 256],
+                    win_lengths = [64, 128, 256, 512, 1024],
+                    scale=None,
+                    n_bins=None,
+                    sample_rate=sample_rate,
+                    perceptual_weighting=True,
+                    device=device,
+                )
+        elif sample_rate == 16000 and not hi_q_temporal:
             self.mrstft = auraloss.freq.MultiResolutionSTFTLoss(
                     fft_sizes = [256, 512, 1024], # 16000 sample rate
                     hop_sizes = [64, 128, 256],
@@ -304,58 +264,60 @@ class MRSTFT_Loss(BaseRIRLoss):
 
         # Options
         self.synchronize_TOA=synchronize_TOA
-        self.deemphasize_early_reflections=deemphasize_early_reflections
+        self.normalize_by_distance=normalize_by_distance
         self.normalize_dp=normalize_dp
         self.pad_to_same_length=pad_to_same_length
         self.crop_to_same_length=crop_to_same_length
         if self.pad_to_same_length == self.crop_to_same_length:
             print("pad_to_same_length and crop_to_same_length can't be both True or both False. Defaulting to crop.")
             self.pad_to_same_length, self.crop_to_same_length = False, True
+        self.hi_q_temporal=hi_q_temporal
 
         # Options print
         print("MRSTFT_Loss Initialized", end='\n    ')
         if self.synchronize_TOA: print("> with TOA synchronization", end='\n    ')
-        if self.deemphasize_early_reflections: print("> with deemphasized early reflections", end='\n    ')
+        if self.normalize_by_distance: print("> with normalization by distance ", end='\n    ')
         if self.normalize_dp: print("> with normalization", end='\n    ')
         if self.pad_to_same_length: print("> with RIR padding to same length", end='\n    ')
         if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
+        if self.hi_q_temporal: print("> with high quality temporal resolution", end='\n    ')
         print("")
     
-    def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
+    def forward(self, estimated_rir_batch : Union[List[torch.Tensor],torch.Tensor], estimated_origin_batch : torch.Tensor,
                       label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
-        self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+        self.check_input_batches(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
         
         # crop rirs to begin from Direct Path
         if self.synchronize_TOA:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+            estimated_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
         else:
-            shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
-            label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
+            estimated_rir_batch=torch.nn.utils.rnn.pad_sequence(estimated_rir_batch, batch_first=True).to(estimated_origin_batch.device)
+            label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(estimated_origin_batch.device)
 
         # normalize direct path amplitudes
         if self.normalize_dp:
-            shoebox_rir_batch, label_rir_batch = self.normalize_rir_dp(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+            estimated_rir_batch, label_rir_batch = self.normalize_rir_dp(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
 
         # pad to same length
         if self.pad_to_same_length:
-            shoebox_rir_batch, label_rir_batch = self.pad_rirs_to_same_length(shoebox_rir_batch, label_rir_batch)
+            estimated_rir_batch, label_rir_batch = self.pad_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
             
         # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
         if self.crop_to_same_length:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(shoebox_rir_batch, label_rir_batch)
+            estimated_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
 
-        # Deemphasize early reflections linearly
-        if self.deemphasize_early_reflections :
-            shoebox_rir_batch, label_rir_batch = self.deemphasize_rir_early_reflections(shoebox_rir_batch, label_rir_batch)
+        # Normalize by distance
+        if self.normalize_by_distance :
+            estimated_rir_batch, label_rir_batch = self.multiply_rir_by_soundwave_distance_traveled(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
 
-        # There was an error here
-        batch_mrstft_loss = self.mrstft( shoebox_rir_batch[:,None,:], label_rir_batch[:,None,:] ) # Calculate batch_mrstft # Add a dimension for channels
+        # Compute MRSTFT
+        batch_mrstft_loss = self.mrstft( estimated_rir_batch[:,None,:], label_rir_batch[:,None,:] ) # Calculate batch_mrstft # Add a dimension for channels
         return batch_mrstft_loss   
         
 
 class AcousticianMetrics_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, synchronize_TOA=True, crop_to_same_length=True, normalize_dp=False, frequency_wise=False,
-                 normalize_total_energy=False, pad_to_same_length=False, MeanAroundMedian_pruning=True):
+                 normalize_total_energy=False, pad_to_same_length=False, MeanAroundMedian_pruning=False, return_values=False):
         super().__init__()
 
         self.mse=torch.nn.MSELoss(reduction='mean')
@@ -372,6 +334,7 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
             print("pad_to_same_length and crop_to_same_length can't be both True or both False. Defaulting to crop.")
             self.pad_to_same_length, self.crop_to_same_length = False, True
         self.MeanAroundMedian_pruning=MeanAroundMedian_pruning
+        self.return_values=return_values
 
         # Options print
         print("AcousticianMetrics_Loss Initialized", end='\n    ')
@@ -384,43 +347,44 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         if self.MeanAroundMedian_pruning: print("> with MeanAroundMedian pruning", end='\n    ')
         print("")
     
-    def forward(self, shoebox_rir_batch : Union[List[torch.Tensor],torch.Tensor], shoebox_origin_batch : torch.Tensor,
+    def forward(self, estimated_rir_batch : Union[List[torch.Tensor],torch.Tensor], estimated_origin_batch : torch.Tensor,
                       label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
         '''
         args:
-            shoebox_rir_batch: list of torch.Tensor, each tensor is a shoebox rir
-            shoebox_origin_batch: torch.Tensor, each element is the origin of the corresponding shoebox rir
+            estimated_rir_batch: list of torch.Tensor, each tensor is a estimated rir
+            estimated_origin_batch: torch.Tensor, each element is the origin of the corresponding estimated rir
             label_rir_batch: list of torch.Tensor, each tensor is a label rir
             label_origin_batch: torch.Tensor, each element is the origin of the corresponding label rir
         '''
-        self.check_input_batches(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+        self.check_input_batches(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
 
         # crop rirs to begin from Direct Path
         if self.synchronize_TOA:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
-        else:
-            shoebox_rir_batch=torch.nn.utils.rnn.pad_sequence(shoebox_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
-            label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(shoebox_origin_batch.device)
+            estimated_rir_batch, label_rir_batch = self.crop_rirs_to_TOA_origin(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
+        # else:
+        #     estimated_rir_batch=torch.nn.utils.rnn.pad_sequence(estimated_rir_batch, batch_first=True).to(estimated_origin_batch.device)
+        #     label_rir_batch=torch.nn.utils.rnn.pad_sequence(label_rir_batch, batch_first=True).to(estimated_origin_batch.device)
 
         # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
         if self.crop_to_same_length:
-            shoebox_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(shoebox_rir_batch, label_rir_batch)
+            estimated_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
 
         # normalize direct path amplitudes
         if self.normalize_dp:
-            shoebox_rir_batch, label_rir_batch = self.normalize_rir_dp(shoebox_rir_batch, shoebox_origin_batch, label_rir_batch, label_origin_batch)
+            estimated_rir_batch, label_rir_batch = self.normalize_rir_dp(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
 
         # Get energy
         if self.frequency_wise:
-            shoebox_rir_batch=torch.stft(shoebox_rir_batch, n_fft=13, return_complex=True)
+            raise NotImplementedError("Frequency wise Deprecated for AcousticianMetrics_Loss")
+            estimated_rir_batch=torch.stft(estimated_rir_batch, n_fft=13, return_complex=True)
             label_rir_batch=torch.stft(label_rir_batch, n_fft=13, return_complex=True)
-            batch_input_rir2 = (shoebox_rir_batch.real**2) + (shoebox_rir_batch.imag**2)
+            batch_input_rir2 = (estimated_rir_batch.real**2) + (estimated_rir_batch.imag**2)
             batch_label_rir2 = (label_rir_batch.real**2) + (label_rir_batch.imag**2)
         else:
-            batch_input_rir2=torch.pow(shoebox_rir_batch,2)
+            batch_input_rir2=torch.pow(estimated_rir_batch,2)
             batch_label_rir2=torch.pow(label_rir_batch,2)
 
-        del shoebox_rir_batch, label_rir_batch
+        del estimated_rir_batch, label_rir_batch
 
         # Precalculate sum(rir^2)
         batch_input_rir2_sum=torch.sum(batch_input_rir2, axis=-1)
@@ -447,7 +411,7 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         del batch_before_80ms, batch_after_80ms, lower_integral, top_integral
 
         # D
-        batch_fifty_ms=(0.050**self.sample_rate)*torch.ones(self.batch_size, device=batch_input_rir2.device) # in samples
+        batch_fifty_ms=(0.050*self.sample_rate)*torch.ones(self.batch_size, device=batch_input_rir2.device) # in samples
     
         batch_before_50ms = batch_cut_before_and_after_index(batch_input_rir2, batch_fifty_ms, cut_severity=0.05, return_after=False)
         partial_integral=torch.sum(batch_before_50ms, dim=-1)
@@ -458,6 +422,19 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         batch_label_D = partial_integral/batch_label_rir2_sum
 
         del batch_before_50ms, partial_integral
+
+        # DRR
+        batch_twopointfive_ms=(0.0025*self.sample_rate)*torch.ones(self.batch_size, device=batch_input_rir2.device) # in samples
+    
+        batch_onset = batch_cut_before_and_after_index(batch_input_rir2, batch_twopointfive_ms, cut_severity=1.0, return_after=False)
+        partial_integral=torch.sum(batch_onset, dim=-1)
+        batch_input_DRR = partial_integral/batch_input_rir2_sum
+
+        batch_onset = batch_cut_before_and_after_index(batch_label_rir2, batch_twopointfive_ms, cut_severity=1.0, return_after=False)
+        partial_integral=torch.sum(batch_onset, dim=-1)
+        batch_label_DRR = partial_integral/batch_label_rir2_sum
+
+        del batch_twopointfive_ms, partial_integral
 
         # RT60
         batch_input_edc=torch.flip(torch.cumsum(torch.flip(batch_input_rir2, [-1]), dim=-1), [-1]) # Cumulative sum from the end
@@ -480,7 +457,7 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
 
         if not self.normalize_total_energy: # RT60 needs to have its edc normalized
             batch_input_edc=batch_input_edc/batch_input_rir2_sum.unsqueeze(1).expand_as(batch_input_edc)
-            batch_label_edc=batch_label_edc/batch_label_rir2_sum.unsqueeze(1).expand_as(batch_input_edc)
+            batch_label_edc=batch_label_edc/batch_label_rir2_sum.unsqueeze(1).expand_as(batch_label_edc)
 
         # pad to same length (if we aren't cropping to same length earlier, then we'll need to this here to make the input and label comparable)
         if self.pad_to_same_length:
@@ -516,18 +493,86 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         input_rt60=6/(input_regressed_beta+1e-10)
         label_rt60=6/(label_regressed_beta+1e-10)
 
+        input_rt30=3/(input_regressed_beta+1e-10)
+        label_rt30=3/(label_regressed_beta+1e-10)
+
         del input_regressed_beta, label_regressed_beta
+
+        if self.return_values:
+            return batch_input_c80, batch_label_c80, batch_input_D, batch_label_D, input_rt60, label_rt60, batch_input_DRR, batch_label_DRR, input_rt30, label_rt30
 
         # Compute losses
         loss_c80=self.mse(batch_input_c80, batch_label_c80)
         loss_D=self.mse(batch_input_D, batch_label_D)
         loss_rt60=self.mse(input_rt60, label_rt60)
 
-        input_betas,label_betas = self.crop_rirs_to_same_length(input_betas,label_betas)      
-        loss_betas = self.mse(input_betas,label_betas)
+        # input_betas,label_betas = self.crop_rirs_to_same_length(input_betas,label_betas)      
+        loss_DRR = self.mse(batch_input_DRR,batch_label_DRR)
         
-        return loss_c80, loss_D, loss_rt60, loss_betas
+        # return loss_c80, loss_D, loss_rt60, loss_betas
+        return loss_c80, loss_D, loss_rt60, loss_DRR
 
+class DRR_Loss(BaseRIRLoss):
+    def __init__(self, sample_rate=16000, crop_to_same_length=True, return_values=False):
+        super().__init__()
+
+        self.mse=torch.nn.MSELoss(reduction='mean')
+        self.sample_rate=sample_rate
+
+        # Options
+        self.crop_to_same_length=crop_to_same_length
+        self.return_values=return_values
+
+        # Options print
+        print("AcousticianMetrics_Loss Initialized", end='\n    ')
+        if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
+        print("")
+    
+    def forward(self, estimated_rir_batch : Union[List[torch.Tensor],torch.Tensor], estimated_origin_batch : torch.Tensor,
+                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
+        '''
+        args:
+            estimated_rir_batch: list of torch.Tensor, each tensor is a estimated rir
+            estimated_origin_batch: torch.Tensor, each element is the origin of the corresponding estimated rir
+            label_rir_batch: list of torch.Tensor, each tensor is a label rir
+            label_origin_batch: torch.Tensor, each element is the origin of the corresponding label rir
+        '''
+        self.check_input_batches(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
+
+        # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
+        if self.crop_to_same_length:
+            estimated_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
+
+        # Get energy
+        batch_estimated_rir2=torch.pow(estimated_rir_batch,2)
+        batch_label_rir2=torch.pow(label_rir_batch,2)
+
+        del estimated_rir_batch, label_rir_batch
+
+        # Precalculate sum(rir^2)
+        batch_estimated_rir2_sum=torch.sum(batch_estimated_rir2, axis=-1)
+        batch_label_rir2_sum=torch.sum(batch_label_rir2, axis=-1)
+
+        # DRR
+        batch_twopointfive_ms=(0.0025*self.sample_rate)*torch.ones(self.batch_size, device=batch_estimated_rir2.device) # in samples
+    
+        batch_onset = batch_cut_before_and_after_index(batch_estimated_rir2, batch_twopointfive_ms + estimated_origin_batch, cut_severity=1.0, return_after=False)
+        partial_integral=torch.sum(batch_onset, dim=-1)
+        batch_estimated_DRR = partial_integral/batch_estimated_rir2_sum
+
+        batch_onset = batch_cut_before_and_after_index(batch_label_rir2, batch_twopointfive_ms + label_origin_batch, cut_severity=1.0, return_after=False)
+        partial_integral=torch.sum(batch_onset, dim=-1)
+        batch_label_DRR = partial_integral/batch_label_rir2_sum
+
+        del batch_twopointfive_ms, partial_integral
+
+        if self.return_values:
+            return batch_estimated_DRR, batch_label_DRR
+
+        # Compute losses    
+        loss_DRR = self.mse(batch_estimated_DRR,batch_label_DRR)
+        
+        return loss_DRR
 
 ####### C80 and D Utility #######
 

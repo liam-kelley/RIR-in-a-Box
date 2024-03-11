@@ -15,69 +15,7 @@ from torch.utils.checkpoint import checkpoint
 # from tools.pyLiam.LKTimer import LKTimer
 # timer=LKTimer()
 import matplotlib.pyplot as plt
-
-def LP_filter(n, fs, window_length, lp_cutoff_frequency):
-    '''
-    windowed sinc filter
-    '''
-    # Get hann
-    hanning = 0.5 * (1 - torch.cos(2 * math.pi * (n + 1 + window_length//2) / window_length))
-
-    # Get sinc
-    nyquist_f = fs / 2
-    f_c_normalized = lp_cutoff_frequency / nyquist_f
-    sinc = f_c_normalized * torch.special.sinc( n * f_c_normalized)
-    windowed_sinc = sinc * hanning
-
-    return windowed_sinc
-
-def BP_filter(n, fs, fc_high, fc_low, window_length):
-    '''
-    windowed sinc filter translated to be bandpass
-    '''
-    # Get hann
-    hann_window = 0.5 * (1 - torch.cos(2 * math.pi * (n + 1 + window_length//2) / window_length))
-
-    # Get sinc
-    half_bandwidth = (fc_high - fc_low)/2
-    nyquist_f = fs / 2
-    f_c_normalized = half_bandwidth / nyquist_f
-    sinc = 2 * f_c_normalized * torch.sinc(f_c_normalized * n) # we have to multiply by 2 because when translating, we get the energy of all negative frequencies!
-    
-    # Get windowed sinc
-    h_lp = sinc * hann_window
-
-    # Frequency shift to convert low pass to band pass
-    fc_center = (fc_high + fc_low) / 2
-    h_bp = h_lp * torch.cos(2 * math.pi * fc_center * n / fs)
-
-    return h_bp
-
-# Tests
-
-# window_length = 81
-# n = torch.arange(window_length) - window_length // 2
-# n = n[30:70]
-# lp_cutoff_frequency = 8000
-# fs=16000
-# plt.plot(LP_filter(n, fs, window_length, lp_cutoff_frequency), label="Lowpass at {} Hz".format(lp_cutoff_frequency))
-# plt.show()
-# plt.title("Filter shapes".format(lp_cutoff_frequency))
-# # plt.show()
-# plt.plot(BP_filter(n, fs, lp_cutoff_frequency, 80, window_length), label=f"Bandpass at fc low {80} Hz\nand fc high {lp_cutoff_frequency} Hz")
-# plt.legend()
-# plt.show()
-
-# Tests 2
-
-# Old_Hann = lambda x : 0.5 * (1 + torch.cos(math.pi * x / 40))
-# Old_sinc = lambda x : torch.sinc(x)
-# Old_LP_filter = lambda x, fc : fc * Old_sinc(x * fc) * Old_Hann(x)
-
-# n = torch.arange(81) - 81 // 2
-# plt.plot(Old_LP_filter(n, 1))
-# plt.title("Old LP filter : filtering to 8kHz")
-# plt.show()
+from backpropagatable_ISM.filters import LP_filter, BP_filter
 
 def _batch_validate_inputs(room: torch.Tensor, mic_array: torch.Tensor, source: torch.Tensor, absorption: torch.Tensor):
     '''Only supports mono band absorption, 3D dimensions, and 1 mic for now.'''
@@ -171,7 +109,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
                            batch_absorption : torch.Tensor,
                            max_order : int, fs : float = 16000.0, sound_speed: float = 343.0,
                            output_length: Optional[int] = None, window_length: int = 81,
-                        #    lp_cutoff_frequency: Optional[int] = None,
+                           start_from_ir_onset : bool = False,
+                           normalized_distance : bool = False
 ) -> Tensor:
     """
     Simulate room impulse responses (RIRs) using image source method (ISM).
@@ -202,10 +141,15 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     batch_dist = torch.linalg.norm(vec, dim=-1)  # (batch_size, n_image_source, n_mics=1)
     del vec
     batch_delay = batch_dist * fs / sound_speed  # (fractionnal delay) (batch_size, n_image_source, n_mics=1)
+    if start_from_ir_onset:
+        batch_IR_onset = fs * torch.linalg.norm(batch_mic_position.squeeze(1)-batch_source_position, dim=1) / sound_speed # squeezing n_channels for now
 
     #attenuate image sources
-    epsilon = 1e-10
-    batch_img_src_att = batch_att[..., None] / (batch_dist[:, None, ...] + epsilon) # (batch_size, n_band, n_image_source, n_mics=1)
+    if not normalized_distance:
+        epsilon = 1e-10
+        batch_img_src_att = batch_att[..., None] / (batch_dist[:, None, ...] + epsilon) # (batch_size, n_band, n_image_source, n_mics=1)
+    else :
+        batch_img_src_att = batch_att[..., None]
     del batch_dist, batch_att
 
     ##### MY OWN BATCH ISM IMPLEMENTATION ###########
@@ -215,13 +159,21 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
         rir_length = 6000 # for memory reasons, with rir max order 15, batch_size 16 and sample rate 16000 I can't go above 6000 (0.393 seconds)
 
     #### Prepare Fractional delays
-    n = torch.arange(rir_length, device=batch_delay.device) - window_length//2 # (rir_length)
-    n = n.unsqueeze(0).unsqueeze(2).unsqueeze(3).expand(batch_delay.shape[0], -1, batch_delay.shape[1], batch_delay.shape[2]) # (batch_size, rir_length, n_image_source, n_mics=1)
-    n = n-batch_delay.unsqueeze(1).expand(-1,rir_length,-1,-1) # (batch_size, rir_length, n_image_source, n_mics=1)
+    n = torch.arange(0, rir_length, device=batch_delay.device) # (rir_length)
+    # leave space for the convolution window.
+    n = n - window_length//2
+    n = n.unsqueeze(0).expand(batch_delay.shape[0], -1) # (batch_size, rir_length)
+    if start_from_ir_onset:
+        # translate the IR onset to be at t = window_length//2 + 1
+        n = n + batch_IR_onset.unsqueeze(1).expand(-1,rir_length) 
+    n = n.unsqueeze(2).unsqueeze(3).expand(-1, -1, batch_delay.shape[1], batch_delay.shape[2]) # (batch_size, rir_length, n_image_source, n_mics=1)
+    # translate each n by the amount of delay corresponding to each image source so when convolved with the filter they'll be in the correct place in the rir before ein-summation with the absorption
+    n = n - batch_delay.unsqueeze(1).expand(-1,rir_length,-1,-1) # (batch_size, rir_length, n_image_source, n_mics=1)
     del batch_delay
 
-    # create hann window tensor
-    # For multiband processing, we need to create a different batch_indiv_IRS for each band, and then sum them up.
+    #### Sub-sample backpropagatable convolution for fractional delays.
+    # TODO For multiband processing, we will eventually need to create a different batch_indiv_IRS for each band using a different filter, and then sum them up.
+    #      There should be a more elegant way of doing this that won't cost 7x the VRAM.
     batch_indiv_IRS=torch.where(torch.abs(n) <= window_length//2,
                                 BP_filter(n, fs, 8000, 80, window_length),
                                 # LP_filter(n, fs, window_length, lp_cutoff_frequency),
@@ -233,6 +185,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: torch.Tensor,
     batch_img_src_att = batch_img_src_att.squeeze(dim=(1,3)) # (batch_size, n_bands, n_image_source, n_mics=1) -> (batch_size, n_image_source)
     
     # Sum the img sources
+    # TODO implement opt_einsum.
     batch_rir = torch.einsum('bri,bi->br', batch_indiv_IRS, batch_img_src_att) # (batch_size, rir_length)
 
     del batch_indiv_IRS, batch_img_src_att

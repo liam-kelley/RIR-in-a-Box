@@ -3,9 +3,14 @@ __pycache__
 archived_code
 wandb
 
+diego/
+
 # Work on absorption coeffs regression
 absorption_coeffs_analysis/
 
 # Work on MAM + gwa analysis
 gwaMAManalysis/
 playing_with_GWA.py
+
+validation/results_acc/
+validation/results_sss/

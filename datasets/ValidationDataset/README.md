@@ -20,7 +20,7 @@ Google drive links:
 - I obtained mesh data from the HoloLens using the device portal. As you scan the room longer, the data becomes more precise, so I made sure to record the mesh multiple times to account for the amount of time spent scanning. So far I only recorded the confroom open configuration, so **TODO** record the confroom closed configuration. **TODO** add the mesh names into 'validation_dataset.csv'. (Right now they're only implemented as booleans).
 - I manually measured mic and src positions in the office and wrote them down in 'validation_dataset.csv'. (see my notes room_geometry/manually_measured/).
 - I used 'ESS_play.ipynb' to play/save the ESS on my PC.
-- I recorded the ESS using the HoloLens and saved the recordings in 'audio_recordings/'. **TODO** add the audio filepaths into 'validation_dataset.csv'.
+- I recorded the ESS using the HoloLens and saved the recordings in 'audio_recordings/'. Audio filepaths are found in the 'validation_dataset.csv'.
 - I used 'deconvolve_audio_recs.py' to deconvolve the audio recordings into 'deconvolved_audio_recs/'.
 - I then used 'slice_10xrirs.py' to get 10 rirs from the deconvolved audio recordings.
 

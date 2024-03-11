@@ -29,7 +29,7 @@ parser.add_argument(
         )
 parser.add_argument(
         '--target_faces',
-        default = 3500,
+        default = 2000,
         help = 'target number of faces'
         )
 args = parser.parse_args()

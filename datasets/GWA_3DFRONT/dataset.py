@@ -12,6 +12,8 @@ from torch_geometric.data import Batch
 
 from scipy.signal import find_peaks
 
+from datasets.GWA_3DFRONT.preprocessing.rir_preprocessing import mesh2ir_rir_preprocessing
+
 def string_to_array(s):
     '''
     Useful for what's in that dataset csv file
@@ -21,27 +23,18 @@ def string_to_array(s):
     # Convert each element to float and create a numpy array
     return np.array([float(e) for e in elements])
 
-def edge_matrix_from_face_matrix(face_matrix):
-    '''
-    TODO Need to check if this is OK.
-    '''
-    # Iterate over face_matrix to extract edges
-    edges = []
-    for f in face_matrix:
-        face_edges = [(f[i], f[(i+1) % len(f)]) for i in range(len(f))]
-        for e in face_edges:
-            if e not in edges and (e[1], e[0]) not in edges:  # Avoid duplicates
-                edges.append(e)
-    # Convert edges list to a numpy array
-    edge_matrix = np.array(edges)
-    return edge_matrix
-
-from datasets.GWA_3DFRONT.preprocessing.rir_preprocessing import mesh2ir_rir_preprocessing
-
 class GWA_3DFRONT_Dataset(Dataset):
-    def __init__(self, csv_file="./datasets/GWA_3DFRONT/gwa_3Dfront.csv", ):
+    def __init__(self, csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_length = 3968, sample_rate=16000,
+                 rir_std_normalization=False, gwa_scaling_compensation=False, dont_load_rirs=False, dont_load_meshes=False):
         self.csv_file=csv_file
-        self.sample_rate=16000
+        self.rir_std_normalization = rir_std_normalization
+        self.gwa_scaling_compensation = gwa_scaling_compensation
+        self.sample_rate=sample_rate
+        self.rir_length=rir_length
+        self.dont_load_rirs = dont_load_rirs
+        self.dont_load_meshes = dont_load_meshes
+        if self.dont_load_meshes:
+            self.a_single_mesh = None
         self.data = pd.read_csv(csv_file)
         print('GWA_3DFRONT csv loaded at ', csv_file)
 
@@ -67,29 +60,30 @@ class GWA_3DFRONT_Dataset(Dataset):
         # Get the current mesh
         m = ms.current_mesh()
         x = m.vertex_matrix()
-        edge_matrix = edge_matrix_from_face_matrix(m.face_matrix())
+        edge_matrix = m.edge_matrix() # edge_matrix = edge_matrix_from_face_matrix(m.face_matrix())
         return x.astype('float32'), edge_matrix.astype('long')
     
-    @staticmethod
-    def _load_rir(label_rir_path):
+    def _load_rir(self, label_rir_path):
         # Load RIR
-        label_rir, fs = librosa.load(label_rir_path)
+        label_rir, fs = librosa.load(label_rir_path, sr=self.sample_rate, duration=self.rir_length/self.sample_rate)
         
-        # # crop or pad all rirs to same length
-        # length = label_rir.size
-        # crop_length = 4096
-        # if(length<crop_length):
-        #     zeros = np.zeros(crop_length-length)
-        #     label_rir = np.concatenate([label_rir,zeros])
-        # else:
-        #     label_rir = label_rir[0:crop_length]
+        # Resample to 16kHz (Done during loading to save time)
+        # label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=self.sample_rate)
 
-        # testing if rir preprocessing is slow.
-        
-        # Resample to 16kHz
-        label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=16000)
-        # Preprocess RIR
-        label_rir = mesh2ir_rir_preprocessing(label_rir)
+        # crop or pad all rirs to same length
+        length = label_rir.size
+        if(length<self.rir_length):
+            zeros = np.zeros(self.rir_length-length)
+            label_rir = np.concatenate([label_rir,zeros])
+        else: label_rir = label_rir[0:self.rir_length]
+
+        # MESH2IR Preprocess RIR (standardization by std)
+        if self.rir_std_normalization :
+            label_rir = mesh2ir_rir_preprocessing(label_rir)
+
+        if self.gwa_scaling_compensation:
+            label_rir = label_rir / 0.0625029951333999
+
         label_rir = np.array([label_rir]).astype('float32')
 
         # find origin of RIR
@@ -100,8 +94,11 @@ class GWA_3DFRONT_Dataset(Dataset):
     @staticmethod
     def _estimate_origin(label_rir):
         peak_indexes, _ = find_peaks(label_rir[0],height=0.05*np.max(label_rir), distance=40)
-        label_origin = peak_indexes[0]
-        # label_origin = 41 # TODO: find a way to get the origin of the RIR
+        try:
+            label_origin = peak_indexes[0]
+        except IndexError:
+            print("No peak found in loaded RIR. Returning 0 as origin.")
+            label_origin = 0
         return label_origin
 
     def __getitem__(self, index):
@@ -114,8 +111,13 @@ class GWA_3DFRONT_Dataset(Dataset):
         label_rir_path = os.path.join(self.label_rir_folder, df['rir_name'])
 
         # get all the data
-        x, edge_index = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
-        label_rir, label_origin = GWA_3DFRONT_Dataset._load_rir(label_rir_path)
+        if not self.dont_load_meshes: x, edge_index = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
+        else:
+            if self.a_single_mesh == None:
+                self.a_single_mesh = GWA_3DFRONT_Dataset._load_mesh(mesh_path)
+            x, edge_index = self.a_single_mesh
+        if not self.dont_load_rirs: label_rir, label_origin = self._load_rir(label_rir_path)
+        else: label_rir, label_origin = np.random.rand(self.rir_length).astype('float32'), 0
         src_pos = string_to_array(df["Source_Pos"]).astype('float32')
         mic_pos = string_to_array(df["Receiver_Pos"]).astype('float32')
 

@@ -34,7 +34,7 @@ gwa_df = gwa_df[mask]
 gwa_df.drop(columns=['mesh_folder_name'], inplace=True)
 
 # save the merged dataframe to a new csv file
-gwa_df.to_csv("../gwa_3Dfront.csv", index=False)
+gwa_df.to_csv("../subsets/gwa_3Dfront.csv", index=False)
 
 # print the first 5 rows of the dataframe
 print(gwa_df.head())
