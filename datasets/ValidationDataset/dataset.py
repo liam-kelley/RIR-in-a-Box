@@ -74,16 +74,16 @@ class HL2_Dataset(Dataset):
             label_rir = np.concatenate([label_rir,zeros])
         else: label_rir = label_rir[0:self.rir_length]
 
-        label_rir = np.array([label_rir]).astype('float32')
+        label_rir = np.array(label_rir).astype('float32')
 
         # find origin of RIR
-        label_origin = HL2_Dataset._estimate_origin(label_rir)
+        ir_onset = HL2_Dataset._estimate_origin(label_rir)
 
-        return label_rir, label_origin
+        return label_rir, ir_onset
 
     @staticmethod
     def _estimate_origin(label_rir):
-        peak_indexes, _ = find_peaks(label_rir[0],height=0.95, distance=4000)
+        peak_indexes, _ = find_peaks(label_rir,height=0.05*np.max(label_rir), distance=40)
         try:
             label_origin = peak_indexes[0]
         except IndexError:
@@ -106,19 +106,41 @@ class HL2_Dataset(Dataset):
             if self.a_single_mesh == None:
                 self.a_single_mesh = HL2_Dataset._load_mesh(mesh_path)
             x, edge_index = self.a_single_mesh
-        if not self.dont_load_rirs: label_rir, label_origin = self._load_rir(label_rir_path)
-        else: label_rir, label_origin = np.random.rand(self.rir_length).astype('float32'), 0
+        if not self.dont_load_rirs: label_rir, observed_origin = self._load_rir(label_rir_path)
+        else: label_rir, observed_origin = np.random.rand(self.rir_length).astype('float32'), 0
         
-        src_pos = np.array(df["SrcX"],df["SrcY"],df["SrcZ"]).astype('float32')
-        mic_pos = np.array(df["MicX"],df["MicY"],df["MicZ"]).astype('float32')
+        src_pos = np.array([df["SrcX"],df["SrcY"],df["SrcZ"]]).astype('float32')
+        mic_pos = np.array([df["MicX"],df["MicY"],df["MicZ"]]).astype('float32')
 
-        # Move to top center mic.
+        # estimate origin
+        distance = np.linalg.norm(src_pos - mic_pos)
+        predicted_Ir_onset = (distance / 343 ) * 16000
+        # print(label_rir.shape, predicted_Ir_onset, observed_origin)
+
+        # Respatialize RIR
+        pad = int(predicted_Ir_onset - observed_origin)
+        if pad < 0:
+            label_rir = label_rir[abs(pad):]
+            # pad ending of rir
+            label_rir = np.concatenate([label_rir, np.zeros(abs(pad))])
+        else:
+            label_rir = np.concatenate([np.zeros(pad), label_rir])
+            label_rir = label_rir[:-pad]
+
+        # Rescale RIR
+        label_rir = label_rir * (1 / distance)
+
+        # import matplotlib.pyplot as plt
+        # plt.plot(label_rir)
+        # plt.axvline(x=observed_origin, color='r',label="Observed Origin")
+        # plt.axvline(x=predicted_Ir_onset, color='g', label="Predicted Origin")
+        # plt.show()
 
         # convert to tensors
         x = torch.tensor(x, dtype=torch.float32)
         edge_index = torch.tensor(edge_index, dtype=torch.int).T
         label_rir_tensor = torch.tensor(label_rir, dtype=torch.float32).squeeze()
-        label_origin_tensor = torch.tensor(label_origin, dtype=torch.float32)
+        label_origin_tensor = torch.tensor(predicted_Ir_onset, dtype=torch.float32)
         mic_pos_tensor = torch.tensor(mic_pos, dtype=torch.float32)
         source_pos_tensor = torch.tensor(src_pos, dtype=torch.float32)
 

@@ -159,8 +159,8 @@ def metric_accuracy_mesh2ir_vs_rirbox_HL2(model_config : str, validation_csv : s
 
     # data
     dataset=HL2_Dataset(csv_file=validation_csv)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False,
-                            num_workers=10, pin_memory=False,
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=True,
+                            num_workers=1, pin_memory=False,
                             collate_fn=HL2_Dataset.custom_collate_fn)
     print("")
 
@@ -168,7 +168,8 @@ def metric_accuracy_mesh2ir_vs_rirbox_HL2(model_config : str, validation_csv : s
     edc=EnergyDecay_Loss(frequency_wise=True,
                             synchronize_TOA=False,
                             pad_to_same_length=True,
-                            crop_to_same_length=False).to(DEVICE)
+                            crop_to_same_length=False,
+                            normalize_decay_curve=True).to(DEVICE)
     mrstft=MRSTFT_Loss(sample_rate=dataset.sample_rate,
                         device=DEVICE,
                         synchronize_TOA=False,
@@ -208,12 +209,15 @@ def metric_accuracy_mesh2ir_vs_rirbox_HL2(model_config : str, validation_csv : s
             loss_mesh2ir_mrstft = mrstft(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
             loss_mesh2ir_c80, loss_mesh2ir_D, loss_mesh2ir_rt60, _ = acm(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
             loss_mesh2ir_drr = drr(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
+            
             loss_mesh2ir_ir_onset = mse(origin_mesh2ir,label_origin_batch)
 
             loss_rirbox_edr = edc(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_mrstft = mrstft(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_c80, loss_rirbox_D, loss_rirbox_rt60, _ = acm(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_drr = drr(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
+            
+            
             loss_rirbox_ir_onset = mse(origin_rirbox,label_origin_batch)
 
             # Append to dataframe
@@ -340,77 +344,83 @@ def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation/res
     plt.show()
 
 def  view_results_metric_accuracy_mesh2ir_vs_rirbox_multiple_models(results_csvs):
-    df_mean_list = []
-    df_std_list = []
-    for results_csv in results_csvs:
-        df = pd.read_csv(results_csv)
-        df_mean_list.append(df.mean())
-        df_std_list.append(df.std())
+    for prefix in ["hl2","gwa"]:
 
-    if "mesh2ir_drr" in df.columns:
-        fig, axs = plt.subplots(1,7, figsize=(14, 4))
-    else:
+        df_list = []
+        # df_std_list = []
+        for results_csv in results_csvs:
+            df = pd.read_csv("./validation/results_acc_"+ prefix+ "/" + results_csv)
+            df_list.append(df)
+
+        # if "mesh2ir_drr" in df.columns:
+        #     fig, axs = plt.subplots(1,7, figsize=(10, 4))
+        # else:
+        #     fig, axs = plt.subplots(1,5, figsize=(10, 4))
+            
         fig, axs = plt.subplots(1,5, figsize=(10, 4))
-    fig.suptitle(f'Metric accuracy validation. MESH2IR vs RIRBox. Multiple models.')
+        
+        fig.suptitle(f'Metrics accuracy on {prefix.upper()} dataset.', fontsize=20)
 
-    # Prepare the data for the box plot
-    model_names = ["Baseline"]
-    for results_csv in results_csvs:
-        model_names.append("RIRBox " + results_csv.split("/")[-1].split(".")[0].split("_")[1])
+        # Prepare the data for the box plot
+        model_names = ["M2IR", "RBx1","RBx2"]
+        # for results_csv in results_csvs:
+        #     model_names.append("RIRBox" + results_csv.split("/")[-1].split(".")[0].split("_")[1][-1])
 
-    mean_marker = Line2D([], [], color='w', marker='^', markerfacecolor='green', markersize=10, label='Mean')
+        # mean_marker = Line2D([], [], color='w', marker='^', markerfacecolor='green', markersize=10, label='Mean')
 
-    # EDR
-    means=[df["mesh2ir_edr"]] + [df["rirbox_edr"] for df in df_mean_list]
-    axs[0].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[0].set_title('EDR')
-    axs[0].set_ylabel('EDR Error')
-    axs[0].legend(handles=[mean_marker], loc="upper right")
+        # EDR
+        means=[df["mesh2ir_edr"]] + [df["rirbox_edr"] for df in df_list]
+        axs[0].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        axs[0].set_title('EDR', fontsize=18)
+        axs[0].set_ylabel('EDR Error [Absolute]', fontsize=14)
+        # axs[0].legend(handles=[mean_marker], loc="upper right")
 
-    # MRSTFT
-    means=[df["mesh2ir_mrstft"]] + [df["rirbox_mrstft"] for df in df_mean_list]
-    axs[1].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[1].set_title('MRSTFT')
-    axs[1].set_ylabel('MRSTFT Error')
-    axs[1].legend(handles=[mean_marker], loc="upper right")
+        # MRSTFT
+        means=[df["mesh2ir_mrstft"]] + [df["rirbox_mrstft"] for df in df_list]
+        axs[1].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        axs[1].set_title('MRSTFT', fontsize=18)
+        axs[1].set_ylabel('MRSTFT Error [Absolute]', fontsize=14)
+        # axs[1].legend(handles=[mean_marker], loc="upper right")
 
-    # C80
-    means=[df["mesh2ir_c80"]] + [df["rirbox_c80"] for df in df_mean_list]
-    axs[2].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[2].set_title('C80')
-    axs[2].set_ylabel('C80 Error')
-    axs[2].legend(handles=[mean_marker], loc="upper right")
-    # D
-    means=[df["mesh2ir_D"]] + [df["rirbox_D"] for df in df_mean_list]
-    axs[3].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[3].set_title('D')
-    axs[3].set_ylabel('D Error')
-    axs[3].legend(handles=[mean_marker], loc="upper right")
+        # # C80
+        # means=[df["mesh2ir_c80"]] + [df["rirbox_c80"] for df in df_list]
+        # axs[2].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        # axs[2].set_title('C80', fontsize=18)
+        # axs[2].set_ylabel('C80 Error')
+        # axs[2].legend(handles=[mean_marker], loc="upper right")
+        # # D
+        # means=[df["mesh2ir_D"]] + [df["rirbox_D"] for df in df_list]
+        # axs[3].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        # axs[3].set_title('D', fontsize=18)
+        # axs[3].set_ylabel('D Error')
+        # axs[3].legend(handles=[mean_marker], loc="upper right")
 
-    # RT60
-    means=[df["mesh2ir_rt60"]] + [df["rirbox_rt60"] for df in df_mean_list]
-    axs[4].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[4].set_title('RT60')
-    axs[4].set_ylabel('RT60 Error')
-    axs[4].legend(handles=[mean_marker], loc="upper right")
+        # RT60
+        means=[df["mesh2ir_rt60"]] + [df["rirbox_rt60"] for df in df_list]
+        axs[2].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        axs[2].set_title('RT60', fontsize=18)
+        axs[2].set_ylabel('RT60 Error [s]', fontsize=14)
+        # axs[2].legend(handles=[mean_marker], loc="upper right")
 
-    if "mesh2ir_drr" in df.columns:
+        # if "mesh2ir_drr" in df.columns:
         # DRR
-        means=[df["mesh2ir_drr"]] + [df["rirbox_drr"] for df in df_mean_list]
-        axs[5].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-        axs[5].set_title('DRR')
-        axs[5].set_ylabel('DRR Error')
-        axs[5].legend(handles=[mean_marker], loc="upper right")
+        means=[df["mesh2ir_drr"]] + [df["rirbox_drr"] for df in df_list]
+        axs[3].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        axs[3].set_title('DRR', fontsize=18)
+        axs[3].set_ylabel('DRR Error [Absolute]', fontsize=14)
+        # axs[3].legend(handles=[mean_marker], loc="upper right")
 
         # IR ONSET
-        means=[df["mesh2ir_ir_onset"]] + [df["rirbox_ir_onset"] for df in df_mean_list]
-        axs[6].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-        axs[6].set_title('IR ONSET')
-        axs[6].set_ylabel('IR ONSET Error')
-        axs[6].legend(handles=[mean_marker], loc="upper right")
+        means=[df["mesh2ir_ir_onset"]] + [df["rirbox_ir_onset"] for df in df_list]
+        axs[4].boxplot(means, labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
+        axs[4].set_title('IR ONSET', fontsize=18)
+        axs[4].set_ylabel('IR ONSET Error [samples]', fontsize=14)
+        # axs[4].legend(handles=[mean_marker], loc="upper right")
 
-    for ax in axs:
-        ax.grid(ls="--", alpha=0.5, axis='y')
+        for ax in axs:
+            ax.grid(ls="--", alpha=0.5, axis='y')
+            ax.tick_params(axis='x', labelrotation=45, labelsize=14)
+            ax.tick_params(axis='y', labelrotation=45, labelsize=12)
 
-    plt.tight_layout()
-    plt.show()
+        plt.tight_layout()
+        plt.show()
