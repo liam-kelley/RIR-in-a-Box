@@ -5,8 +5,8 @@ from validation.sound_source_spatialization import sss_mesh2ir_vs_rirbox, view_r
 from validation.visualize_all_results import view_all_validation_results, multiple_models_validation_comparison
 import copy
 
-DO_METRIC_ACCURACY = True
-DO_SSL = True
+DO_METRIC_ACCURACY = False
+DO_SSL = False
 
 VISUALIZE_METRIC_ACCURACY = False
 VISUALIZE_SSL = False
