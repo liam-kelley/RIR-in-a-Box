@@ -13,7 +13,7 @@ VISUALIZE_SSL = False
 VISUALIZE_ALL = False
 COMPARE_ALL_RESULTS = True
 
-RESPATIALIZE_RIRBOX = True
+RESPATIALIZE_RIRBOX = False
 
 configs = glob.glob("training/configs/ablation9scheduler/*.json")
 # configs.extend(glob.glob("training/configs/ablation7/*Model3*.json"))
