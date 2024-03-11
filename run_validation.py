@@ -1,36 +1,29 @@
 import os
 import glob
-from validation.metric_accuracy import metric_accuracy_mesh2ir_vs_rirbox, view_results_metric_accuracy_mesh2ir_vs_rirbox
+from validation.metric_accuracy import metric_accuracy_mesh2ir_vs_rirbox_GWA
+from validation.metric_accuracy import metric_accuracy_mesh2ir_vs_rirbox_HL2
+from validation.metric_accuracy import view_results_metric_accuracy_mesh2ir_vs_rirbox, view_results_metric_accuracy_mesh2ir_vs_rirbox_multiple_models
 from validation.sound_source_spatialization import sss_mesh2ir_vs_rirbox, view_results_sss_mesh2ir_vs_rirbox
 from validation.visualize_all_results import view_all_validation_results, multiple_models_validation_comparison
 import copy
 
-DO_METRIC_ACCURACY = False
+DO_METRIC_ACCURACY = True
 DO_SSL = False
 
 VISUALIZE_METRIC_ACCURACY = False
+VISUALIZE_METRIC_ACCURACY_MULTIPLE_MODELS = False
 VISUALIZE_SSL = False
 VISUALIZE_ALL = False
-COMPARE_ALL_RESULTS = True
+COMPARE_ALL_RESULTS = False
 
 RESPATIALIZE_RIRBOX = False
 
-configs = glob.glob("training/configs/best/*.json")
-# configs.extend(glob.glob("training/configs/ablation11_justMRSTFT/*.json"))
-configs = sorted(configs)
-for config in configs:
-    print(config)
+configs = glob.glob("training/configs/best_models/*.json")
+# # configs.extend(glob.glob("training/configs/ablation11_justMRSTFT/*.json"))
+# configs = sorted(configs)
+# for config in configs:
+#     print(config)
 
-########## ABLATION 6 SUPER OVERALL RESULTS ##########
-# Previous best : "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_4epochs.json",
-# Best MRSTFT, C80, =RT60 : "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noDistInLatent.json",
-# Best EDR, D, =RT60, +++SSS : "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json",
-
-# configs = [
-# #     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_4epochs.json",
-#     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noDistInLatent.json",
-#     "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json",
-# ]
 
 results_csvs = copy.deepcopy(configs)
 for i in range(len(results_csvs)):
@@ -40,10 +33,15 @@ for i in range(len(results_csvs)):
 if DO_METRIC_ACCURACY:
     validation_csv = "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv"
     for model_config in configs:
-        metric_accuracy_mesh2ir_vs_rirbox(model_config, validation_csv,
+        metric_accuracy_mesh2ir_vs_rirbox_GWA(model_config, validation_csv,
                                           RESPATIALIZE_RIRBOX=RESPATIALIZE_RIRBOX,
                                           ISM_MAX_ORDER = 18)
 
+    validation_csv = "datasets/ValidationDataset/subsets/realval_dataset.csv"
+    for model_config in configs:
+        metric_accuracy_mesh2ir_vs_rirbox_HL2(model_config, validation_csv,
+                                          RESPATIALIZE_RIRBOX=RESPATIALIZE_RIRBOX,
+                                          ISM_MAX_ORDER = 18)
 
 if DO_SSL:
     validation_csv = "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv"
@@ -57,11 +55,16 @@ if DO_SSL:
                               SHOW_TAU_PLOTS = False,
                               SHOW_SSL_PLOTS = False,
                               CONVOLVE_SIGNALS = False)
-        
+
 
 if VISUALIZE_METRIC_ACCURACY:
     for csv in results_csvs:
-        view_results_metric_accuracy_mesh2ir_vs_rirbox("validation/results_acc/" + csv)
+        view_results_metric_accuracy_mesh2ir_vs_rirbox("validation/results_acc_hl2/" + csv)
+        view_results_metric_accuracy_mesh2ir_vs_rirbox("validation/results_acc_gwa/" + csv)
+
+
+if VISUALIZE_METRIC_ACCURACY_MULTIPLE_MODELS:
+    view_results_metric_accuracy_mesh2ir_vs_rirbox_multiple_models(results_csvs)
 
 
 if VISUALIZE_SSL:    

@@ -8,7 +8,7 @@
     "SHUFFLE_DATASET": true,
 
     "LEARNING_RATE": 1e-3,
-    "EPOCHS": 24,
+    "EPOCHS": 12,
     "MAX_ITERATIONS": 12000,
     "DEVICE": "cuda",
 
@@ -28,9 +28,9 @@
 
 
     "SYNC_IR_ONSET_IN_LOSSES": false,
-    "NORMALIZE_BY_DIST_IN_LOSSES": true,
+    "NORMALIZE_BY_DIST_IN_LOSSES": false,
     "NORMALIZE_DECAY_CURVE": true,
-    "MRSTFT_HI_Q_TEMPORAL": false,
+    "MRSTFT_HI_Q_TEMPORAL": true,
 
     "EDC_LOSS_WEIGHT": 0.5,
     "MRSTFT_LOSS_WEIGHT": 1.0,

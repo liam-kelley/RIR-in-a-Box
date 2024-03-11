@@ -1,5 +1,5 @@
 {
-    "do_wandb": true,
+    "do_wandb": false,
     
     
     "train_dataset": "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_dp_only.csv",
@@ -8,7 +8,7 @@
     "SHUFFLE_DATASET": true,
 
     "LEARNING_RATE": 1e-3,
-    "EPOCHS": 24,
+    "EPOCHS": 12,
     "MAX_ITERATIONS": 12000,
     "DEVICE": "cuda",
 
@@ -16,7 +16,7 @@
     "PRETRAINED_MESHNET": true,
     "TRAIN_MESHNET": false,
 
-    "RIRBOX_MODEL_ARCHITECTURE": 2,
+    "RIRBOX_MODEL_ARCHITECTURE": 3,
     "MLP_DEPTH": 4,
     "HIDDEN_LAYER_SIZE": 128,
     "DROPOUT_P": 0.5,
@@ -28,7 +28,7 @@
 
 
     "SYNC_IR_ONSET_IN_LOSSES": false,
-    "NORMALIZE_BY_DIST_IN_LOSSES": true,
+    "NORMALIZE_BY_DIST_IN_LOSSES": false,
     "NORMALIZE_DECAY_CURVE": true,
     "MRSTFT_HI_Q_TEMPORAL": false,
 
