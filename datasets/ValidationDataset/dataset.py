@@ -43,12 +43,23 @@ class HL2_Dataset(Dataset):
         # Load your mesh
         ms = ml.MeshSet()
         ms.load_new_mesh(mesh_path)
+
+        # do poisson mesh reconstruction
+
+        # ms.apply_filter('surface_reconstruction_screened_poisson', preclean=True)
+        # m = ms.current_mesh()
+        # print("Poisson reconstructed mesh has" , m.face_number(), "faces and ", m.vertex_number(), "vertices.")
+
+        # preprocess like mesh2ir
+        ms.apply_filter('meshing_decimation_quadric_edge_collapse', targetfacenum=2000, preservenormal=True)
+        m = ms.current_mesh()
+        print("Decimated to", m.face_number(), "faces and ", m.vertex_number(), "vertices.")
+
         # Get the current mesh
         m = ms.current_mesh()
+
         x = m.vertex_matrix()
         edge_matrix = m.edge_matrix() # edge_matrix = edge_matrix_from_face_matrix(m.face_matrix())
-
-        # Do extra preprocessing ?
 
         return x.astype('float32'), edge_matrix.astype('long')
     
