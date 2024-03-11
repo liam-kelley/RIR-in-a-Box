@@ -15,7 +15,7 @@ COMPARE_ALL_RESULTS = True
 
 RESPATIALIZE_RIRBOX = False
 
-configs = glob.glob("training/configs/ablation12_M3_noHiQ/*.json")
+configs = glob.glob("training/configs/best/*.json")
 # configs.extend(glob.glob("training/configs/ablation11_justMRSTFT/*.json"))
 configs = sorted(configs)
 for config in configs:
