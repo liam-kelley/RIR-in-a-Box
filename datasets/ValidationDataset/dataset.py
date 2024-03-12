@@ -14,7 +14,7 @@ from scipy.signal import find_peaks
 
 class HL2_Dataset(Dataset):
     def __init__(self, csv_file="datasets/ValidationDataset/subsets/realval_dataset.csv", rir_length = 3968, sample_rate=16000,
-                 dont_load_rirs=False, dont_load_meshes=False):
+                 dont_load_rirs=False, dont_load_meshes=False, load_hl2_array=False):
         self.csv_file=csv_file
         self.sample_rate=sample_rate
         self.rir_length=rir_length
@@ -22,6 +22,7 @@ class HL2_Dataset(Dataset):
         self.dont_load_meshes = dont_load_meshes
         if self.dont_load_meshes:
             self.a_single_mesh = None
+        self.load_hl2_array = load_hl2_array
         self.data = pd.read_csv(csv_file)
         print('GWA_3DFRONT csv loaded at ', csv_file)
 
@@ -106,41 +107,59 @@ class HL2_Dataset(Dataset):
             if self.a_single_mesh == None:
                 self.a_single_mesh = HL2_Dataset._load_mesh(mesh_path)
             x, edge_index = self.a_single_mesh
-        if not self.dont_load_rirs: label_rir, observed_origin = self._load_rir(label_rir_path)
-        else: label_rir, observed_origin = np.random.rand(self.rir_length).astype('float32'), 0
+
+        # Get rirs
+        label_rir_array = []
+        label_origin_array = []
+        if self.dont_load_rirs:
+            pass
+            # label_rir, observed_origin = np.random.rand(self.rir_length).astype('float32'), 0
+        elif self.load_hl2_array:
+            for i in range(5):
+                label_rir, observed_origin = self._load_rir(label_rir_path[:-4] + "_" + str(i) + ".wav")
+                label_rir_array.append(label_rir)
+                label_origin_array.append(observed_origin)
+        else:
+            label_rir, observed_origin = self._load_rir(label_rir_path[:-4] + "_2.wav")
+            label_rir_array.append(label_rir)
+            label_origin_array.append(observed_origin)
         
         src_pos = np.array([df["SrcX"],df["SrcY"],df["SrcZ"]]).astype('float32')
         mic_pos = np.array([df["MicX"],df["MicY"],df["MicZ"]]).astype('float32')
 
+        # manage 
+        mic_orientation = df["MicOrientation"]
+        
         # estimate origin
         distance = np.linalg.norm(src_pos - mic_pos)
         predicted_Ir_onset = (distance / 343 ) * 16000
         # print(label_rir.shape, predicted_Ir_onset, observed_origin)
 
-        # Respatialize RIR
-        pad = int(predicted_Ir_onset - observed_origin)
-        if pad < 0:
-            label_rir = label_rir[abs(pad):]
-            # pad ending of rir
-            label_rir = np.concatenate([label_rir, np.zeros(abs(pad))])
-        else:
-            label_rir = np.concatenate([np.zeros(pad), label_rir])
-            label_rir = label_rir[:-pad]
+        for i in range(len(label_rir_array)):
+            label_rir = label_rir_array[i]
+            observed_origin = label_origin_array[i]
+            
+            # Respatialize RIR
+            pad = int(predicted_Ir_onset - observed_origin)
+            if pad < 0:
+                label_rir = label_rir[abs(pad):]
+                # pad ending of rir
+                label_rir = np.concatenate([label_rir, np.zeros(abs(pad))])
+            else:
+                label_rir = np.concatenate([np.zeros(pad), label_rir])
+                label_rir = label_rir[:-pad]
 
-        # Rescale RIR
-        label_rir = label_rir * (1 / distance)
+            # Rescale RIR
+            label_rir = label_rir * (1 / distance)
 
-        # import matplotlib.pyplot as plt
-        # plt.plot(label_rir)
-        # plt.axvline(x=observed_origin, color='r',label="Observed Origin")
-        # plt.axvline(x=predicted_Ir_onset, color='g', label="Predicted Origin")
-        # plt.show()
+            label_rir_array[i] = label_rir
+            label_origin_array[i] = predicted_Ir_onset
 
         # convert to tensors
         x = torch.tensor(x, dtype=torch.float32)
         edge_index = torch.tensor(edge_index, dtype=torch.int).T
-        label_rir_tensor = torch.tensor(label_rir, dtype=torch.float32).squeeze()
-        label_origin_tensor = torch.tensor(predicted_Ir_onset, dtype=torch.float32)
+        label_rir_tensor = torch.stack(label_rir_array, dim=0, dtype=torch.float32).squeeze()
+        label_origin_tensor = torch.stack(label_origin_array, dtype=torch.float32)
         mic_pos_tensor = torch.tensor(mic_pos, dtype=torch.float32)
         source_pos_tensor = torch.tensor(src_pos, dtype=torch.float32)
 

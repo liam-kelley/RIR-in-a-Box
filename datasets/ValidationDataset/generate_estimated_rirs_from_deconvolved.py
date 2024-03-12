@@ -18,7 +18,7 @@ T = (2**N) / fs # 2.73066 Duration of sweep.
 
 # Look at audio files
 path_audio_conv = "datasets/ValidationDataset/deconvolved_audio_recs"
-audio_files = glob.glob(os.path.join(path_audio_conv, "*2.wav"))
+audio_files = glob.glob(os.path.join(path_audio_conv, "*.wav"))
 print(f"Found {len(audio_files)} audio files.")
 
 if not os.path.exists("datasets/ValidationDataset/estimated_rirs"):
@@ -88,8 +88,9 @@ for file_path in audio_files:
 
     # save audio
     wav_name = "audio_" + os.path.basename(file_path)[7:-13]
+    channel = os.path.basename(file_path)[-5]
     if wav_name[-1] == "C":
         wav_name = wav_name[:-10] + "open_srcCopendoor"
 
-    sf.write(f"datasets/ValidationDataset/estimated_rirs/" + wav_name  + ".wav", sliced_audio, 16000)
+    sf.write(f"datasets/ValidationDataset/estimated_rirs/" + wav_name  + "_" + channel + ".wav", sliced_audio, 16000)
 
