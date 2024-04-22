@@ -1,7 +1,7 @@
 import os
 import glob
 
-configs = glob.glob("training/configs/ablation12_M3_noHiQ/*.json")
+configs = glob.glob("training/configs/ablation13/*.json")
 # configs.extend(glob.glob("training/configs/ablation11_justMRSTFT/*.json"))
 
 # configs = sorted(configs)

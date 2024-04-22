@@ -1,202 +1,208 @@
 import torch
 import numpy as np
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
+from datasets.ValidationDataset.dataset import HL2_Dataset
 from torch.utils.data import DataLoader
 from models.utility import load_all_models_for_inference, inference_on_all_models
-from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
+from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss, DRR_Loss
 from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import os
+import glob
+import soundfile as sf
+from tools.gcc_phat import gcc_phat
+from librosa import load
+from scipy.signal import fftconvolve
+import torch.nn.functional as F
 
-def metric_accuracy_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_iterations=0,
-                                                 TOA_SYNCHRONIZATION = True,
+def metric_accuracy_mesh2ir_vs_rirbox_HL2(model_config : str, validation_csv : str, validation_iterations=0,
                                                  SCALE_MESH2IR_BY_ITS_ESTIMATED_STD = True, # If True, cancels out the std normalization used during mesh2ir's training
                                                  SCALE_MESH2IR_GWA_SCALING_COMPENSATION = True, # If true, cancels out the scaling compensation mesh2ir learned from the GWA dataset during training.
                                                  MESH2IR_USES_LABEL_ORIGIN = False,
-                                                 RESPATIALIZE_RIRBOX = True,
-                                                 FILTER_MESH2IR_IN_HYBRID = False,
-                                                 ISM_MAX_ORDER = 17
+                                                 RESPATIALIZE_RIRBOX = False, # This both activates the respaitialization of the rirbox and the start from ir onset
+                                                 ISM_MAX_ORDER = 18
                                                  ):
-    ''' Validation of the metric accuracy of the MESH2IR and RIRBOX models on the GWA_3DFRONT dataset.'''
+    ''' Validation of the metric accuracy of the MESH2IR and RIRBOX models on the HL2 dataset.'''
 
     print("Starting metric accuracy validation for model: ", model_config.split("/")[-1].split(".")[0],end="\n\n")
 
-    mesh2ir, rirbox, hybrid, config, DEVICE = load_all_models_for_inference(model_config, ISM_MAX_ORDER=ISM_MAX_ORDER)
+    mesh2ir, rirbox, config, DEVICE = load_all_models_for_inference(model_config,
+                                                                    START_FROM_IR_ONSET=RESPATIALIZE_RIRBOX,
+                                                                    ISM_MAX_ORDER=ISM_MAX_ORDER)
 
     # data
-    dataset=GWA_3DFRONT_Dataset(csv_file=validation_csv,rir_std_normalization=False)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False,
-                            num_workers=10, pin_memory=False,
-                            collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
+    dataset=HL2_Dataset(csv_file=validation_csv, load_hl2_array=True, )
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=True,
+                            num_workers=1, pin_memory=False,
+                            collate_fn=HL2_Dataset.custom_collate_fn)
     print("")
 
-    # metrics
-    edc=EnergyDecay_Loss(frequency_wise=True,
-                            synchronize_TOA=TOA_SYNCHRONIZATION,
-                            pad_to_same_length=False,
-                            crop_to_same_length=True).to(DEVICE)
-    mrstft=MRSTFT_Loss(sample_rate=dataset.sample_rate,
-                        device=DEVICE,
-                        synchronize_TOA=True,
-                        pad_to_same_length=False,
-                        crop_to_same_length=True,
-                        hi_q_temporal=True).to(DEVICE)
-    acm=AcousticianMetrics_Loss(sample_rate=16000,
-                                synchronize_TOA=True,
-                                crop_to_same_length=True,
-                                pad_to_same_length=False).to(DEVICE)
-    print("")
+    # Get wav file paths
+    wavs = glob.glob("datasets/Small_Timit/*.wav")
+    # choose a seed
+    np.random.seed(42)
+    # shuffle signals
+    np.random.shuffle(wavs)
 
+    fs = 16000
+    c = 343
+
+    my_list=[]
     with torch.no_grad():
-        my_list = []
-        i = 0
         # iterate over the dataset
-        for x_batch, edge_index_batch, batch_indexes, label_rir_batch, label_origin_batch, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Metric validation"):
+        iterations=0
+        for x_batch, edge_index_batch, batch_indexes, label_rirs, label_origins, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Sound source spatialization validation"): 
+            mic_pos_1 = mic_pos_batch.squeeze() - torch.tensor([0.0-d/2, 0, 0.0])
+            mic_pos_2 = mic_pos_batch.squeeze() - torch.tensor([0.0+d/2, 0, 0.0])
+            mic_pos_1 = mic_pos_1.unsqueeze(0)
+            mic_pos_2 = mic_pos_2.unsqueeze(0)
+            arr_pos = mic_pos_batch.squeeze().cpu().numpy()
+            src_loc_from_spherical = lambda dist, azimuth : (dist * np.r_[np.cos(azimuth), np.sin(azimuth), 0]) + arr_pos
 
-            rir_mesh2ir, rir_rirbox, hybrid_rir, \
-                origin_mesh2ir, origin_rirbox, origin_hybrid, \
-                virtual_shoebox = inference_on_all_models(x_batch, edge_index_batch, batch_indexes,
-                                                        mic_pos_batch, src_pos_batch, label_origin_batch,
-                                                        mesh2ir, rirbox, hybrid, DEVICE,
-                                                        SCALE_MESH2IR_BY_ITS_ESTIMATED_STD,
-                                                        SCALE_MESH2IR_GWA_SCALING_COMPENSATION,
-                                                        MESH2IR_USES_LABEL_ORIGIN,
-                                                        RESPATIALIZE_RIRBOX,
-                                                        FILTER_MESH2IR_IN_HYBRID)
+            # import speech signal
+            signal, fs = load(path=wavs[iterations%len(wavs)], sr=fs, mono=True, duration=3.7)
 
-            label_rir_batch = label_rir_batch.to(DEVICE)
-            label_origin_batch = label_origin_batch.to(DEVICE)
+            
+            rirs_mesh2ir=[]
+            rirs_rirbox=[]
+            origins_mesh2ir=[]
+            origins_rirbox=[]
+            distances=[]
+            # for both mic pos. (TODO implement multichannel backpropagatable ISM)
+            for mic_pos in [mic_pos_1, mic_pos_2]:
+                # Get RIRS for our models
+                rir_mesh2ir, rir_rirbox, origin_mesh2ir, origin_rirbox,  _= inference_on_all_models(x_batch, edge_index_batch, batch_indexes,
+                                                                            mic_pos.float(), src_pos.float(), 0,
+                                                                            mesh2ir, rirbox, DEVICE,
+                                                                            SCALE_MESH2IR_BY_ITS_ESTIMATED_STD,
+                                                                            SCALE_MESH2IR_GWA_SCALING_COMPENSATION,
+                                                                            MESH2IR_USES_LABEL_ORIGIN,
+                                                                            RESPATIALIZE_RIRBOX)
+                
+                # print(rir_mesh2ir.shape, rir_rirbox.shape)
+                rirs_mesh2ir.append(rir_mesh2ir[0,:3968])
+                rirs_rirbox.append(rir_rirbox[0,:3968])
+                origins_mesh2ir.append(origin_mesh2ir)
+                origins_rirbox.append(origin_rirbox)
+                distances.append(np.linalg.norm(src_pos.squeeze() - mic_pos.squeeze()) / c)
+            
 
-            # Compute losses
-            loss_mesh2ir_edr = edc(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
-            loss_mesh2ir_mrstft = mrstft(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
-            loss_mesh2ir_c80, loss_mesh2ir_D, loss_mesh2ir_rt60, _ = acm(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
+            rirs_mesh2ir.extend(rirs_rirbox)
+            del rirs_rirbox
+            signals_tensor = torch.tensor(signal, device=DEVICE).unsqueeze(0).unsqueeze(1)
+            impulse_responses_tensor = torch.nn.utils.rnn.pad_sequence(rirs_mesh2ir, batch_first=True).unsqueeze(1)
+            # Assuming impulse responses are all the same length and signals are too, or have been padded accordingly
+            results = F.conv1d(signals_tensor, impulse_responses_tensor, padding=0).squeeze().cpu().numpy()
+            signal0_mesh2ir = results[0]
+            signal1_mesh2ir = results[1]
+            signal1_rirbox = results[2]
+            signal0_rirbox = results[3]
+            # else:
+            # signal0_mesh2ir = rirs_mesh2ir[0].cpu().numpy()
+            # signal1_mesh2ir = rirs_mesh2ir[1].cpu().numpy()
+            # signal0_rirbox = rirs_rirbox[0].cpu().numpy()
+            # signal1_rirbox = rirs_rirbox[1].cpu().numpy()
 
-            loss_rirbox_edr = edc(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
-            loss_rirbox_mrstft = mrstft(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
-            loss_rirbox_c80, loss_rirbox_D, loss_rirbox_rt60, _ = acm(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
+            #############################################
+            ################# BEAMFORMING ###############
+            #############################################
 
-            loss_hybrid_edr = edc(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
-            loss_hybrid_mrstft = mrstft(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
-            loss_hybrid_c80, loss_hybrid_D, loss_hybrid_rt60, _ = acm(hybrid_rir, origin_hybrid, label_rir_batch, label_origin_batch)
+            nfft = 2048
+            hop = 512
+            Fmin = 100
+            Fmax = 5000
 
-            # Append to dataframe
-            my_list.append([loss_mesh2ir_edr.cpu().item(),
-                            loss_rirbox_edr.cpu().item(),
-                            loss_hybrid_edr.cpu().item(),
-                            loss_mesh2ir_mrstft.cpu().item(),
-                            loss_rirbox_mrstft.cpu().item(),
-                            loss_hybrid_mrstft.cpu().item(),
-                            loss_mesh2ir_c80.cpu().item(),
-                            loss_rirbox_c80.cpu().item(),
-                            loss_hybrid_c80.cpu().item(),
-                            loss_mesh2ir_D.cpu().item(),
-                            loss_rirbox_D.cpu().item(),
-                            loss_hybrid_D.cpu().item(),
-                            loss_mesh2ir_rt60.cpu().item(),
-                            loss_rirbox_rt60.cpu().item(),
-                            loss_hybrid_rt60.cpu().item()])
+            r = 0 # idx of the reference microphone
 
-            i += 1
-            if i == validation_iterations:
+            M = mic_pos.shape[-1] # number of microphones
+            assert M == len(rirs)
+            J = len(rirs[0]) # number of srcs
+            assert J == 2
+
+            # THIS ARE THE RIRs
+            rir_t = [rirs[i][0] for i in range(len(rirs))]
+            rir_i = [rirs[i][1] for i in range(len(rirs))]
+
+            # from list of array to 2D array of the same length
+            L = min([len(rir) for rir in rir_t] + [len(rir) for rir in rir_i])
+            rir_t = np.stack([rir[:L] for rir in rir_t], axis=0) # [M x L]
+            rir_i = np.stack([rir[:L] for rir in rir_i], axis=0) # [M x L]
+            print(rir_t.shape, rir_i.shape)
+
+            # ESTIMATE THE RELATIVE TRANSFER FUNCTION
+            n = np.random.randn(3*L) # white noise
+            hn_t = np.stack([np.convolve(rir_t[i], n) for i in range(M)], axis=0) # convolve with the reference rir
+            hn_i = np.stack([np.convolve(rir_i[i], n) for i in range(M)], axis=0) # convolve with the reference rir
+
+            N = librosa.stft(n, n_fft=nfft, hop_length=hop) # [F x T]
+            T = N.shape[-1]//4
+            HN_t = librosa.stft(hn_t, n_fft=nfft, hop_length=hop) # [M x F x T]
+            HN_i = librosa.stft(hn_i, n_fft=nfft, hop_length=hop) # [M x F x T]
+
+            A_t = np.mean((HN_t[:,:,T:2*T] / N[None,:,T:2*T]), axis=-1)
+            A_i = np.mean((HN_i[:,:,T:2*T] / N[None,:,T:2*T]), axis=-1)
+            print(A_t.shape, A_i.shape)
+
+            rtf_t = A_t / A_t[r] # normalize by the first mic -> we don't need it here, today
+            rtf_i = A_i / A_i[r] # normalize by the first mic -> we don't need it here, today
+
+            rtf_t = rtf_t.T # [F x M]
+            rtf_i = rtf_i.T # [F x M]
+
+            # Obvervation
+            X = librosa.stft(mic_images, n_fft=nfft, hop_length=hop) # [M x F x T]
+            X = X.transpose(1,2,0) # [T x F x M]
+            F, T, M = X.shape
+
+            print(rtf_i.shape)
+            print(rtf_t.shape)
+            print(X.shape)
+
+            ## LCMV
+            svect = np.stack([rtf_t, rtf_i], axis=-1) # [F x M x J]
+            # Noise covariance matrix (interferes is 0 here, we use LCMV!)
+            Sigma_n =  np.eye(M)[None,:,:] + 0 * np.einsum('fi,fj-> fij', rtf_i, rtf_i.conj()) # [F x M x M]
+
+            q = np.zeros([J])
+            # as default the first src is the tgt
+            # the other are considered as interferers
+            q[0] = 1
+
+            A = svect       # F x M x J
+            Σu = Sigma_n    # F x M x M
+            iΣu = np.stack([np.linalg.inv(Σu[f, ...]) for f in range(F)], axis=0) # F x M x M
+
+            num = np.einsum('fiI,fIj-> fij', iΣu, A) # F x I x J
+            den = np.einsum('fij,fiI,fiJ->fjJ', A.conj(), iΣu, A) # F x J x J
+            den = np.stack([np.linalg.inv(den[f, ...]) for f in range(F)], axis=0) # F x J x J
+            W = np.einsum('fij,fjJ,J->fi', num, den, q) # # FxIxJ @ FxJxJ @ Jx1 = Ix1
+            Y_tmp = np.einsum('fi,fti-> ft', W.conj(), X) # [F x T]
+
+            # subselct Freqs
+            freqs = np.fft.rfftfreq(nfft, 1/fs)
+            fidx = np.arange(np.where(freqs > Fmin)[0][0], np.where(freqs < Fmax)[0][-1]) # type:ignore
+
+            Y = np.zeros_like(Y_tmp)
+            Y[fidx] = Y_tmp[fidx]
+
+            print(Y.shape)
+            librosa.display.specshow(librosa.amplitude_to_db(np.abs(Y), ref=np.max), x_axis='time', y_axis='log', sr=fs, hop_length=hop)
+
+
+
+            
+            iterations +=1
+            if iterations == validation_iterations:
                 break
+    
+    my_list = np.array(my_list)
+    df = pd.DataFrame(my_list, columns=["mse_mesh2ir", "mse_rirbox", "mse_origins_mesh2ir", "mse_origins_rirbox"])
 
-    # Save as dataframe
-    df = pd.DataFrame(my_list, columns=["mesh2ir_edr", "rirbox_edr", "hybrid_edr",
-                                        "mesh2ir_mrstft", "rirbox_mrstft", "hybrid_mrstft",
-                                        "mesh2ir_c80", "rirbox_c80", "hybrid_c80",
-                                        "mesh2ir_D", "rirbox_D", "hybrid_D",
-                                        "mesh2ir_rt60", "rirbox_rt60", "hybrid_rt60"])
-    df = df.apply(np.sqrt) # removes the square from the MSEs
-    save_path = "./validation/results/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
+    save_path = "./validation/results_sss/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
     if not os.path.exists(os.path.dirname(save_path)):
         os.makedirs(os.path.dirname(save_path))
     df.to_csv(save_path)
 
     print("Validation results saved at: ", save_path)
-
-def view_results_metric_accuracy_mesh2ir_vs_rirbox(results_csv="./validation_results/model.csv"):
-    df = pd.read_csv(results_csv)
-
-    df_mean = df.mean()
-    df_std = df.std()
-
-    fig, axs = plt.subplots(1,5, figsize=(14, 5))
-    fig.suptitle(f'Metric accuracy validation. MESH2IR vs {results_csv.split("/")[-1].split(".")[0]}')
-
-    # Prepare the data for the box plot
-    model_names = ["Baseline", "RIRBOX"]#, "Hybrid"]
-    colors = ['C0', 'C1', 'C2']
-
-    mean_marker = Line2D([], [], color='w', marker='^', markerfacecolor='green', markersize=10, label='Mean')
-
-    # EDR
-    # axs[0].bar(model_names, [df_mean["mesh2ir_edr"], df_mean["rirbox_edr"], df_mean["hybrid_edr"]],
-    #             yerr=[df_std["mesh2ir_edr"], df_std["rirbox_edr"], df_std["hybrid_edr"]],
-    #             color=colors, capsize=20)
-    # axs[0].boxplot([df["mesh2ir_edr"], df["rirbox_edr"], df["hybrid_edr"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[0].boxplot([df["mesh2ir_edr"], df["rirbox_edr"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[0].set_title('EDR')
-    axs[0].set_ylabel('EDR Error')
-    # Add green triangle to the legend that says it represents mean
-    # Create a custom legend entry for the mean marker
-    axs[0].legend(handles=[mean_marker])
-
-    # MRSTFT
-    # axs[1].bar(model_names, [df_mean["mesh2ir_mrstft"], df_mean["rirbox_mrstft"], df_mean["hybrid_mrstft"]],
-    #             yerr=[df_std["mesh2ir_mrstft"], df_std["rirbox_mrstft"], df_std["hybrid_mrstft"]],
-    #             color=colors, capsize=20)
-    # axs[1].set_title('MRSTFT')
-    # axs[1].set_ylabel('Mean Error')
-    # axs[1].boxplot([df["mesh2ir_mrstft"], df["rirbox_mrstft"], df["hybrid_mrstft"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[1].boxplot([df["mesh2ir_mrstft"], df["rirbox_mrstft"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[1].set_title('MRSTFT')
-    axs[1].set_ylabel('MRSTFT Error')
-    axs[1].legend(handles=[mean_marker])
-
-    # C80
-    # axs[2].bar(model_names, [df_mean["mesh2ir_c80"], df_mean["rirbox_c80"], df_mean["hybrid_c80"]],
-    #             yerr=[df_std["mesh2ir_c80"], df_std["rirbox_c80"], df_std["hybrid_c80"]],
-    #             color=colors, capsize=20)
-    # axs[2].set_title('C80')
-    # axs[2].set_ylabel('Mean Error')
-    # axs[2].boxplot([df["mesh2ir_c80"], df["rirbox_c80"], df["hybrid_c80"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[2].boxplot([df["mesh2ir_c80"], df["rirbox_c80"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[2].set_title('C80')
-    axs[2].set_ylabel('C80 Error')
-    axs[2].legend(handles=[mean_marker])
-
-    # # delete axs 2
-    # fig.delaxes(axs[2])
-
-    # D
-    # axs[3].bar(model_names, [df_mean["mesh2ir_D"], df_mean["rirbox_D"], df_mean["hybrid_D"]],
-    #             yerr=[df_std["mesh2ir_D"], df_std["rirbox_D"], df_std["hybrid_D"]],
-    #             color=colors, capsize=20)
-    # axs[3].set_title('D')
-    # axs[3].set_ylabel('Mean Error')
-    # axs[3].boxplot([df["mesh2ir_D"], df["rirbox_D"], df["hybrid_D"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[3].boxplot([df["mesh2ir_D"], df["rirbox_D"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[3].set_title('D')
-    axs[3].set_ylabel('D Error')
-    axs[3].legend(handles=[mean_marker])
-
-    # RT60
-    # axs[4].bar(model_names, [df_mean["mesh2ir_rt60"], df_mean["rirbox_rt60"], df_mean["hybrid_rt60"]],
-    #             yerr=[df_std["mesh2ir_rt60"], df_std["rirbox_rt60"], df_std["hybrid_rt60"]],
-    #             color=colors, capsize=20)
-    # axs[4].set_title('RT60')
-    # axs[4].set_ylabel('Mean Error')
-    # axs[4].boxplot([df["mesh2ir_rt60"], df["rirbox_rt60"], df["hybrid_rt60"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[4].boxplot([df["mesh2ir_rt60"], df["rirbox_rt60"]], labels=model_names, patch_artist=True, showmeans=True, showfliers=False)
-    axs[4].set_title('RT60')
-    axs[4].set_ylabel('RT60 Error')
-    axs[4].legend(handles=[mean_marker])
-
-    for ax in axs:
-        ax.grid(ls="--", alpha=0.5, axis='y')
-
-    plt.tight_layout()
-    plt.show()

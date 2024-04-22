@@ -12,59 +12,17 @@ from tools.gcc_phat import gcc_phat
 
 from librosa import resample
 
-##################################################
-#################################################
-
-# Get tapered sweep
-# Parameters
-# amp = 0.5 
-# f1 = 100.
-# f2 = 20000.
-N = 17. 
 fs = 48000.
-# Generate sweep
+N = 17. 
 T = (2**N) / fs # 2.73066 Duration of sweep.
-# w1 = 2 * np.pi * f1
-# w2 = 2 * np.pi * f2
-# K = T * w1 / np.log(w2 / w1)
-# L = T / np.log(w2 / w1)
-# t = np.linspace(0, T - 1 / fs, int(fs * T))
-# sweep = amp * np.sin(K * (np.exp(t / L) - 1))
-# # Taper sweep
-# taper_percent = 0.01
-# taper_length = int(len(sweep) * taper_percent / 2)
-# short_window = np.hanning(2 * taper_length)
-# tapered_sweep = np.copy(sweep)
-# tapered_sweep[:taper_length] *= short_window[:taper_length]
-# tapered_sweep[-taper_length:] *= short_window[-taper_length:]
-
-# # Get sweep_times_10
-# sweep_times_10 = tapered_sweep
-# fs_int=int(fs)
-# print(fs_int)
-# print(np.zeros(fs_int))
-# one_second_of_silence=np.zeros(fs_int)
-# for i in range(4):
-#     sweep_times_10 = np.concatenate((one_second_of_silence,sweep_times_10))
-# for i in range(9):
-#     sweep_times_10 = np.concatenate((sweep_times_10,one_second_of_silence))
-#     sweep_times_10 = np.concatenate((sweep_times_10,tapered_sweep))
-# sweep_times_10 = np.concatenate((np.zeros(20),sweep_times_10,np.zeros(20)))
-
-# # Get Inverse filter
-# Inverse_filter_exp_scaling = np.exp(t / L)
-# inverse_tapered_sweep = tapered_sweep[::-1]/Inverse_filter_exp_scaling
-
-# # Deconvolve ESS sweeps
-# ideal_ir = sig.fftconvolve(sweep_times_10, inverse_tapered_sweep, mode='same')
-
-##################################################
-#################################################
 
 # Look at audio files
 path_audio_conv = "datasets/ValidationDataset/deconvolved_audio_recs"
-audio_files = glob.glob(os.path.join(path_audio_conv, "*2.wav"))
+audio_files = glob.glob(os.path.join(path_audio_conv, "*.wav"))
 print(f"Found {len(audio_files)} audio files.")
+
+if not os.path.exists("datasets/ValidationDataset/estimated_rirs"):
+    os.makedirs("datasets/ValidationDataset/estimated_rirs")
 
 for file_path in audio_files:
     # Load audio
@@ -87,18 +45,18 @@ for file_path in audio_files:
 
         # axs[ix,iy].set_title(f"RIR n°{i+1}")
 
-    distance=5 # FIX THIS BY LOADING THE CORRECT DISTANCE FROM A CSV. This will be done by first creating the csv of course.
+    distance=5 # FIX THIS BY LOADING THE CORRECT DISTANCE FROM A CSV.
     delay_due_to_distance=distance*fs/sound_speed
     i = 7
     slicer_left=peaks[i] - window_length_div2 - delay_due_to_distance
     slicer_right=peaks[i] - window_length_div2 - delay_due_to_distance + slice_length
 
-    sliced_audio=audio[int(slicer_left)-2000:int(slicer_right)-8000]
+    sliced_audio=audio[int(slicer_left)-2000:int(slicer_right)-4000]
 
     sliced_audio=resample(sliced_audio, orig_sr=48000, target_sr=16000)
     sliced_audio = np.abs(sliced_audio)
     sliced_audio = sliced_audio / np.max(sliced_audio)
-    sliced_audio[sliced_audio < 0.001] = 0
+    # sliced_audio[sliced_audio < 0.001] = 0
 
     # Find the first non-zero element's index
     first_non_zero_index = np.argmax(sliced_audio >= 0.001)
@@ -129,5 +87,10 @@ for file_path in audio_files:
     # plt.show()
 
     # save audio
-    sf.write(f"datasets/ValidationDataset/estimated_rirs/audio" + os.path.basename(file_path)[6:-13] + ".wav", sliced_audio, 16000)
+    wav_name = "audio_" + os.path.basename(file_path)[7:-13]
+    channel = os.path.basename(file_path)[-5]
+    if wav_name[-1] == "C":
+        wav_name = wav_name[:-10] + "open_srcCopendoor"
+
+    sf.write(f"datasets/ValidationDataset/estimated_rirs/" + wav_name  + "_" + channel + ".wav", sliced_audio, 16000)
 

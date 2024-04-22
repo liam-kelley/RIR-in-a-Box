@@ -34,7 +34,6 @@ if config["SAVE_PATH"] == "":
     config["SAVE_PATH"] = "./models/RIRBOX/" + args.config.split("/")[-2] + "/" + args.config.split("/")[-1].split('.')[0] + ".pth"
 if args.scheduler: config['do_scheduling'] = True
 else: config['do_scheduling'] = False
-config['EPOCHS'] = int(config['EPOCHS'] * 1.2)
 
 print("PARAMETERS:")
 for key, value in config.items():

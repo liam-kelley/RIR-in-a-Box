@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
+from datasets.ValidationDataset.dataset import HL2_Dataset
 from torch.utils.data import DataLoader
 from models.utility import load_all_models_for_inference, inference_on_all_models
 from tools.pyLiam.LKTimer import LKTimer
@@ -11,8 +12,8 @@ from scipy.signal import stft
 from losses.rir_losses import AcousticianMetrics_Loss
 
 # rirbox_config = "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model2_dp_HIQMRSTFT_EDR_superfast_noDistInLatent.json"
-rirbox_config = "training/configs/ablation6_Loss_Option_Subset_Architecture/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast.json"
-DATASET_PATH = "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv"
+rirbox_config = "training/configs/ablation13/rirbox_Model3_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_noNormByDist_12pochs.json"
+# rirbox_config = "training/configs/best_models/rirbox_Model2_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_NormByDist_12epochs.json"
 
 # TOA_SYNCHRONIZATION = False Deprecated
 SCALE_MESH2IR_BY_ITS_ESTIMATED_STD = True # If True, cancels out the std normalization used during mesh2ir's training
@@ -25,8 +26,9 @@ plot_stft = False
 mesh2ir, rirbox, config, DEVICE = load_all_models_for_inference(rirbox_config, START_FROM_IR_ONSET=RESPATIALIZE_RIRBOX, ISM_MAX_ORDER=ISM_MAX_ORDER)
 
 # data
-dataset=GWA_3DFRONT_Dataset(csv_file=DATASET_PATH,
+dataset=GWA_3DFRONT_Dataset(csv_file="datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv",
                             rir_std_normalization=False, gwa_scaling_compensation=True)
+dataset=HL2_Dataset(csv_file="datasets/ValidationDataset/subsets/realval_dataset.csv")
 dataloader = DataLoader(dataset, shuffle=True,
                         num_workers=4, pin_memory=False,
                         collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
@@ -106,7 +108,7 @@ with torch.no_grad():
         origin_rirbox = origin_rirbox.squeeze().cpu().item()
         label_origin = label_origin.squeeze().cpu().item()
 
-        y_max = max(1.0, max(rir_mesh2ir), max(rir_rirbox), max(label_rir))
+        y_max = 1.0 # max(1.0, max(rir_mesh2ir), max(rir_rirbox), max(label_rir))
         x_mesh2ir = np.arange(0, len(edc_mesh2ir), 1)
         x_rirbox = np.arange(0, len(edc_rirbox), 1)
         x_label = np.arange(0, len(edc_label), 1)
@@ -117,13 +119,13 @@ with torch.no_grad():
 
         ############## PLOTTING ##############
 
-        fig, axs = plt.subplots(3, 1, figsize=(9, 9.5))
+        fig, axs = plt.subplots(3, 1, figsize=(10, 8.5))
         fig.suptitle('Model Inference', fontsize=16)
 
         fiftyms=16000*0.05
 
         ################## MESH2IR ##################
-        axs[0].set_title('MESH2IR')
+        axs[0].set_title('MESH2IR', fontsize=14)
         axs[0].plot(rir_mesh2ir, label="MESH2IR", color='blue')
         # MESH2IR EDC
         axs[0].plot(edc_mesh2ir, label="MESH2IR EDC", color='darkblue', linestyle='dotted')
@@ -132,8 +134,8 @@ with torch.no_grad():
         axs[0].plot([origin_mesh2ir,origin_mesh2ir], [-1e6,rir_mesh2ir[round(origin_mesh2ir)]], color='red', marker="o",
                      markersize=5, linestyle='solid', alpha=1, 
                      label=f'IR Onset t : {origin_mesh2ir:.2f} samp.\nIR Onset Amp: {rir_mesh2ir[round(origin_mesh2ir)]:.4f}')
-        axs[0].plot([fiftyms,fiftyms], [1e6,edc_mesh2ir[int(fiftyms)]], color='black', marker="o",
-                    markersize=5, linestyle='--', alpha=1, label=f'D: {batch_mesh2ir_D:.5f}')
+        # axs[0].plot([fiftyms,fiftyms], [1e6,edc_mesh2ir[int(fiftyms)]], color='black', marker="o",
+        #             markersize=5, linestyle='--', alpha=1, label=f'D: {batch_mesh2ir_D:.5f}')
         # RT60
         if 2800 < rirbox_rt30*16000 :
             ymin = 0.0 ; ymax = 0.35
@@ -142,7 +144,7 @@ with torch.no_grad():
         axs[0].axvline(x=mesh2ir_rt30*16000, ymin=ymin, ymax=ymax, color="purple", linestyle="dashdot", label=f"RT30 : {mesh2ir_rt30:.4f} s\n(RT60 : {mesh2ir_rt60:.4f} s)")
 
         ################## RIRBOX ##################
-        axs[1].set_title('RIRBOX : ' + " ".join(rirbox_config.split('/')[-1].split('.')[0].split('_')[1:]))
+        axs[1].set_title('RIRBox2', fontsize=14)# + " ".join(rirbox_config.split('/')[-1].split('.')[0].split('_')[1:]))
         axs[1].plot(rir_rirbox, label="RIRBOX", color='orange')
         # RIRBOX EDC
         axs[1].plot(edc_rirbox, label="RIRBOX EDC", color='darkorange', linestyle='dotted')
@@ -151,12 +153,12 @@ with torch.no_grad():
         axs[1].plot([round(origin_rirbox),round(origin_rirbox)], [-1e6,rir_rirbox[round(origin_rirbox)]], color='red', marker="o",
                      markersize=5, linestyle='solid', alpha=1, 
                      label=f'IR Onset t : {origin_rirbox:.2f} samp.\nIR Onset Amp: {rir_rirbox[round(origin_rirbox)]:.4f}')
-        axs[1].plot([fiftyms,fiftyms], [1e6,edc_rirbox[int(fiftyms)]], color='black', marker="o",
-                    markersize=5, linestyle='--', alpha=1, label=f'D: {batch_rirbox_D:.5f}')
+        # axs[1].plot([fiftyms,fiftyms], [1e6,edc_rirbox[int(fiftyms)]], color='black', marker="o",
+        #             markersize=5, linestyle='--', alpha=1, label=f'D: {batch_rirbox_D:.5f}')
         # RT60
         if 1470 < rirbox_rt30*16000 < 2700:
-            axs[1].axvline(x=rirbox_rt30*16000, ymin=0.92, color="purple", linestyle="dashdot", label=f"RT30 : {rirbox_rt30:.4f} s\n(RT60 : {rirbox_rt60:.4f} s)")
-            axs[1].axvline(x=rirbox_rt30*16000, ymax=0.43, color="purple", linestyle="dashdot")
+            axs[1].axvline(x=rirbox_rt30*16000, ymin=0.96, color="purple", linestyle="dashdot", label=f"RT30 : {rirbox_rt30:.4f} s\n(RT60 : {rirbox_rt60:.4f} s)")
+            axs[1].axvline(x=rirbox_rt30*16000, ymax=0.4, color="purple", linestyle="dashdot")
         elif 2920 < rirbox_rt30*16000 :
             ymin = 0.0 ; ymax = 0.35
             axs[1].axvline(x=rirbox_rt30*16000, ymin=ymin, ymax=ymax,color="purple", linestyle="dashdot", label=f"RT30 : {rirbox_rt30:.4f} s\n(RT60 : {rirbox_rt60:.4f} s)")
@@ -164,15 +166,23 @@ with torch.no_grad():
             ymin = 0.0 ; ymax = 1.0
             axs[1].axvline(x=rirbox_rt30*16000, ymin=ymin, ymax=ymax,color="purple", linestyle="dashdot", label=f"RT30 : {rirbox_rt30:.4f} s\n(RT60 : {rirbox_rt60:.4f} s)")
         # TEXT
-        axs[1].text(0.5, 0.85, f"Room dim {format_text(virtual_shoebox[0])}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
-        axs[1].text(0.5, 0.78, f"Absorption {format_text(virtual_shoebox[3])[3:]}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
-        axs[1].text(0.5, 0.71, f"Mic pos {format_text(virtual_shoebox[1])}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
-        axs[1].text(0.5, 0.64, f"Src pos {format_text(virtual_shoebox[2])}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
-        axs[1].text(0.5, 0.57, f"Mic-Src Distance : {float(str(rirbox_distance.cpu().item())[:5])}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
-        axs[1].text(0.5, 0.50, f"Respatialize RIRBOX : {RESPATIALIZE_RIRBOX}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
+        text= f"Room dim {format_text(virtual_shoebox[0])}\n" + \
+                    f"Absorption {format_text(virtual_shoebox[3])[3:]}\n" + \
+                    f"Mic pos {format_text(virtual_shoebox[1])}\n" + \
+                    f"Src pos {format_text(virtual_shoebox[2])}\n" + \
+                    f"Mic-Src Distance : {float(str(rirbox_distance.cpu().item())[:5])}"
+        
+        axs[1].text(0.5, 0.67, text, fontsize=12, horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
+
+        # axs[1].text(0.5, 0.85, f"Room dim {format_text(virtual_shoebox[0])}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
+        # axs[1].text(0.5, 0.78, f"Absorption {format_text(virtual_shoebox[3])[3:]}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
+        # axs[1].text(0.5, 0.71, f"Mic pos {format_text(virtual_shoebox[1])}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
+        # axs[1].text(0.5, 0.64, f"Src pos {format_text(virtual_shoebox[2])}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
+        # axs[1].text(0.5, 0.57, f"Mic-Src Distance : {float(str(rirbox_distance.cpu().item())[:5])}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
+        # axs[1].text(0.5, 0.50, f"Respatialize RIRBOX : {RESPATIALIZE_RIRBOX}", horizontalalignment='center', verticalalignment='center', transform=axs[1].transAxes)
 
         ################## Ground Truth ##################
-        axs[2].set_title('Ground Truth')
+        axs[2].set_title('Ground Truth', fontsize=14)
         axs[2].plot(label_rir, label="GT", color='green')
         # Ground Truth EDC
         axs[2].plot(edc_label, label="GT EDC", color='darkgreen', linestyle='dotted')
@@ -181,11 +191,11 @@ with torch.no_grad():
         axs[2].plot([label_origin,label_origin], [-1e6,label_rir[round(label_origin)]], color='red', marker="o",
                      markersize=5, linestyle='solid', alpha=1, 
                      label=f'IR Onset t : {label_origin:.2f} samp.\nIR Onset Amp: {label_rir[round(label_origin)]:.4f}')
-        axs[2].plot([fiftyms,fiftyms], [1e6,edc_label[int(fiftyms)]], color='black', marker="o",
-                    markersize=5, linestyle='--', alpha=1, label=f'D: {batch_label_D:.5f}')
+        # axs[2].plot([fiftyms,fiftyms], [1e6,edc_label[int(fiftyms)]], color='black', marker="o",
+        #             markersize=5, linestyle='--', alpha=1, label=f'D: {batch_label_D:.5f}')
         # RT60
         if 1550 < label_rt30*16000 < 2500:
-            axs[2].axvline(x=label_rt30*16000, ymin = 0.78, color="purple", linestyle="dashdot", label=f"RT30 : {label_rt30:.4f} s\n(RT60 : {label_rt60:.4f} s)")
+            axs[2].axvline(x=label_rt30*16000, ymin = 0.83, color="purple", linestyle="dashdot", label=f"RT30 : {label_rt30:.4f} s\n(RT60 : {label_rt60:.4f} s)")
             axs[2].axvline(x=label_rt30*16000, ymax = 0.50, color="purple", linestyle="dashdot")
         elif 2920 < rirbox_rt30*16000 :
             ymin = 0.0 ; ymax = 0.35
@@ -194,18 +204,23 @@ with torch.no_grad():
             ymin = 0.0 ; ymax = 1.0
             axs[2].axvline(x=label_rt30*16000, ymin=ymin, ymax=ymax,color="purple", linestyle="dashdot", label=f"RT30 : {label_rt30:.4f} s\n(RT60 : {label_rt60:.4f} s)")
         # TEXT
-        axs[2].text(0.5, 0.71, f"Mic pos {format_text(mic_pos_batch)}", horizontalalignment='center', verticalalignment='center', transform=axs[2].transAxes)
-        axs[2].text(0.5, 0.64, f"Src pos {format_text(src_pos_batch)}", horizontalalignment='center', verticalalignment='center', transform=axs[2].transAxes)
-        axs[2].text(0.5, 0.57, f"Mic-Src Distance : {float(str(gt_distance.cpu().item())[:5])}", horizontalalignment='center', verticalalignment='center', transform=axs[2].transAxes)
+        text= f"Mic pos {format_text(mic_pos_batch)}\n" + \
+                    f"Src pos {format_text(src_pos_batch)}\n" + \
+                    f"Mic-Src Distance : {float(str(gt_distance.cpu().item())[:5])}"
+        axs[2].text(0.5, 0.67, text, fontsize=12, horizontalalignment='center', verticalalignment='center', transform=axs[2].transAxes)
+
+        # axs[2].text(0.5, 0.71, f"Mic pos {format_text(mic_pos_batch)}", horizontalalignment='center', verticalalignment='center', transform=axs[2].transAxes)
+        # axs[2].text(0.5, 0.64, f"Src pos {format_text(src_pos_batch)}", horizontalalignment='center', verticalalignment='center', transform=axs[2].transAxes)
+        # axs[2].text(0.5, 0.57, f"Mic-Src Distance : {float(str(gt_distance.cpu().item())[:5])}", horizontalalignment='center', verticalalignment='center', transform=axs[2].transAxes)
                     
         ################## ALL ##################
         for i in range(3):
             axs[i].set_xlim(0, 4096)
             axs[i].set_ylim(0.0, y_max)
-            axs[i].set_xlabel('Time [samples]')
-            axs[i].set_ylabel('RIR Amplitude / Normalized EDC')
+            axs[i].set_xlabel('Time [samples]', fontsize=12)
+            axs[i].set_ylabel('Absolute RIR Amplitude\nNormalized EDC', fontsize=12)
             axs[i].grid(ls="--", alpha=0.5)
-            axs[i].legend(loc='upper right')
+            axs[i].legend(loc='upper right', fontsize=11)
 
         plt.tight_layout()
         plt.show()
