@@ -5,17 +5,17 @@ from validation.metric_accuracy import metric_accuracy_mesh2ir_vs_rirbox_HL2
 from validation.metric_accuracy import view_results_metric_accuracy_mesh2ir_vs_rirbox, view_results_metric_accuracy_mesh2ir_vs_rirbox_multiple_models
 from validation.sound_source_spatialization import sss_mesh2ir_vs_rirbox, view_results_sss_mesh2ir_vs_rirbox
 from validation.visualize_all_results import view_all_validation_results, multiple_models_validation_comparison
-from validation.beamforming import beamforming_mesh2ir_vs_rirbox
+# from validation.beamforming import beamforming_mesh2ir_vs_rirbox
 import copy
 
 DO_METRIC_ACCURACY_HL2 = False
 DO_METRIC_ACCURACY_GWA = False
-DO_SSL = False
+DO_SSL = True
 DO_BEAMFORMING = True
 
 VISUALIZE_METRIC_ACCURACY = False
 VISUALIZE_METRIC_ACCURACY_MULTIPLE_MODELS = False
-VISUALIZE_SSL = True
+VISUALIZE_SSL = False
 VISUALIZE_ALL = False
 COMPARE_ALL_RESULTS = False
 
@@ -27,7 +27,7 @@ configs = sorted(configs)
 
 
 configs = [
-    "training/configs/best_models/rirbox_Model2_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_NormByDist_12epochs.json",
+    # "training/configs/best_models/rirbox_Model2_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_NormByDist_12epochs.json",
     # "training/configs/best_models/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast_MSDist_DistInLatent_noNormByDist_12epochs.json",
     "training/configs/ablation13/rirbox_Model3_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_noNormByDist_12pochs.json"
 ]
@@ -61,19 +61,19 @@ if DO_SSL:
         print(model_config)
         sss_mesh2ir_vs_rirbox(model_config=model_config,
                               validation_csv=validation_csv,
-                              validation_iterations=30,
+                              validation_iterations=100,
                               RESPATIALIZE_RIRBOX=RESPATIALIZE_RIRBOX,
                               ISM_MAX_ORDER = 15,
                               SHOW_TAU_PLOTS = False,
-                              SHOW_SSL_PLOTS = False,
+                              SHOW_SSL_PLOTS = True,
                               CONVOLVE_SIGNALS = False)
 
-if DO_BEAMFORMING:
-    validation_csv = "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv"
-    for model_config in configs:
-        beamforming_mesh2ir_vs_rirbox(model_config, validation_csv,
-                                      RESPATIALIZE_RIRBOX=RESPATIALIZE_RIRBOX,
-                                      ISM_MAX_ORDER = 18)
+# if DO_BEAMFORMING:
+#     validation_csv = "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv"
+#     for model_config in configs:
+#         beamforming_mesh2ir_vs_rirbox(model_config, validation_csv,
+#                                       RESPATIALIZE_RIRBOX=RESPATIALIZE_RIRBOX,
+#                                       ISM_MAX_ORDER = 18)
 
 if VISUALIZE_METRIC_ACCURACY:
     validation_csv = "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv"

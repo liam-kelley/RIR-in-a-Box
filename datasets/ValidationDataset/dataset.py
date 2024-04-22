@@ -155,11 +155,14 @@ class HL2_Dataset(Dataset):
             label_rir_array[i] = label_rir
             label_origin_array[i] = predicted_Ir_onset
 
+        label_rir_array=torch.tensor(label_rir_array, dtype=torch.float32).squeeze()
+        label_origin_array=torch.tensor(label_origin_array, dtype=torch.float32).squeeze()
+
         # convert to tensors
         x = torch.tensor(x, dtype=torch.float32)
         edge_index = torch.tensor(edge_index, dtype=torch.int).T
-        label_rir_tensor = torch.stack(label_rir_array, dim=0, dtype=torch.float32).squeeze()
-        label_origin_tensor = torch.stack(label_origin_array, dtype=torch.float32)
+        label_rir_tensor = torch.tensor(label_rir_array, dtype=torch.float32).squeeze()
+        label_origin_tensor = torch.tensor(label_origin_array, dtype=torch.float32)
         mic_pos_tensor = torch.tensor(mic_pos, dtype=torch.float32)
         source_pos_tensor = torch.tensor(src_pos, dtype=torch.float32)
 

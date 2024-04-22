@@ -36,7 +36,7 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
 
     # data
     dataset=GWA_3DFRONT_Dataset(csv_file=validation_csv,rir_std_normalization=False, gwa_scaling_compensation=True, dont_load_rirs=True)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False,
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=True,
                             num_workers=10, pin_memory=False,
                             collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
     print("")
@@ -48,7 +48,7 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
     d = 0.225
     src_distance = 1.5 # in meters
     
-    azimuths = np.arange(0,360,21) # in degrees, just azimuth for now
+    azimuths = np.arange(0,360,7) # in degrees, just azimuth for now
     # azimuths = np.arange(50,180,7) # in degrees, just azimuth for now
 
     fs = 16000
@@ -123,8 +123,8 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
                 tau_mesh2ir, _ = gcc_phat(signal1_mesh2ir, signal0_mesh2ir, fs=fs, max_tau=None, interp=32)
                 tau_rirbox, _ = gcc_phat(signal1_rirbox, signal0_rirbox, fs=fs, max_tau=None, interp=32)
 
-                tau_origin_mesh2ir = (origins_mesh2ir[1] - origins_mesh2ir[0])/fs
-                tau_origin_rirbox = (origins_rirbox[1] - origins_rirbox[0])/fs
+                # tau_origin_mesh2ir = (origins_mesh2ir[1] - origins_mesh2ir[0])/fs
+                # tau_origin_rirbox = (origins_rirbox[1] - origins_rirbox[0])/fs
 
                 if SHOW_TAU_PLOTS:
                     fig, axs = plt.subplots(2, figsize=(9,9))
@@ -145,37 +145,68 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
                 
                 tdoas_mesh2ir.append(tau_mesh2ir)
                 tdoas_rirbox.append(tau_rirbox)
-                tdoas_origins_mesh2ir.append(tau_origin_mesh2ir.cpu().numpy())
-                tdoas_origins_rirbox.append(tau_origin_rirbox.cpu().numpy())
+                # tdoas_origins_mesh2ir.append(tau_origin_mesh2ir.cpu().numpy())
+                # tdoas_origins_rirbox.append(tau_origin_rirbox.cpu().numpy())
                 tdoas_theoretical.append(distances[1] - distances[0])
         
+
+            tdoas_mesh2ir = np.array(tdoas_mesh2ir)
+            tdoas_rirbox = np.array(tdoas_rirbox)
+            tdoas_theoretical = np.array(tdoas_theoretical)
+
+            # # # can you convert the TDOA error in angle error?
+            # # Use this formula AOA = arcos( TDOA * c / d) where d = intermic distance, c = 343 speed of sound
+            # tdoas_mesh2ir = np.arccos(tdoas_mesh2ir * c / d) * 360 / (2 * np.pi)
+            # tdoas_rirbox = np.arccos(tdoas_rirbox * c / d) * 360 / (2 * np.pi)
+            # tdoas_theoretical = np.arccos(tdoas_theoretical * c / d) * 360 / (2 * np.pi)
+
+            # tdoas_mesh2ir = tdoas_mesh2ir
+            # tdoas_rirbox = tdoas_rirbox
+            # tdoas_theoretical = tdoas_theoretical
+
+
             if SHOW_SSL_PLOTS:
-                plt.plot(azimuths, -np.array(tdoas_mesh2ir), label='mesh2ir')
-                plt.plot(azimuths, -np.array(tdoas_rirbox), label='rirbox')
-                plt.plot(azimuths, -np.array(tdoas_origins_mesh2ir), label='mesh2ir_origins')
-                plt.plot(azimuths, -np.array(tdoas_origins_rirbox), label='rirbox_origins')
-                plt.plot(azimuths, -np.array(tdoas_theoretical), label='Theoretical')
-                plt.xlabel('Azimuth (degrees)')
+                plt.figure(figsize=(6.5,3.5))
+                plt.plot(azimuths, -tdoas_mesh2ir, ls="dashed", label='M2IR')
+                plt.plot(azimuths, -tdoas_rirbox, label='RBx2')
+                # plt.plot(azimuths, -np.array(tdoas_origins_mesh2ir), label='mesh2ir_origins')
+                # plt.plot(azimuths, -np.array(tdoas_origins_rirbox), label='rirbox_origins')
+                plt.plot(azimuths, -tdoas_theoretical, ls="dotted", label='Theoretical')
+                plt.xlabel('Azimuth (degrees)', fontsize=16)
                 plt.ylabel('TDOA (s)')
-                plt.legend()
-                plt.title('TDOA vs Azimuth')
+                # plt.ylabel('Angle Of Arrival (degrees)', fontsize=16)
+                plt.legend(fontsize=16)
+                # plt.title('TDOA vs Azimuth', fontsize=20)
+                plt.grid(ls="--", alpha=0.5)
+                # plt.xlim(0,360)
+                # plt.ylim(0,180)
+                plt.tick_params(axis='x', labelrotation=0, labelsize=14)
+                plt.tick_params(axis='y', labelrotation=0, labelsize=12)
+                # make x ticks go by 30 degrees
+                plt.xticks(np.arange(0, 361, 60))
+                # plt.yticks(np.arange(0, 181, 30))
+
+
                 plt.tight_layout()
                 plt.show()
 
-            mse_mesh2ir = np.mean(np.sqrt((np.array(tdoas_mesh2ir) - np.array(tdoas_theoretical))**2))
-            mse_rirbox = np.mean(np.sqrt((np.array(tdoas_rirbox) - np.array(tdoas_theoretical))**2))
+            # mse_mesh2ir = np.mean(np.sqrt((tdoas_mesh2ir - tdoas_theoretical)**2))
+            # mse_rirbox = np.mean(np.sqrt((tdoas_rirbox - tdoas_theoretical)**2))
 
-            mse_origins_mesh2ir = np.mean(np.sqrt((np.array(tdoas_origins_mesh2ir) - np.array(tdoas_theoretical))**2))
-            mse_origins_rirbox = np.mean(np.sqrt((np.array(tdoas_origins_rirbox) - np.array(tdoas_theoretical))**2))
+            # mse_origins_mesh2ir = np.mean(np.sqrt((np.array(tdoas_origins_mesh2ir) - np.array(tdoas_theoretical))**2))
+            # mse_origins_rirbox = np.mean(np.sqrt((np.array(tdoas_origins_rirbox) - np.array(tdoas_theoretical))**2))
 
-            my_list.append([mse_mesh2ir, mse_rirbox,mse_origins_mesh2ir, mse_origins_rirbox])
+            # # my_list.append([mse_mesh2ir, mse_rirbox,mse_origins_mesh2ir, mse_origins_rirbox])
+            # my_list.append([tdoas_mesh2ir, tdoas_rirbox, tdoas_theoretical])
+
             
             iterations +=1
             if iterations == validation_iterations:
                 break
     
     my_list = np.array(my_list)
-    df = pd.DataFrame(my_list, columns=["mse_mesh2ir", "mse_rirbox", "mse_origins_mesh2ir", "mse_origins_rirbox"])
+    df = pd.DataFrame(my_list, columns=["tdoas_mesh2ir", "tdoas_rirbox", "tdoas_theoretical"])#, "mse_origins_mesh2ir", "mse_origins_rirbox"])
+    df.apply(lambda x: np.sqrt(x))
 
     save_path = "./validation/results_sss/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
     if not os.path.exists(os.path.dirname(save_path)):
