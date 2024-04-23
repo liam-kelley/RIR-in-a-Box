@@ -7,7 +7,7 @@ from models.mesh2ir_models import MESH_NET
 from models.rirbox_models import MeshToShoebox, ShoeboxToRIR
 from models.utility import load_mesh_net
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
-from training.utility import filter_rir_like_rirbox
+from training.utility import filter_rir_like_rirbox, print_config_parameters
 from tools.pyLiam.LKTimer import LKTimer
 from tools.pyLiam.LKMemCheck import LKMemCheck
 from tqdm import tqdm
@@ -22,25 +22,25 @@ from torch.nn import MSELoss
 
 ############################################ Config ############################################
 
+# get arparse args
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default="training/configs/default/rirbox_default.json", help='Path to configuration file.')
-parser.add_argument('--scheduler', action='store_true', default=False, help='Use the scheduler for training.')
+parser.add_argument('--nworkers', type=int, default=10)
+parser.add_argument('--dowandb', action='store_true', help='Enable the feature')
 args, _ = parser.parse_known_args()
+
+# load config
 with open(args.config, 'r') as file: config = load(file)
 
+# update config with device, nworkers and correct save path
 DEVICE = config['DEVICE'] if torch.cuda.is_available() else 'cpu'
-config["DATALOADER_NUM_WORKERS"] = 10
+config["DATALOADER_NUM_WORKERS"] = args.nworkers
 if config["SAVE_PATH"] == "":
     config["SAVE_PATH"] = "./models/RIRBOX/" + args.config.split("/")[-2] + "/" + args.config.split("/")[-1].split('.')[0] + ".pth"
-if args.scheduler: config['do_scheduling'] = True
-else: config['do_scheduling'] = False
 
-print("PARAMETERS:")
-for key, value in config.items():
-    print(f"    > {key} = {value}")
-print("")
+print_config_parameters(config)
 
-if config['do_wandb']:
+if args.dowandb:
     wandb.init(project="RIRBoxFinal2",config=config)
     print("")
 
@@ -103,7 +103,7 @@ print("")
 # optimizer
 if not config['TRAIN_MESHNET'] : mesh_to_shoebox.meshnet.requires_grad = False
 optimizer = optim.Adam(mesh_to_shoebox.parameters(), lr=config['LEARNING_RATE'])
-if config['do_scheduling']:
+if config['DO_SCHEDULING']:
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=config['EPOCHS']//3, gamma=0.3)
 
 # utility
@@ -187,7 +187,7 @@ for epoch in range(config['EPOCHS']):
             total_loss.backward()
             optimizer.step()
 
-        if config['do_wandb']:
+        if args.dowandb:
             wandb.log({"Epoch": epoch+1, "total loss": total_loss.item()})
             for key, value in {"loss_edr":loss_edr,
                                "loss_mrstft":loss_mrstft,
@@ -216,7 +216,7 @@ for epoch in range(config['EPOCHS']):
 
         time_start_load = time.time()
 
-    if config['do_scheduling']:
+    if config['DO_SCHEDULING']:
         scheduler.step()
 
 # Save the model to ./models/RIRBOX
@@ -228,6 +228,6 @@ torch.save(mesh_to_shoebox.state_dict(), config['SAVE_PATH'])
 
 print("Training completed")
 
-if config['do_wandb']:
+if args.dowandb:
     # finish the wandb run
     wandb.finish()

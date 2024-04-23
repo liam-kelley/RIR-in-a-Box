@@ -1,7 +1,4 @@
 {
-    "do_wandb": true,
-    
-    
     "train_dataset": "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train_dp_only.csv",
 
     "BATCH_SIZE": 28,
@@ -9,6 +6,7 @@
 
     "LEARNING_RATE": 1e-3,
     "EPOCHS": 12,
+    "DO_SCHEDULING": true,
     "MAX_ITERATIONS": 12000,
     "DEVICE": "cuda",
 

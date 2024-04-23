@@ -19,4 +19,4 @@ for config in configs:
     print(config)
 
 for i in range(len(configs)):
-    os.system(f"python -m training.train_gwa --config {configs[i]} --scheduler")
+    os.system(f"python -m training.train_gwa --config {configs[i]} --dowandb")
