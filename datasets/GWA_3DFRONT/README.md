@@ -36,6 +36,7 @@ If the gwa_3Dfront.csv file isn't right, please go into the preprocessing folder
 
 ```bash
 
+cd preprocessing
 python format_csv.py
 
 ```

@@ -17,7 +17,7 @@ Google drive links:
 
 ### Dataset creation
 
-- I obtained mesh data from the HoloLens using the device portal. As you scan the room longer, the data becomes more precise, so I made sure to record the mesh multiple times to account for the amount of time spent scanning. So far I only recorded the confroom open configuration, so **TODO** record the confroom closed configuration. **TODO** add the mesh names into 'validation_dataset.csv'. (Right now they're only implemented as booleans).
+- I obtained mesh data from the HoloLens using the device portal. As you scan the room longer, the data becomes more precise, so I made sure to record the mesh multiple times to account for the amount of time spent scanning. I unfortunately only recorded the confroom open configuration...
 - I manually measured mic and src positions in the office and wrote them down in 'validation_dataset.csv'. (see my notes room_geometry/manually_measured/).
 - I used 'ESS_play.ipynb' to play/save the ESS on my PC.
 - I recorded the ESS using the HoloLens and saved the recordings in 'audio_recordings/'. Audio filepaths are found in the 'validation_dataset.csv'.
@@ -32,8 +32,10 @@ Google drive links:
 ### Simplified summary of validation configurations
 
 This totals up to 481 usable configurations.
+<!--
 **TODO** For every mesh Diego/Arie/Fuijta :'\) records with the confroom closed, we'll add 35 configurations.
 **TODO**  For every mesh Diego/Arie/Fuijta :'\) records with the confroom open, we'll add 42 configurations.
+-->
 
 | Room Configuration | Source Position          | Listener Position | Corresponding Meshes                                               |
 |--------------------|--------------------------|-------------------|--------------------------------------------------------------------|

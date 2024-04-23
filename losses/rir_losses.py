@@ -440,21 +440,6 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         batch_input_edc=torch.flip(torch.cumsum(torch.flip(batch_input_rir2, [-1]), dim=-1), [-1]) # Cumulative sum from the end
         batch_label_edc=torch.flip(torch.cumsum(torch.flip(batch_label_rir2, [-1]), dim=-1), [-1]) # Cumulative sum from the end
 
-        # epsilon1, epsilon2 = 0.005, 0.5 # Only observe the decay curve between these two thresholds for RT60 estimation (this is bad)
-        # batch_input_thresholds=(batch_input_edc.detach()[:,0]).unsqueeze(-1).expand_as(batch_input_edc)
-        # batch_label_thresholds=(batch_label_edc.detach()[:,0]).unsqueeze(-1).expand_as(batch_label_edc)
-
-        # batch_input_regression_mask = torch.logical_and(
-        #     batch_input_thresholds * epsilon1 < batch_input_edc, 
-        #     batch_input_edc < batch_input_thresholds * epsilon2
-        # )
-        # batch_label_regression_mask = torch.logical_and(
-        #     batch_label_thresholds * epsilon1 < batch_label_edc, 
-        #     batch_label_edc < batch_label_thresholds * epsilon2
-        # )
-
-        # del batch_input_thresholds, batch_label_thresholds
-
         if not self.normalize_total_energy: # RT60 needs to have its edc normalized
             batch_input_edc=batch_input_edc/batch_input_rir2_sum.unsqueeze(1).expand_as(batch_input_edc)
             batch_label_edc=batch_label_edc/batch_label_rir2_sum.unsqueeze(1).expand_as(batch_label_edc)
@@ -512,67 +497,68 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         # return loss_c80, loss_D, loss_rt60, loss_betas
         return loss_c80, loss_D, loss_rt60, loss_DRR
 
-class DRR_Loss(BaseRIRLoss):
-    def __init__(self, sample_rate=16000, crop_to_same_length=True, return_values=False):
-        super().__init__()
 
-        self.mse=torch.nn.MSELoss(reduction='mean')
-        self.sample_rate=sample_rate
+# class DRR_Loss(BaseRIRLoss):
+#     def __init__(self, sample_rate=16000, crop_to_same_length=True, return_values=False):
+#         super().__init__()
 
-        # Options
-        self.crop_to_same_length=crop_to_same_length
-        self.return_values=return_values
+#         self.mse=torch.nn.MSELoss(reduction='mean')
+#         self.sample_rate=sample_rate
 
-        # Options print
-        print("AcousticianMetrics_Loss Initialized", end='\n    ')
-        if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
-        print("")
+#         # Options
+#         self.crop_to_same_length=crop_to_same_length
+#         self.return_values=return_values
+
+#         # Options print
+#         print("AcousticianMetrics_Loss Initialized", end='\n    ')
+#         if self.crop_to_same_length: print("> with RIR cropping to same length", end='\n    ')
+#         print("")
     
-    def forward(self, estimated_rir_batch : Union[List[torch.Tensor],torch.Tensor], estimated_origin_batch : torch.Tensor,
-                      label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
-        '''
-        args:
-            estimated_rir_batch: list of torch.Tensor, each tensor is a estimated rir
-            estimated_origin_batch: torch.Tensor, each element is the origin of the corresponding estimated rir
-            label_rir_batch: list of torch.Tensor, each tensor is a label rir
-            label_origin_batch: torch.Tensor, each element is the origin of the corresponding label rir
-        '''
-        self.check_input_batches(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
+#     def forward(self, estimated_rir_batch : Union[List[torch.Tensor],torch.Tensor], estimated_origin_batch : torch.Tensor,
+#                       label_rir_batch : Union[List[torch.Tensor],torch.Tensor], label_origin_batch : torch.Tensor):
+#         '''
+#         args:
+#             estimated_rir_batch: list of torch.Tensor, each tensor is a estimated rir
+#             estimated_origin_batch: torch.Tensor, each element is the origin of the corresponding estimated rir
+#             label_rir_batch: list of torch.Tensor, each tensor is a label rir
+#             label_origin_batch: torch.Tensor, each element is the origin of the corresponding label rir
+#         '''
+#         self.check_input_batches(estimated_rir_batch, estimated_origin_batch, label_rir_batch, label_origin_batch)
 
-        # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
-        if self.crop_to_same_length:
-            estimated_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
+#         # crop to same length (saw it recommended in this paper : AV-RIR: Audio-Visual Room Impulse Response Estimation)
+#         if self.crop_to_same_length:
+#             estimated_rir_batch, label_rir_batch = self.crop_rirs_to_same_length(estimated_rir_batch, label_rir_batch)
 
-        # Get energy
-        batch_estimated_rir2=torch.pow(estimated_rir_batch,2)
-        batch_label_rir2=torch.pow(label_rir_batch,2)
+#         # Get energy
+#         batch_estimated_rir2=torch.pow(estimated_rir_batch,2)
+#         batch_label_rir2=torch.pow(label_rir_batch,2)
 
-        del estimated_rir_batch, label_rir_batch
+#         del estimated_rir_batch, label_rir_batch
 
-        # Precalculate sum(rir^2)
-        batch_estimated_rir2_sum=torch.sum(batch_estimated_rir2, axis=-1)
-        batch_label_rir2_sum=torch.sum(batch_label_rir2, axis=-1)
+#         # Precalculate sum(rir^2)
+#         batch_estimated_rir2_sum=torch.sum(batch_estimated_rir2, axis=-1)
+#         batch_label_rir2_sum=torch.sum(batch_label_rir2, axis=-1)
 
-        # DRR
-        batch_twopointfive_ms=(0.0025*self.sample_rate)*torch.ones(self.batch_size, device=batch_estimated_rir2.device) # in samples
+#         # DRR
+#         batch_twopointfive_ms=(0.0025*self.sample_rate)*torch.ones(self.batch_size, device=batch_estimated_rir2.device) # in samples
     
-        batch_onset = batch_cut_before_and_after_index(batch_estimated_rir2, batch_twopointfive_ms + estimated_origin_batch, cut_severity=1.0, return_after=False)
-        partial_integral=torch.sum(batch_onset, dim=-1)
-        batch_estimated_DRR = partial_integral/batch_estimated_rir2_sum
+#         batch_onset = batch_cut_before_and_after_index(batch_estimated_rir2, batch_twopointfive_ms + estimated_origin_batch, cut_severity=1.0, return_after=False)
+#         partial_integral=torch.sum(batch_onset, dim=-1)
+#         batch_estimated_DRR = partial_integral/batch_estimated_rir2_sum
 
-        batch_onset = batch_cut_before_and_after_index(batch_label_rir2, batch_twopointfive_ms + label_origin_batch, cut_severity=1.0, return_after=False)
-        partial_integral=torch.sum(batch_onset, dim=-1)
-        batch_label_DRR = partial_integral/batch_label_rir2_sum
+#         batch_onset = batch_cut_before_and_after_index(batch_label_rir2, batch_twopointfive_ms + label_origin_batch, cut_severity=1.0, return_after=False)
+#         partial_integral=torch.sum(batch_onset, dim=-1)
+#         batch_label_DRR = partial_integral/batch_label_rir2_sum
 
-        del batch_twopointfive_ms, partial_integral
+#         del batch_twopointfive_ms, partial_integral
 
-        if self.return_values:
-            return batch_estimated_DRR, batch_label_DRR
+#         if self.return_values:
+#             return batch_estimated_DRR, batch_label_DRR
 
-        # Compute losses    
-        loss_DRR = self.mse(batch_estimated_DRR,batch_label_DRR)
+#         # Compute losses    
+#         loss_DRR = self.mse(batch_estimated_DRR,batch_label_DRR)
         
-        return loss_DRR
+#         return loss_DRR
 
 ####### C80 and D Utility #######
 

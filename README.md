@@ -80,6 +80,100 @@ watch -d -n 0.5 nvidia-smi
 
 ```
 
+## Repository description
+
+Updated 22/04/2024
+
+### root folder (RIR-IN-A-BOX)
+
+In the root folder, you can find:
+
+- a script to performe inference for models
+- a script to run trainings on multiple configuration files
+- a script to run different types of validation on multiple configuration files.
+
+### backpropagatable_ISM
+
+In this folder, you can find my immplementation of the backpropagatable ISM, and some filters used for the fractional delays in the computation.
+This backpropagatable ISM can be easily used through the **ShoeboxToRIR** nn.Module available in models/rirbox_models.py.
+
+Notes:
+
+- For now, I have not reimplmented multiband-absorption processing due to gpu memory concerns.
+- My implementation is very memory-hungry, so you should use low reflection orders, low RIR lengths and single-band absorptions.
+- I implemented a experimental option to not include the initial silent portion before the earliest Time of Arrival to save on gpu memory. This is only useful if the user respatializes the RIR afterwards using the ground truth distance to the listener. But this will surely sound weird.
+
+### datasets
+
+#### GWA_3DFRONT
+
+In this folder, you can find:
+
+- The torch.utils.data.Dataset for the GWA (audio) + 3DFRONT (Room Meshes) dataset. It has a custom collate function for dataloaders.
+- Preprocessing scripts for the datasets and the lists of the different subsets used.
+
+The readme file has instructions on what to prepare in this folder.
+
+#### ValidationDataset
+
+In this folder, you can find:
+
+- The torch.utils.data.Dataset for the Validation dataset. It has a custom collate function for dataloaders.
+- The scripts used for the dataset creation.
+- A description of the dataset along with which scripts were used for dataset creation.
+
+### losses
+
+In this folder, you can find my implementations of the losses on the RIR :
+
+- EnergyDecay_Loss
+- MRSTFT_Loss
+- AcousticianMetrics_Loss (D, C80, DRR, and RT60 simultaneously)
+
+and the losses on the simulated shoeboxes :
+
+- SBoxRoomDimensionsLoss
+- SBoxAbsorptionLoss
+- MicSrcConfigurationLoss
+
+### models
+
+In this folder, you can find:
+
+- the implementations of the mesh2ir models (MESH_NET, STAGE1_G, and the nice MESH2IR_FULL class for easy inference).
+- the implementations of the rirbox models (MeshToShoebox, ShoeboxToRIR, and the nice RIRBox_FULL class for easy inference)
+- nice utility functions for easy config and model loadings.
+
+### script_archive
+
+In this folder, you can find deprecated scripts.
+
+### tools
+
+In this folder, you can find :
+
+- pyLiam (a collection of my personal implementations of a csv Logger, a cuda memory checker, and a timer)
+- a gcc_phat tdoa implementation.
+- an Image Source Model visualization jupyter notebook.
+
+### training
+
+In this folder, you can find :
+
+- configuration json files for the different models.
+- a training script for training on the gwa dataset.
+- a few utility functions for training
+
+### validation
+
+In this folder, you can find :
+
+- the beamforming validation experiment (+ its visualization)
+- the metric accuracy validation experiment (+ its visualization)
+- the sound source spatialization experiment (+ its visualization)
+- experiment results
+- visualization for all experiments all together.
+
 <!-- ## Installation
 
 This installation tutorial has not been fully tested again.

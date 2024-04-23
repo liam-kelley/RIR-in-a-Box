@@ -1,7 +1,7 @@
 '''
 This is a reimplementation of torchaudio.prototype.functional.simulate_rir_ism
 It is modified to work with pytorch tensors with autograd.
-The original function is not differentiable because of C code, and therefore cannot be used in a neural network.
+The original function was not differentiable and therefore could not be used in a neural network.
 '''
 
 import math
