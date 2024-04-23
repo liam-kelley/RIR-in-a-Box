@@ -8,30 +8,29 @@ from validation.visualize_all_results import view_all_validation_results, multip
 # from validation.beamforming import beamforming_mesh2ir_vs_rirbox
 import copy
 
-DO_METRIC_ACCURACY_HL2 = False
-DO_METRIC_ACCURACY_GWA = False
+DO_METRIC_ACCURACY_HL2 = True
+DO_METRIC_ACCURACY_GWA = True
 DO_SSL = True
 DO_BEAMFORMING = True
 
-VISUALIZE_METRIC_ACCURACY = False
-VISUALIZE_METRIC_ACCURACY_MULTIPLE_MODELS = False
-VISUALIZE_SSL = False
-VISUALIZE_ALL = False
-COMPARE_ALL_RESULTS = False
+VISUALIZE_METRIC_ACCURACY = True
+VISUALIZE_METRIC_ACCURACY_MULTIPLE_MODELS = True
+VISUALIZE_SSL = True
+VISUALIZE_ALL = True
+COMPARE_ALL_RESULTS = True
 
 RESPATIALIZE_RIRBOX = False
 
 configs = glob.glob("training/configs/best_models/*.json")
-configs.extend(glob.glob("training/configs/ablation13/*.json"))
+# configs.extend(glob.glob(///))
 configs = sorted(configs)
 
+# configs=[
+#     "training/configs/best_models/rirbox_Model2_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_NormByDist_12epochs.json",
+#     "training/configs/best_models/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast_MSDist_DistInLatent_noNormByDist_12epochs.json"
+# ]
 
-configs = [
-    # "training/configs/best_models/rirbox_Model2_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_NormByDist_12epochs.json",
-    # "training/configs/best_models/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast_MSDist_DistInLatent_noNormByDist_12epochs.json",
-    "training/configs/ablation13/rirbox_Model3_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_noNormByDist_12pochs.json"
-]
-
+print("Validating following config files")
 for config in configs:
     print(config)
 
@@ -65,7 +64,7 @@ if DO_SSL:
                               RESPATIALIZE_RIRBOX=RESPATIALIZE_RIRBOX,
                               ISM_MAX_ORDER = 15,
                               SHOW_TAU_PLOTS = False,
-                              SHOW_SSL_PLOTS = True,
+                              SHOW_SSL_PLOTS = False,
                               CONVOLVE_SIGNALS = False)
 
 # if DO_BEAMFORMING:

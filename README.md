@@ -51,28 +51,32 @@ Congrats! Enjoy RIR-in-a-Box.
 ```bash
 
 conda activate rirbox
+
+```
+<!--
 # to try and avoid loading tensors into shared memory (you might not need this)
 export PYTORCH_CUDA_ALLOC_CONF=garbage_collection_threshold:0.4 # instead of 0.8
+-->
 
-```
-
-To train a model.
-
-```bash
-
-python train_gwa.py --config "./training/rirbox_model2_finetune.json"
-
-```
-
-To validate model performance.
+To train models. You can choose your own config files by modifying the script.
 
 ```bash
 
-python validation.py --rirbox_path "./models/rirbox_model2_finetune.pth"
+python run_trainings.py
 
 ```
 
-To monitor gpu usage in another terminal.
+To validate model performance / view validation results.
+You can choose your own config files by modifying the script.
+You can also choose which validation experiments to run / show by modifying the script.
+
+```bash
+
+python run_validation.py
+
+```
+
+To monitor nvidia gpu usage in another terminal.
 
 ```bash
 
