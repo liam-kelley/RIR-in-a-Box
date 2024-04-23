@@ -35,12 +35,13 @@ with open(args.config, 'r') as file: config = load(file)
 # update config with device, nworkers and correct save path
 DEVICE = config['DEVICE'] if torch.cuda.is_available() else 'cpu'
 config["DATALOADER_NUM_WORKERS"] = args.nworkers
+config["DO_WANDB"] =  args.dowandb
 if config["SAVE_PATH"] == "":
     config["SAVE_PATH"] = "./models/RIRBOX/" + args.config.split("/")[-2] + "/" + args.config.split("/")[-1].split('.')[0] + ".pth"
 
 print_config_parameters(config)
 
-if args.dowandb:
+if config["DO_WANDB"]:
     wandb.init(project="RIRBoxFinal2",config=config)
     print("")
 
@@ -187,7 +188,7 @@ for epoch in range(config['EPOCHS']):
             total_loss.backward()
             optimizer.step()
 
-        if args.dowandb:
+        if config["DO_WANDB"]:
             wandb.log({"Epoch": epoch+1, "total loss": total_loss.item()})
             for key, value in {"loss_edr":loss_edr,
                                "loss_mrstft":loss_mrstft,
@@ -228,6 +229,6 @@ torch.save(mesh_to_shoebox.state_dict(), config['SAVE_PATH'])
 
 print("Training completed")
 
-if args.dowandb:
+if config["DO_WANDB"]:
     # finish the wandb run
     wandb.finish()
