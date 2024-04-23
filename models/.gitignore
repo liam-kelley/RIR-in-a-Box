@@ -1,6 +1,7 @@
-MESH2IR
-MESH2IR-D-EDR
+MESH2IR/*
+MESH2IR-D-EDR/*
+RIRBOX/*
 
-RIRBOX
-
-!RIRBOX/ablation12_M3_noHiQ
+!MESH2IR/mesh_net_epoch_175.pth
+!MESH2IR-D-EDR/mesh_net_epoch_150.pth
+!RIRBOX/best_models/
