@@ -104,6 +104,7 @@ print("")
 # optimizer
 if not config['TRAIN_MESHNET'] : mesh_to_shoebox.meshnet.requires_grad = False
 optimizer = optim.Adam(mesh_to_shoebox.parameters(), lr=config['LEARNING_RATE'])
+optimizer.zero_grad()
 if config['DO_SCHEDULING']:
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=config['EPOCHS']//3, gamma=0.3)
 
@@ -122,8 +123,6 @@ for epoch in range(config['EPOCHS']):
         iterations += 1
         time_end_load = time.time()
         time_load += time_end_load - time_start_load      
-
-        optimizer.zero_grad()
 
         with timer.time("Move data to device"):
             # Moving data to device
@@ -186,7 +185,10 @@ for epoch in range(config['EPOCHS']):
 
         with timer.time("Computing backward"):
             total_loss.backward()
+            
+        with timer.time("Optimizer step"):
             optimizer.step()
+            optimizer.zero_grad()
 
         if config["DO_WANDB"]:
             wandb.log({"Epoch": epoch+1, "total loss": total_loss.item()})
