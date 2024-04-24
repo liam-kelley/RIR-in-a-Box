@@ -1,0 +1,25 @@
+{
+    "sbox_dim_x_min" :                         1.5,
+    "sbox_dim_x_max" :                         7.5,
+    "sbox_dim_y_min" :                         1.5,
+    "sbox_dim_y_max" :                         7.5,
+    "sbox_dim_z_min" :                         1.8,
+    "sbox_dim_z_max" :                         3.5,
+    "sbox_floor_area_min" :                    4,
+    "sbox_volume_min" :                        10,
+
+    "src_mic_distance_min" :                   0.8,
+    "src_mic_wall_distance_min" :              0.5,
+
+    "mesh_nodes_per_m2_min" :                  100,
+    "mesh_nodes_per_m2_max" :                  300,
+    "mesh_node_max_normal_random_offset_min" : 0.01,
+    "mesh_node_max_normal_random_offset_max" : 0.08,
+    
+    "rir_sample_rate" :                        16000,
+    "rir_max_order" :                          18,
+
+    "rir_wall_absorption" : "We will use some pra defaults!! like done by echoscan",
+    "rir_scattering" :  "Also use some defaults???",
+    "note" : "can we use GPU RIR?"
+}

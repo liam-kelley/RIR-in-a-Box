@@ -36,6 +36,8 @@ python -m pip install fake-bpy-module
 python -m pip install trimesh
 python -m pip install tqdm
 python -m pip install libigl
+python -m pip install shapely
+python -m pip install pyvista
 conda install pytorch-scatter -c pyg -c nvidia
 
 ```
