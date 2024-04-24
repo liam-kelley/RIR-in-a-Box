@@ -64,11 +64,8 @@ class GWA_3DFRONT_Dataset(Dataset):
         return x.astype('float32'), edge_matrix.astype('long')
     
     def _load_rir(self, label_rir_path):
-        # Load RIR
+        # Load and resample RIR
         label_rir, fs = librosa.load(label_rir_path, sr=self.sample_rate, duration=self.rir_length/self.sample_rate)
-        
-        # Resample to 16kHz (Done during loading to save time)
-        # label_rir = librosa.resample(label_rir,orig_sr=fs, target_sr=self.sample_rate)
 
         # crop or pad all rirs to same length
         length = label_rir.size
