@@ -44,14 +44,14 @@ logger=LKLogger(filename=args.datasetname, columns_for_a_new_log_file = empty_lo
 # Iterate generation
 errors=0
 for _ in range(10):
-    # try:
-    log_row=generate_one_SBAM_datapoint(config, args)
-    logger.add_line_to_log(log_row)
-    # except Exception as e:
-    #     print("Exception occured during generation, skipping this datapoint")
-    #     print(e)
-    #     errors+=1
-    #     continue
+    try:
+        log_row=generate_one_SBAM_datapoint(config, args)
+        logger.add_line_to_log(log_row)
+    except Exception as e:
+        print("Exception occured during generation, skipping this datapoint")
+        print(e)
+        errors+=1
+        continue
 
 print("Generation complete")
 print(f"Dataset size : {len(logger.get_df())}")

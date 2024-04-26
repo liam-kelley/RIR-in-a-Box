@@ -19,7 +19,6 @@
     "rir_sample_rate" :                        16000,
     "rir_max_order" :                          18,
 
-    "rir_wall_absorption" : "We will use some pra defaults!! like done by echoscan",
-    "rir_scattering" :  "Also use some defaults???",
-    "note" : "can we use GPU RIR?"
+    "rir_wall_absorption" : "Hard coded: Uniform range from 0.01 to 0.8 for each surface",
+    "rir_scattering" :  "Hard coded: 0.05 to 0.8 for walls, 0.05 to 0.5 for floor, 0.05 to 0.7 for ceiling"
 }

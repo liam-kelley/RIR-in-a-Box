@@ -36,7 +36,7 @@ def generate_one_SBAM_datapoint(config : dict, args):
     log_row['mesh_file_name'] = mesh_file_name
     log_row['rir_file_name'] = rir_file_name
 
-    log_row['rir_initial_toa'] = np.linalg.norm(mic_pos-src_pos) * config["rir_sample_rate"] + 40 # 40 is pra window length (81) //2
+    log_row['rir_initial_toa'] = (np.linalg.norm(mic_pos-src_pos) / 343 ) * config["rir_sample_rate"] + 40 # 40 is pra window length (81) //2
     log_row['rir_sample_rate'] = config['rir_sample_rate']
     log_row['rir_max_order'] = config['rir_max_order']
 

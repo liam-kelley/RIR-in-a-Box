@@ -1,11 +1,9 @@
 import numpy as np
 import random
-# from scipy.spatial import Delaunay
-from shapely.geometry import Polygon
 import pyvista as pv
-from math import sqrt
 import glob
 import os
+import pymeshlab as ml
 
 '''
 This code could eventually be upgraded for rooms with more complex shapes than just shoeboxes.
@@ -161,20 +159,37 @@ def get_shoebox_mesh(config : dict, sbox_dim) -> pv.PolyData:
 
 
 def save_shoebox_mesh(mesh : pv.PolyData):
-    mesh_names=glob.glob("datasets/SBAM_Dataset/meshes/mesh_*.ply")
+    # save ply in temp folder
+    temp_mesh_name="datasets/SBAM_Dataset/temp/temp_mesh.ply"
+    if not os.path.exists(os.path.dirname(temp_mesh_name)):
+        os.makedirs(os.path.dirname(temp_mesh_name))
+    mesh.save(temp_mesh_name)
+
+    # Open ply with pymeshlab
+    ms = ml.MeshSet()
+    ms.load_new_mesh(temp_mesh_name)
+    m = ms.current_mesh()
+    # Perform simplification to 2000 faces (useful for RIR-in-a-Box for comparison with MESH2IR)
+    print('Loaded obj mesh has' , m.face_number(), 'faces and', m.vertex_number(), 'vertices.')
+    ms.apply_filter('meshing_decimation_quadric_edge_collapse', targetfacenum=2000, preservenormal=True)
+    m = ms.current_mesh()
+    print("Decimated to", m.face_number(), "faces and ", m.vertex_number(), "vertices.")
+
+    # save mesh
+    mesh_names=glob.glob("datasets/SBAM_Dataset/meshes/mesh_*.obj")
     mesh_names.sort()
 
     if mesh_names!=[]: # if there are already some meshs saved, write at the next index
         index=int(mesh_names[-1].split("_")[-1].split(".")[0]) + 1
-        mesh_file_name = "datasets/SBAM_Dataset/meshes/mesh_{:06}".format(index)+".ply"
+        mesh_file_name = "datasets/SBAM_Dataset/meshes/mesh_{:06}".format(index)+".obj"
     else: # initialize
         index=0
-        mesh_file_name = "datasets/SBAM_Dataset/meshes/mesh_000000.ply"
+        mesh_file_name = "datasets/SBAM_Dataset/meshes/mesh_000000.obj"
     
     if not os.path.exists(os.path.dirname(mesh_file_name)):
         os.makedirs(os.path.dirname(mesh_file_name))
 
-    mesh.save(mesh_file_name)
+    ms.save_current_mesh(mesh_file_name)
     print("Mesh saved as " + mesh_file_name)
 
     return mesh_file_name
