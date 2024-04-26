@@ -22,8 +22,8 @@ For each iteration, this script:
 3. Logs the dataset information in a log file using my custom logger class.
 
 As far as weight goes, PER datapoint you're looking at about
-a 150-300kb mesh when mesh_points_per_m2=200
-and a 50 - 115kb rir
+a 175kb mesh
+and a 10kb to 13kb rir
 '''
 
 # get arparse args
