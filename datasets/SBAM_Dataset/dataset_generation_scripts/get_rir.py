@@ -14,7 +14,7 @@ def get_rir(config, sbox_dim, materials, mic_pos, src_pos):
     )
 
     room.add_source(src_pos)
-    room.add_microphone_array(np.expand_dims(mic_pos,0))
+    room.add_microphone_array(np.expand_dims(mic_pos,1))
     room.compute_rir()
     rir=room.rir[0][0]
 
@@ -33,5 +33,7 @@ def save_rir(config, rir):
     if not os.path.exists(os.path.dirname(rir_file_name)):
         os.makedirs(os.path.dirname(rir_file_name))
 
-    sf.write(rir_file_name, config['rir_sample_rate'], rir)
+    sf.write(rir_file_name, rir, config['rir_sample_rate'])
     print("RIR saved as " + rir_file_name)
+
+    return rir_file_name

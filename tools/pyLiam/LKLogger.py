@@ -9,6 +9,7 @@ class LKLogger():
     .get_df()
     '''
     def __init__(self, filename='./LKLogger.csv', columns_for_a_new_log_file=[]):
+        # TODO rewrite this better
         self.filename=filename
         try:
             df=pd.read_csv(self.filename)

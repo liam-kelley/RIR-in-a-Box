@@ -7,7 +7,7 @@ def check_min_sbox_dims(config : dict):
     if (1.66*config['sbox_dim_x_min'] < config['src_mic_distance_min'] + config['src_mic_wall_distance_min']*2 ) \
         or (1.66*config['sbox_dim_y_min'] < config['src_mic_distance_min'] + config['src_mic_wall_distance_min']*2 ) \
         or (1.66*config['sbox_dim_z_min'] < config['src_mic_distance_min'] + config['src_mic_wall_distance_min']*2 ) : 
-        raise ValueError, "Room dimensions are too small for src_mic_distance_min or src_mic_wall_distance_min"
+        raise ValueError( "Room dimensions are too small for src_mic_distance_min or src_mic_wall_distance_min")
 
 def make_random_sbox(config : dict):
     sbox_dim_x = random.uniform(config['sbox_dim_x_min'],config['sbox_dim_x_max'])
@@ -15,13 +15,13 @@ def make_random_sbox(config : dict):
     sbox_dim_z = random.uniform(config['sbox_dim_z_min'],config['sbox_dim_z_max'])
 
     counter=0
-    while sbox_dim_x*sbox_dim_y*sbox_dim_z < config['room_min_volume'] or sbox_dim_x*sbox_dim_y < config['room_min_floor_area']:
+    while sbox_dim_x*sbox_dim_y*sbox_dim_z < config['sbox_volume_min'] or sbox_dim_x*sbox_dim_y < config['sbox_floor_area_min']:
         sbox_dim_x = random.uniform(config['sbox_dim_x_min'],config['sbox_dim_x_max'])
         sbox_dim_y = random.uniform(config['sbox_dim_y_min'],config['sbox_dim_y_max'])
         sbox_dim_z = random.uniform(config['sbox_dim_z_min'],config['sbox_dim_z_max'])
         
         counter+=1
-        if counter>1000: raise ValueError, "couldn't find a room with enough volume or floor area"
+        if counter>1000: raise ValueError( "couldn't find a room with enough volume or floor area")
         
     return np.array([sbox_dim_x, sbox_dim_y, sbox_dim_z])
 
@@ -46,12 +46,12 @@ def get_mic_and_src_within_sbox(config, sbox_dim):
     src_pos = np.ones(3)*config["src_mic_wall_distance_min"] + np.random.random(3)*(sbox_dim - np.ones(3)*config["src_mic_wall_distance_min"]*2)
 
     counter = 0
-    while np.linalg.norm(src_pos - mic_pos) < config['min_source_mic_distance']:
+    while np.linalg.norm(src_pos - mic_pos) < config['src_mic_distance_min']:
         mic_pos = np.ones(3)*config["src_mic_wall_distance_min"] + np.random.random(3)*(sbox_dim - np.ones(3)*config["src_mic_wall_distance_min"]*2)
         src_pos = np.ones(3)*config["src_mic_wall_distance_min"] + np.random.random(3)*(sbox_dim - np.ones(3)*config["src_mic_wall_distance_min"]*2)
 
         counter+=1
-        if counter>1000: raise ValueError, "couldn't find a mic-src configuration that fits min mic-src distance and min mic-src-wall distance"
+        if counter>1000: raise ValueError( "couldn't find a mic-src configuration that fits min mic-src distance and min mic-src-wall distance")
 
     return mic_pos, src_pos
 

@@ -1,8 +1,8 @@
-from dataset_generation_scripts.config_and_csv_utility import check_config_dict, get_empty_csv_row
+from  datasets.SBAM_Dataset.dataset_generation_scripts.config_and_csv_utility import check_config_dict, get_empty_csv_row
 
-from get_sbox_room_configuration import get_sbox_room_configuration
-from get_shoebox_mesh import get_shoebox_mesh, save_shoebox_mesh
-from get_rir import get_rir, save_rir
+from datasets.SBAM_Dataset.dataset_generation_scripts.get_sbox_room_configuration import get_sbox_room_configuration
+from datasets.SBAM_Dataset.dataset_generation_scripts.get_shoebox_mesh import get_shoebox_mesh, save_shoebox_mesh
+from datasets.SBAM_Dataset.dataset_generation_scripts.get_rir import get_rir, save_rir
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,12 +19,12 @@ def generate_one_SBAM_datapoint(config : dict, args):
     if args.plot:
         plt.plot(rir)
         plt.ylabel("Amplitude")
-        plt.xlabel(f"Time in samples ({config["rir_sample_rate"]}Hz)")
+        plt.xlabel("Time in samples ("+ str(config["rir_sample_rate"]) + "Hz)")
         plt.show()
         mesh.plot()
 
     # Save data on disk
-    if not args.dontsave:
+    if args.dontsave:
         rir_file_name = save_rir(config, rir)
         mesh_file_name = save_shoebox_mesh(mesh)
     else:
@@ -50,13 +50,13 @@ def generate_one_SBAM_datapoint(config : dict, args):
     log_row['src_y'] = src_pos[1]
     log_row['src_z'] = src_pos[2]
 
-    log_row['absorption_floor'] = materials["floor"].energy_absorption
-    log_row['absorption_ceiling'] = materials["ceiling"].energy_absorption
-    log_row['absorption_walls'] = materials["north"].energy_absorption
+    log_row['absorption_floor'] = materials["floor"].energy_absorption['coeffs']
+    log_row['absorption_ceiling'] = materials["ceiling"].energy_absorption['coeffs']
+    log_row['absorption_walls'] = materials["north"].energy_absorption['coeffs']
 
-    log_row['scattering_floor'] = materials["floor"].scattering
-    log_row['scattering_ceiling'] = materials["ceiling"].scattering
-    log_row['scattering_walls'] = materials["north"].scattering
+    log_row['scattering_floor'] = materials["floor"].scattering['coeffs']
+    log_row['scattering_ceiling'] = materials["ceiling"].scattering['coeffs']
+    log_row['scattering_walls'] = materials["north"].scattering['coeffs']
 
     return (log_row)
     
