@@ -28,7 +28,7 @@ and a 10kb to 13kb rir
 
 # get arparse args
 parser = argparse.ArgumentParser()
-parser.add_argument('--datasetname', type=str, default="datasets/SBAM_Dataset/subsets/sbox_mesh.csv", help='Dataset csv name')
+parser.add_argument('--datasetname', type=str, default="datasets/SBAM_Dataset/subsets/sbam.csv", help='Dataset csv name')
 parser.add_argument('--config', type=str, default="datasets/SBAM_Dataset/dataset_generation_scripts/generation_configs/default.json", help='Path to configuration file.')
 parser.add_argument('--plot', action='store_true', help='Plot every shoebox mesh you are creating')
 parser.add_argument('--dontsave',action='store_false', help="Don't save the dataset (use for debugging)")
@@ -43,7 +43,7 @@ logger=LKLogger(filename=args.datasetname, columns_for_a_new_log_file = empty_lo
 
 # Iterate generation
 errors=0
-for _ in range(10):
+for _ in range(1000):
     try:
         log_row=generate_one_SBAM_datapoint(config, args)
         logger.add_line_to_log(log_row)
