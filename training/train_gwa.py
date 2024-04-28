@@ -26,7 +26,7 @@ from torch.nn import MSELoss
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default="training/configs/default/rirbox_default.json", help='Path to configuration file.')
 parser.add_argument('--nworkers', type=int, default=10)
-parser.add_argument('--dowandb', action='store_true', help='Enable the feature')
+parser.add_argument('--dowandb', action='store_true', help='Enable wandb logging')
 args, _ = parser.parse_known_args()
 
 # load config
