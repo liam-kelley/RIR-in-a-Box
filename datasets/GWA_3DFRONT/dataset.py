@@ -24,10 +24,10 @@ def string_to_array(s):
     return np.array([float(e) for e in elements])
 
 class GWA_3DFRONT_Dataset(Dataset):
-    def __init__(self, gwa3D_csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_length = 3968, sample_rate=16000,
+    def __init__(self, csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_length = 3968, sample_rate=16000,
                  rir_std_normalization=False, gwa_scaling_compensation=False, dont_load_rirs=False, dont_load_meshes=False):
         super().__init__()
-        self.gwa3D_csv_file=gwa3D_csv_file
+        self.csv_file=csv_file
         self.rir_std_normalization = rir_std_normalization
         self.gwa_scaling_compensation = gwa_scaling_compensation
         self.sample_rate=sample_rate
@@ -36,8 +36,8 @@ class GWA_3DFRONT_Dataset(Dataset):
         self.dont_load_meshes = dont_load_meshes
         if self.dont_load_meshes:
             self.a_single_mesh = None
-        self.gwa3D_data = pd.read_csv(gwa3D_csv_file)
-        print('GWA_3DFRONT csv loaded at ', gwa3D_csv_file)
+        self.data = pd.read_csv(csv_file)
+        print('GWA_3DFRONT csv loaded at ', csv_file)
 
         self.meshes_folder = "./datasets/GWA_3DFRONT/preprocessed_obj_meshes"
         if not os.path.exists(self.meshes_folder):
@@ -48,10 +48,10 @@ class GWA_3DFRONT_Dataset(Dataset):
             raise Exception("Label RIR folder not found: ", self.label_rir_folder,
                             "\nPlease download the GWA_Dataset_small and place it in the datasets/GWA_3DFRONT folder.")
 
-        print('GWA_3DFRONT dataset loaded at ', self.gwa3D_csv_file)
+        print('GWA_3DFRONT dataset loaded at ', self.csv_file)
 
     def __len__(self):
-        return len(self.gwa3D_data)
+        return len(self.data)
 
     @staticmethod
     def _load_mesh(mesh_path):
@@ -102,7 +102,7 @@ class GWA_3DFRONT_Dataset(Dataset):
     def __getitem__(self, index):
         if torch.is_tensor(index):
             index = index.tolist()
-        df = self.gwa3D_data.iloc[index]
+        df = self.data.iloc[index]
 
         # path names
         mesh_path = os.path.join(self.meshes_folder, df['mesh_name'])

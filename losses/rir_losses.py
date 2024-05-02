@@ -498,7 +498,7 @@ class AcousticianMetrics_Loss(BaseRIRLoss):
         return loss_c80, loss_D, loss_rt60, loss_DRR
 
 
-class Rebuttal_Phase_Loss(BaseRIRLoss):
+class RIR_MSE_Loss(BaseRIRLoss):
     '''
     For evaluation ONLY
     '''
@@ -556,6 +556,7 @@ class Rebuttal_Phase_Loss(BaseRIRLoss):
         # Compute loss
         loss=self.mse(estimated_rir_batch, label_rir_batch)
         return loss
+
 
 class DRR_Loss(BaseRIRLoss):
     def __init__(self, sample_rate=16000, crop_to_same_length=True, return_values=False):
