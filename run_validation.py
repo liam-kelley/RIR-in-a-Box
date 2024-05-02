@@ -8,16 +8,16 @@ from validation.visualize_all_results import view_all_validation_results, multip
 # from validation.beamforming import beamforming_mesh2ir_vs_rirbox
 import copy
 
-DO_METRIC_ACCURACY_HL2 = True
+DO_METRIC_ACCURACY_HL2 = False
 DO_METRIC_ACCURACY_GWA = True
-DO_SSL = True
-DO_BEAMFORMING = True
+DO_SSL = False
+DO_BEAMFORMING = False
 
-VISUALIZE_METRIC_ACCURACY = True
-VISUALIZE_METRIC_ACCURACY_MULTIPLE_MODELS = True
-VISUALIZE_SSL = True
-VISUALIZE_ALL = True
-COMPARE_ALL_RESULTS = True
+VISUALIZE_METRIC_ACCURACY = False
+VISUALIZE_METRIC_ACCURACY_MULTIPLE_MODELS = False
+VISUALIZE_SSL = False
+VISUALIZE_ALL = False
+COMPARE_ALL_RESULTS = False
 
 RESPATIALIZE_RIRBOX = False
 

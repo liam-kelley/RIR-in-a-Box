@@ -4,7 +4,7 @@ from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
 from datasets.ValidationDataset.dataset import HL2_Dataset
 from torch.utils.data import DataLoader
 from models.utility import load_all_models_for_inference, inference_on_all_models
-from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss, DRR_Loss
+from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss, DRR_Loss, Rebuttal_Phase_Loss
 from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -49,6 +49,7 @@ def metric_accuracy_mesh2ir_vs_rirbox_GWA(model_config : str, validation_csv : s
                                 crop_to_same_length=False,
                                 pad_to_same_length=True).to(DEVICE)
     drr=DRR_Loss().to(DEVICE)
+    rebut_phase=Rebuttal_Phase_Loss(synchronize_TOA=True).to(DEVICE)
     mse = torch.nn.MSELoss()
 
     print("")
@@ -78,12 +79,14 @@ def metric_accuracy_mesh2ir_vs_rirbox_GWA(model_config : str, validation_csv : s
             loss_mesh2ir_c80, loss_mesh2ir_D, loss_mesh2ir_rt60, _ = acm(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
             loss_mesh2ir_drr = drr(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
             loss_mesh2ir_ir_onset = mse(origin_mesh2ir,label_origin_batch)
+            loss_mesh2ir_rebut_phase = rebut_phase(rir_mesh2ir, origin_mesh2ir, label_rir_batch, label_origin_batch)
 
             loss_rirbox_edr = edc(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_mrstft = mrstft(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_c80, loss_rirbox_D, loss_rirbox_rt60, _ = acm(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_drr = drr(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
             loss_rirbox_ir_onset = mse(origin_rirbox,label_origin_batch)
+            loss_rirbox_rebut_phase = rebut_phase(rir_rirbox, origin_rirbox, label_rir_batch, label_origin_batch)
 
             # Append to dataframe
             my_list.append([loss_mesh2ir_edr.cpu().item(),
@@ -105,7 +108,10 @@ def metric_accuracy_mesh2ir_vs_rirbox_GWA(model_config : str, validation_csv : s
                             loss_rirbox_drr.cpu().item(),
 
                             loss_mesh2ir_ir_onset.cpu().item(),
-                            loss_rirbox_ir_onset.cpu().item()
+                            loss_rirbox_ir_onset.cpu().item(),
+
+                            loss_mesh2ir_rebut_phase.cpu().item(),
+                            loss_rirbox_rebut_phase.cpu().item()
                             ])
 
             i += 1
@@ -132,7 +138,10 @@ def metric_accuracy_mesh2ir_vs_rirbox_GWA(model_config : str, validation_csv : s
                                         "rirbox_drr",
 
                                         "mesh2ir_ir_onset",
-                                        "rirbox_ir_onset"
+                                        "rirbox_ir_onset",
+
+                                        "mesh2ir_rebut_phase",
+                                        "rirbox_rebut_phase"
                                         ])
     df = df.apply(np.sqrt) # removes the square from the MSEs
     save_path = "./validation/results_acc_gwa/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
