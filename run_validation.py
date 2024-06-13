@@ -8,12 +8,12 @@ from validation.visualize_all_results import view_all_validation_results, multip
 # from validation.beamforming import beamforming_mesh2ir_vs_rirbox
 import copy
 
-DO_METRIC_ACCURACY_HL2 = True
-DO_METRIC_ACCURACY_GWA = True
-DO_SSL = False
+DO_METRIC_ACCURACY_HL2 = False
+DO_METRIC_ACCURACY_GWA = False
+DO_SSL = True
 DO_BEAMFORMING = False
 
-VISUALIZE_METRIC_ACCURACY = True
+VISUALIZE_METRIC_ACCURACY = False
 VISUALIZE_METRIC_ACCURACY_MULTIPLE_MODELS = False
 VISUALIZE_SSL = False
 VISUALIZE_ALL = False
@@ -21,18 +21,19 @@ COMPARE_ALL_RESULTS = False
 
 RESPATIALIZE_RIRBOX = False
 
-configs = glob.glob("training/configs/best_models/*.json")
-# configs.extend(glob.glob(///))
-configs = sorted(configs)
+# configs = glob.glob("training/configs/best_models/*.json")
+# # configs.extend(glob.glob(///))
+# configs = sorted(configs)
 
-# configs=[
-#     "training/configs/best_models/rirbox_Model2_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_NormByDist_12epochs.json",
-#     "training/configs/best_models/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast_MSDist_DistInLatent_noNormByDist_12epochs.json"
-# ]
+configs=[
+    "training/configs/best_models/rirbox_Model2_dp_MRSTFT_EDR_superfast_MSDist_DistInLatent_NormByDist_12epochs.json",
+    "training/configs/best_models/rirbox_Model3_dp_HIQMRSTFT_EDR_superfast_MSDist_DistInLatent_noNormByDist_12epochs.json"
+]
 
 print("Validating following config files")
 for config in configs:
     print(config)
+print("")
 
 
 results_csvs = copy.deepcopy(configs)
@@ -57,14 +58,14 @@ if DO_METRIC_ACCURACY_HL2:
 if DO_SSL:
     validation_csv = "datasets/GWA_3DFRONT/subsets/gwa_3Dfront_validation_dp_only.csv"
     for model_config in configs:
-        print(model_config)
+        print("starting ssl for config :", model_config)
         sss_mesh2ir_vs_rirbox(model_config=model_config,
                               validation_csv=validation_csv,
-                              validation_iterations=100,
+                              validation_iterations=300,
                               RESPATIALIZE_RIRBOX=RESPATIALIZE_RIRBOX,
                               ISM_MAX_ORDER = 15,
                               SHOW_TAU_PLOTS = False,
-                              SHOW_SSL_PLOTS = False,
+                              SHOW_SSL_PLOTS = False, # Used in the paper
                               CONVOLVE_SIGNALS = False)
 
 # if DO_BEAMFORMING:

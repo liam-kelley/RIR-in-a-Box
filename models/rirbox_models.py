@@ -14,6 +14,7 @@ from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
 
 from models.mesh2ir_models import MESH_NET, data_for_meshnet
 
+
 class ShoeboxToRIR(nn.Module):
     def __init__(self,sample_rate : int = 16000, max_order : int = 15, rir_length : int = 3968, start_from_ir_onset : bool = False, normalized_distance=False):
         '''
@@ -210,6 +211,7 @@ class MeshToShoebox(nn.Module):
             x = torch.cat((room_dims, mic_and_src_pos, absorptions), dim=1)
 
             return(x)
+
 
 class RIRBox_FULL(nn.Module):
     '''
