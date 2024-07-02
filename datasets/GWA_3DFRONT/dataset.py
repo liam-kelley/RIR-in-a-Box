@@ -26,6 +26,7 @@ def string_to_array(s):
 class GWA_3DFRONT_Dataset(Dataset):
     def __init__(self, csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_length = 3968, sample_rate=16000,
                  rir_std_normalization=False, gwa_scaling_compensation=False, dont_load_rirs=False, dont_load_meshes=False):
+        super().__init__()
         self.csv_file=csv_file
         self.rir_std_normalization = rir_std_normalization
         self.gwa_scaling_compensation = gwa_scaling_compensation

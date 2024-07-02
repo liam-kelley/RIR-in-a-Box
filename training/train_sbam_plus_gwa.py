@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from models.mesh2ir_models import MESH_NET
 from models.rirbox_models import MeshToShoebox, ShoeboxToRIR
 from models.utility import load_mesh_net
+from losses.shoebox_losses import SBoxRoomDimensionsLoss, SBoxAbsorptionLoss, MicSrcConfigurationLoss
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
 from training.utility import filter_rir_like_rirbox, print_config_parameters
 from tools.pyLiam.LKTimer import LKTimer
@@ -92,6 +93,7 @@ acm=AcousticianMetrics_Loss(sample_rate=dataset.sample_rate,
                             crop_to_same_length=True,
                             pad_to_same_length=False).to(DEVICE)
 mse = MSELoss().to(DEVICE)
+sbox_mse, absorp_mse, msconf_mse=SBoxRoomDimensionsLoss(), SBoxAbsorptionLoss(), MicSrcConfigurationLoss(return_separate_losses=False)
 
 loss_edr = torch.tensor([0.0])
 loss_mrstft = torch.tensor([0.0])
@@ -99,6 +101,9 @@ loss_c80 = torch.tensor([0.0])
 loss_D = torch.tensor([0.0])
 loss_rt60 = torch.tensor([0.0])
 loss_mic_src_distance = torch.tensor([0.0])
+loss_sbox_mse = torch.tensor([0.0])
+loss_absorp_mse = torch.tensor([0.0])
+loss_msconf_mse = torch.tensor([0.0]) 
 print("")
 
 # optimizer
@@ -119,7 +124,11 @@ time_start_load = time.time()
 
 # Training
 for epoch in range(config['EPOCHS']):
-    for x_batch, edge_index_batch, batch_indexes, label_rir_batch, label_origin_batch, mic_pos_batch, src_pos_batch in tqdm(dataloader, desc="Epoch "+str(epoch+1)+ " completion"):
+    for gwa_x_batch, gwa_edge_index_batch, gwa_batch_indexes, gwa_label_rir_batch, gwa_label_origin_batch, gwa_mic_pos_batch, gwa_src_pos_batch ,\
+            sbam_x_batch, sbam_edge_index_batch, sbam_batch_indexes, sbam_label_rir_batch, sbam_label_origin_batch, \
+            sbam_sbox_dim_batch, sbam_mic_pos_batch, sbam_src_pos_batch , sbam_absorption_batch \
+            in tqdm(dataloader, desc="Epoch "+str(epoch+1)+ " completion"):
+
         iterations += 1
         time_end_load = time.time()
         time_load += time_end_load - time_start_load      

@@ -36,7 +36,7 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
 
     # data
     dataset=GWA_3DFRONT_Dataset(csv_file=validation_csv,rir_std_normalization=False, gwa_scaling_compensation=True, dont_load_rirs=True)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=True,
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False,
                             num_workers=10, pin_memory=False,
                             collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
     print("")
@@ -53,8 +53,10 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
 
     fs = 16000
     c = 343
-
-    my_list=[]
+    
+    tdoas_mesh2ir=[]
+    tdoas_rirbox=[]
+    tdoas_theoretical=[]
     with torch.no_grad():
         # iterate over the dataset
         iterations=0
@@ -71,11 +73,6 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
                 signal, fs = load(path=wavs[iterations%len(wavs)], sr=fs, mono=True, duration=3.7)
 
             # for every angle
-            tdoas_mesh2ir=[]
-            tdoas_rirbox=[]
-            tdoas_origins_mesh2ir=[]
-            tdoas_origins_rirbox=[]
-            tdoas_theoretical=[]
             for az in tqdm(azimuths,leave=False,  desc="For every azimuth"):
                 # place the src with repsect to the array
                 src_pos = torch.tensor(src_loc_from_spherical(src_distance, np.deg2rad(az))).unsqueeze(0)
@@ -145,33 +142,18 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
                 
                 tdoas_mesh2ir.append(tau_mesh2ir)
                 tdoas_rirbox.append(tau_rirbox)
-                # tdoas_origins_mesh2ir.append(tau_origin_mesh2ir.cpu().numpy())
-                # tdoas_origins_rirbox.append(tau_origin_rirbox.cpu().numpy())
                 tdoas_theoretical.append(distances[1] - distances[0])
-        
-
-            tdoas_mesh2ir = np.array(tdoas_mesh2ir)
-            tdoas_rirbox = np.array(tdoas_rirbox)
-            tdoas_theoretical = np.array(tdoas_theoretical)
-
-            # # # can you convert the TDOA error in angle error?
-            # # Use this formula AOA = arcos( TDOA * c / d) where d = intermic distance, c = 343 speed of sound
-            # tdoas_mesh2ir = np.arccos(tdoas_mesh2ir * c / d) * 360 / (2 * np.pi)
-            # tdoas_rirbox = np.arccos(tdoas_rirbox * c / d) * 360 / (2 * np.pi)
-            # tdoas_theoretical = np.arccos(tdoas_theoretical * c / d) * 360 / (2 * np.pi)
-
-            # tdoas_mesh2ir = tdoas_mesh2ir
-            # tdoas_rirbox = tdoas_rirbox
-            # tdoas_theoretical = tdoas_theoretical
-
 
             if SHOW_SSL_PLOTS:
+                tdoas_mesh2ir_for_plots = np.array(tdoas_mesh2ir)
+                tdoas_rirbox_for_plots = np.array(tdoas_rirbox)
+                tdoas_theoretical_for_plots = np.array(tdoas_theoretical)
                 plt.figure(figsize=(6.5,3.5))
-                plt.plot(azimuths, -tdoas_mesh2ir, ls="dashed", label='M2IR')
-                plt.plot(azimuths, -tdoas_rirbox, label='RBx2')
+                plt.plot(azimuths, -tdoas_mesh2ir_for_plots, ls="dashed", label='M2IR')
+                plt.plot(azimuths, -tdoas_rirbox_for_plots, label='RBx2')
                 # plt.plot(azimuths, -np.array(tdoas_origins_mesh2ir), label='mesh2ir_origins')
                 # plt.plot(azimuths, -np.array(tdoas_origins_rirbox), label='rirbox_origins')
-                plt.plot(azimuths, -tdoas_theoretical, ls="dotted", label='Theoretical')
+                plt.plot(azimuths, -tdoas_theoretical_for_plots, ls="dotted", label='Theoretical')
                 plt.xlabel('Azimuth (degrees)', fontsize=16)
                 plt.ylabel('TDOA (s)')
                 # plt.ylabel('Angle Of Arrival (degrees)', fontsize=16)
@@ -185,35 +167,84 @@ def sss_mesh2ir_vs_rirbox(model_config : str, validation_csv : str, validation_i
                 # make x ticks go by 30 degrees
                 plt.xticks(np.arange(0, 361, 60))
                 # plt.yticks(np.arange(0, 181, 30))
-
-
+                
                 plt.tight_layout()
                 plt.show()
-
-            # mse_mesh2ir = np.mean(np.sqrt((tdoas_mesh2ir - tdoas_theoretical)**2))
-            # mse_rirbox = np.mean(np.sqrt((tdoas_rirbox - tdoas_theoretical)**2))
-
-            # mse_origins_mesh2ir = np.mean(np.sqrt((np.array(tdoas_origins_mesh2ir) - np.array(tdoas_theoretical))**2))
-            # mse_origins_rirbox = np.mean(np.sqrt((np.array(tdoas_origins_rirbox) - np.array(tdoas_theoretical))**2))
-
-            # # my_list.append([mse_mesh2ir, mse_rirbox,mse_origins_mesh2ir, mse_origins_rirbox])
-            # my_list.append([tdoas_mesh2ir, tdoas_rirbox, tdoas_theoretical])
-
             
             iterations +=1
             if iterations == validation_iterations:
                 break
+            
+    tdoas_mesh2ir = np.array(tdoas_mesh2ir)
+    tdoas_rirbox = np.array(tdoas_rirbox)
+    tdoas_theoretical = np.array(tdoas_theoretical)
+
+    # Convert the TDOA error to angle error
+    def get_aoa_from_tdoa(tdoa : np.ndarray):
+        """AOA = arcos( TDOA * c / d) where d = intermic distance, c = 343 speed of sound"""
+        return np.arccos(tdoa * c / d) * 360 / (2 * np.pi)
     
-    my_list = np.array(my_list)
-    df = pd.DataFrame(my_list, columns=["tdoas_mesh2ir", "tdoas_rirbox", "tdoas_theoretical"])#, "mse_origins_mesh2ir", "mse_origins_rirbox"])
-    df.apply(lambda x: np.sqrt(x))
+    def remove_nans(*arrays):
+        """
+        Remove rows containing NaNs from all input arrays.
 
-    save_path = "./validation/results_sss/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
-    if not os.path.exists(os.path.dirname(save_path)):
-        os.makedirs(os.path.dirname(save_path))
-    df.to_csv(save_path)
+        Parameters:
+        *arrays: multiple numpy arrays
+            Arrays from which to remove rows containing NaNs.
 
-    print("Validation results saved at: ", save_path)
+        Returns:
+        filtered_arrays: list of numpy arrays
+            Arrays with rows containing NaNs removed.
+        """
+        # Create a mask that identifies rows without NaNs across all input arrays
+        valid_rows_mask = np.all([~np.isnan(array) for array in arrays], axis=0)
+        
+        # Apply the mask to each input array to filter out rows with NaNs
+        filtered_arrays = [array[valid_rows_mask] for array in arrays]
+        
+        return filtered_arrays
+
+    print("tdoas_mesh2ir", tdoas_mesh2ir)
+    print("tdoas_rirbox", tdoas_rirbox)
+    print("tdoas_theoretical", tdoas_theoretical)
+    
+    aoas_mesh2ir = get_aoa_from_tdoa(tdoas_mesh2ir)
+    aoas_rirbox = get_aoa_from_tdoa(tdoas_rirbox)
+    aoas_theoretical = get_aoa_from_tdoa(tdoas_theoretical)
+    
+    print("aoas_mesh2ir", aoas_mesh2ir)
+    print("aoas_rirbox", aoas_rirbox)
+    print("aoas_theoretical", aoas_theoretical)
+    
+    error_mesh2ir = np.sqrt((aoas_mesh2ir - aoas_theoretical)**2)
+    error_rirbox = np.sqrt((aoas_rirbox - aoas_theoretical)**2)
+    
+    # Remove rows with NaNs from all TDOA arrays
+    error_mesh2ir, error_rirbox = remove_nans(error_mesh2ir, error_rirbox)
+    
+    print("error_mesh2ir", error_mesh2ir)
+    print("error_rirbox", error_rirbox)
+    
+    mean_error_mesh2ir = np.mean(error_mesh2ir)
+    mean_error_rirbox = np.mean(error_rirbox)
+    std_error_mesh2ir = np.std(error_mesh2ir)
+    std_error_rirbox = np.std(error_rirbox)
+    
+    print("///////////////////////")
+    print("mean_error_mesh2ir", mean_error_mesh2ir, "std_error_mesh2ir", std_error_mesh2ir)
+    print("mean_error_rirbox", mean_error_rirbox, "std_error_rirbox", std_error_rirbox)
+    print("///////////////////////")
+    
+    # my_list = np.array(my_list)
+    # df = pd.DataFrame(my_list, columns=["tdoas_mesh2ir", "tdoas_rirbox", "tdoas_theoretical"])#, "mse_origins_mesh2ir", "mse_origins_rirbox"])
+    # df.apply(lambda x: np.sqrt(x))
+
+    # save_path = "./validation/results_sss/" + config['SAVE_PATH'].split("/")[-2] + "/" + config['SAVE_PATH'].split("/")[-1].split(".")[0] + ".csv"
+    # if not os.path.exists(os.path.dirname(save_path)):
+    #     os.makedirs(os.path.dirname(save_path))
+    # df.to_csv(save_path)
+
+    # print("Validation results saved at: ", save_path)
 
 def view_results_sss_mesh2ir_vs_rirbox(results_csv="./validation/results_sss/***.csv"):
     df = pd.read_csv(results_csv)
