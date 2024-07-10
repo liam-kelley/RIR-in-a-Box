@@ -10,7 +10,7 @@ import math
 # from torch_geometric.nn import global_max_pool as gmp
 # from torch_geometric.nn import global_mean_pool as gap
 
-from backpropagatable_ISM.compute_batch_rir_v2 import batch_simulate_rir_ism
+from backpropagatable_ISM.batch_simulate_rir_ism import batch_simulate_rir_ism
 
 from models.mesh2ir_models import MESH_NET, data_for_meshnet
 
