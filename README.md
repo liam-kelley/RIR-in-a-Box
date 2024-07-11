@@ -1,5 +1,7 @@
 # RIR-in-a-Box V.0.5
 
+This is the code for our paper [**RIR-in-a-Box: Estimating Room Acoustics from 3D Mesh Data through Shoebox Approximation**](https://theses.hal.science/LTCI/hal-04632526v1 "Paper on HAL"), accepted at Interspeech 2024.
+
 ## Setup
 
 This setup tutorial is functional, but work is still being done to simplify the reuse process.
