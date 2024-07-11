@@ -2,12 +2,13 @@
 This file contains functions to create windowed sinc filters (Low pass, Band pass).
 '''
 
-import torch
 import math
-import matplotlib.pyplot as plt
 from typing import Union
+import torch
+import matplotlib.pyplot as plt
 
-def LP_filter(n: Union[float,list[float]], fs: float, window_length: int, lp_cutoff_frequency: float):
+def LP_filter(n: Union[float,list[float]], fs: float,
+              window_length: int, lp_cutoff_frequency: float):
     '''
     windowed sinc filter
     '''
@@ -17,12 +18,13 @@ def LP_filter(n: Union[float,list[float]], fs: float, window_length: int, lp_cut
     # Get sinc
     nyquist_f = fs / 2
     f_c_normalized = lp_cutoff_frequency / nyquist_f
-    sinc = f_c_normalized * torch.special.sinc( n * f_c_normalized)
+    sinc = f_c_normalized * torch.special.sinc(n * f_c_normalized)
     windowed_sinc = sinc * hanning
 
     return windowed_sinc
 
-def BP_filter(n: Union[float,list[float]], fs: float, fc_high: float, fc_low: float, window_length: int):
+def BP_filter(n: Union[float,list[float]], fs: float,
+              fc_high: float, fc_low: float, window_length: int):
     '''
     windowed sinc filter translated to be bandpass
     '''
@@ -33,8 +35,10 @@ def BP_filter(n: Union[float,list[float]], fs: float, fc_high: float, fc_low: fl
     half_bandwidth = (fc_high - fc_low)/2
     nyquist_f = fs / 2
     f_c_normalized = half_bandwidth / nyquist_f
-    sinc = 2 * f_c_normalized * torch.sinc(f_c_normalized * n) # we have to multiply by 2 because when translating, we get the energy of all negative frequencies!
-    
+    # we have to multiply by 2 because when translating,
+    # we get the energy of all negative frequencies!
+    sinc = 2 * f_c_normalized * torch.sinc(f_c_normalized * n)
+
     # Get windowed sinc
     h_lp = sinc * hann_window
 
@@ -80,7 +84,8 @@ def apply_filter_bank(rir: torch.Tensor, filter_bank: torch.Tensor, window_lengt
 # filter_bank = create_filter_bank(fs, window_length, f_low_hi)
 # fig1, ax = plt.subplots(1, 1, figsize=(10, 8))
 # for i in range(len(filter_bank)):
-#     ax.plot(filter_bank[i].squeeze().cpu().numpy(), label=f"Bandpass at fc low {f_low_hi[i][0]} Hz\nand fc high {f_low_hi[i][1]} Hz")
+#     ax.plot(filter_bank[i].squeeze().cpu().numpy(),
+#     label=f"Bandpass at fc low {f_low_hi[i][0]} Hz\nand fc high {f_low_hi[i][1]} Hz")
 # ax.legend()
 # filtered_rirs = apply_filter_bank(rirs, filter_bank, window_length)
 # fig2, axs = plt.subplots(7, 1, figsize=(9, 9.5))
