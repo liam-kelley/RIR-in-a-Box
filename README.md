@@ -98,11 +98,7 @@ watch -d -n 0.5 nvidia-smi
 
 If you find our work or code repository useful in your research, please cite our paper:
 
-```citation
-
-Liam Kelley, Diego Di Carlo, Aditya Arie Nugraha, Mathieu Fontaine, Yoshiaki Bando, et al.. RIR-in-a-Box: Estimating Room Acoustics from 3D Mesh Data through Shoebox Approximation. INTERSPEECH, Sep 2024, Kos International Convention Center, Kos Island, Greece. ⟨hal-04632526⟩
-
-```
+> Liam Kelley, Diego Di Carlo, Aditya Arie Nugraha, Mathieu Fontaine, Yoshiaki Bando, et al.. RIR-in-a-Box: Estimating Room Acoustics from 3D Mesh Data through Shoebox Approximation. INTERSPEECH, Sep 2024, Kos International Convention Center, Kos Island, Greece. ⟨hal-04632526⟩
 
 Thank you for your support!
 
