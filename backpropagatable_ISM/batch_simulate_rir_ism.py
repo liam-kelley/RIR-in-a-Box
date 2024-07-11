@@ -14,7 +14,8 @@ from torch import Tensor
 from backpropagatable_ISM.filters import LP_filter, BP_filter
 
 
-def _batch_validate_shoebox_inputs(room: Tensor, mic_array: Tensor, source: Tensor, absorption: Tensor):
+def _batch_validate_shoebox_inputs(room: Tensor, mic_array: Tensor,
+                                   source: Tensor, absorption: Tensor):
     '''
     This function performs sanity checks on the inputs for our batch shoebox ISM inference.
     
@@ -22,7 +23,8 @@ def _batch_validate_shoebox_inputs(room: Tensor, mic_array: Tensor, source: Tens
      only supporting mono band absorption, 3D dimensions, and 1 mic.
     '''
     # Device sanity chcek
-    assert(room.device==source.device==mic_array.device==absorption.device) , "All inputs room, source, mic array and absorption must be on the same device."
+    assert(room.device==source.device==mic_array.device==absorption.device),\
+        "All inputs room, source, mic array and absorption must be on the same device."
 
     # Tensor sanity check
     batch_size = room.shape[0]
@@ -63,8 +65,10 @@ def _batch_compute_shoebox_image_sources(
         room (Tensor): The batch of 1D Tensors to determine the room size. (batch_size, 3)
         source (Tensor): The batch of coordinates (from 0 to 1) of the sound source. (batch_size, 3)
         max_order (int): The maximum number of reflections of the source.
-        absorption (Tensor): The absorption coefficients of wall materials. (batch_size, n_band, n_walls=6)
-        scatter (Tensor): The scattering coefficients of wall materials. (batch_size, n_band, 6). If ``None``, it is not
+        absorption (Tensor): The absorption coefficients of wall materials.
+            (batch_size, n_band, n_walls=6)
+        scatter (Tensor): The scattering coefficients of wall materials.
+            (batch_size, n_band, 6). If ``None``, it is not
             used in image source computation. (Default: ``None``)
 
     Returns:
@@ -75,9 +79,11 @@ def _batch_compute_shoebox_image_sources(
     """
     batch_size = room.shape[0]
     n_band = absorption.shape[1]
-    
-    if scatter is None: tr = torch.sqrt(1 - absorption)
-    else: tr = torch.sqrt(1 - absorption) * torch.sqrt(1 - scatter)
+
+    if scatter is None:
+        tr = torch.sqrt(1 - absorption)
+    else:
+        tr = torch.sqrt(1 - absorption) * torch.sqrt(1 - scatter)
 
     # Construct the grid
     ind = torch.arange(-max_order, max_order + 1, device=source.device)
@@ -86,8 +92,8 @@ def _batch_compute_shoebox_image_sources(
     # Remove the grid points that correspond to too many reflections (measured via 1D distance)
     xyz = torch.stack([c.reshape((-1,)) for c in xyz], dim=-1)
     xyz = xyz[xyz.abs().sum(dim=-1) <= max_order]
-    
-    xyz=xyz.unsqueeze(0).expand(batch_size, -1, -1) # (batch_size, n_image_source (4991 for max order 15), 3)
+
+    xyz = xyz.unsqueeze(0).expand(batch_size, -1, -1) # (batch_size, n_image_source (4991 for max order 15), 3)
     n_image_sources = xyz.shape[1]
 
     # Compute locations of image sources
@@ -144,7 +150,7 @@ def batch_simulate_rir_ism(batch_room_dimensions: Tensor,
         (Tensor): batch of rir (batch_size, max_rir_length)
     """
     _batch_validate_shoebox_inputs(batch_room_dimensions, batch_mic_position, batch_source_position, batch_absorption)
-    
+
     batch_img_location, batch_att = _batch_compute_shoebox_image_sources(batch_room_dimensions, batch_source_position, max_order, batch_absorption) # returns (batch_size, n_image_source, [x,y,z]) , (batch_size, n_band=1, n_image_source)
 
     # -------------------- Distances  -------------------- #
@@ -152,8 +158,8 @@ def batch_simulate_rir_ism(batch_room_dimensions: Tensor,
     vec = batch_img_location[:,:, None, :] - batch_mic_position[:, None, :, :]
     batch_dist = torch.linalg.norm(vec, dim=-1)  # (batch_size, n_image_source, n_mics=1)
     del vec
-    
-    # Get exact time delay between src and mic 
+
+    # Get exact time delay between src and mic
     batch_delay = batch_dist * fs / sound_speed  # (batch_size, n_image_source, n_mics=1)
     if start_from_ir_onset:
         batch_IR_onset = fs * torch.linalg.norm(batch_mic_position.squeeze(1)-batch_source_position, dim=1) / sound_speed # squeezing n_channels for now.
