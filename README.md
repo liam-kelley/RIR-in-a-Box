@@ -2,10 +2,14 @@
 
 ## Setup
 
-This setup tutorial is functional, but beware there may be too many librairies installed.
+This setup tutorial is functional, but work is still being done to simplify the reuse process.
+
+### Step 1 : cuda 12.1 toolkit
 
 Install the cuda 12.1 toolkit. Other versions may work, but this is the one I used.
 If you use another other, please change the pytorch-cuda version in the conda install command below.
+
+### Step 2 : python environment
 
 ```bash
 
@@ -42,9 +46,15 @@ conda install pytorch-scatter -c pyg -c nvidia
 
 ```
 
-Once you set up the environment, go to the RIR-in-a-Box/datasets/GWA_3DFRONT folder for extra instructions.
+### Step 3 : go elsewhere for more instructions
+
+Go to the RIR-in-a-Box/datasets/GWA_3DFRONT folder for extra instructions.
+
+### Step 4 : go elsewhere for more instructions
 
 Then, go to the RIR-in-a-Box/models folder for extra instructions.
+
+### Step 5 : Have fun
 
 Congrats! Enjoy RIR-in-a-Box.
 
@@ -55,10 +65,6 @@ Congrats! Enjoy RIR-in-a-Box.
 conda activate rirbox
 
 ```
-<!--
-# to try and avoid loading tensors into shared memory (you might not need this)
-export PYTORCH_CUDA_ALLOC_CONF=garbage_collection_threshold:0.4 # instead of 0.8
--->
 
 To train models. You can choose your own config files by modifying the script.
 
@@ -85,6 +91,22 @@ To monitor nvidia gpu usage in another terminal.
 watch -d -n 0.5 nvidia-smi
 
 ```
+
+## Citation
+
+If you find our work or code repository useful in your research, please cite our paper:
+
+```citation
+
+Liam Kelley, Diego Di Carlo, Aditya Arie Nugraha, Mathieu Fontaine, Yoshiaki Bando, et al.. RIR-in-a-Box: Estimating Room Acoustics from 3D Mesh Data through Shoebox Approximation. INTERSPEECH, Sep 2024, Kos International Convention Center, Kos Island, Greece. ⟨hal-04632526⟩
+
+```
+
+Thank you for your support!
+
+<!--
+# to try and avoid loading tensors into shared memory (you might not need this)
+export PYTORCH_CUDA_ALLOC_CONF=garbage_collection_threshold:0.4 # instead of 0.8
 
 ## Repository description
 
@@ -180,7 +202,7 @@ In this folder, you can find :
 - experiment results
 - visualization for all experiments all together.
 
-<!-- ## Installation
+ ## Installation
 
 This installation tutorial has not been fully tested again.
 
