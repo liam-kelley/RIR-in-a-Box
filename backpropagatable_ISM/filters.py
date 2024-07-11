@@ -1,8 +1,13 @@
+'''
+This file contains functions to create windowed sinc filters (Low pass, Band pass).
+'''
+
 import torch
 import math
 import matplotlib.pyplot as plt
+from typing import Union
 
-def LP_filter(n, fs, window_length, lp_cutoff_frequency):
+def LP_filter(n: Union[float,list[float]], fs: float, window_length: int, lp_cutoff_frequency: float):
     '''
     windowed sinc filter
     '''
@@ -17,7 +22,7 @@ def LP_filter(n, fs, window_length, lp_cutoff_frequency):
 
     return windowed_sinc
 
-def BP_filter(n, fs, fc_high, fc_low, window_length):
+def BP_filter(n: Union[float,list[float]], fs: float, fc_high: float, fc_low: float, window_length: int):
     '''
     windowed sinc filter translated to be bandpass
     '''
@@ -39,9 +44,9 @@ def BP_filter(n, fs, fc_high, fc_low, window_length):
 
     return h_bp
 
-def create_filter_bank(fs, window_length, f_low_hi, device='cuda'):
+def create_filter_bank(fs: float, window_length: int, f_low_hi: list[tuple[float]], device='cuda'):
     '''
-    f_low_hi : list of tuples [(f_low, f_high), ...]
+    f_low_hi: list of tuples [(f_low, f_high), ...]
     '''
     n = torch.arange(window_length) - window_length // 2
     filter_bank = []
@@ -51,10 +56,10 @@ def create_filter_bank(fs, window_length, f_low_hi, device='cuda'):
     filter_bank = filter_bank.to(device)
     return filter_bank
 
-def apply_filter_bank(rir, filter_bank, window_length):
+def apply_filter_bank(rir: torch.Tensor, filter_bank: torch.Tensor, window_length: int):
     '''
-    rir : torch.Tensor of shape (batch_size, num_samples)
-    filter_bank : torch.Tensor of shape (6, 1, window_length)
+    rir: torch.Tensor of shape (batch_size, num_samples)
+    filter_bank: torch.Tensor of shape (6, 1, window_length)
     '''
     rir = rir.unsqueeze(1)  # (batch_size, n_bands, num_samples)
     rir = torch.nn.functional.conv1d(rir, filter_bank, padding=window_length // 2)
