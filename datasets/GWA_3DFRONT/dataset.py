@@ -1,18 +1,30 @@
-from torch.utils.data import Dataset
-# import soundfile as sf
+'''
+This script contains an example pytorch dataset class, to load meshes and rirs from the GWA / 3D_FRONT dataset.
+This GWA_3DFRONT_Dataset class contains an additionnal custom_collate_fn for simple dataloading.
+
+Information on how to prepare the GWA_3DFRONT dataset of rirs and meshes is in this folder's README.md.
+
+Example usage:
+
+dataset = GWA_3DFRONT_Dataset(csv_file="datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train.csv")
+dataloader = DataLoader(dataset, collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
+'''
+
+import os
+
 import librosa
 import numpy as np
 import pandas as pd
-import os
 import torch
 import pymeshlab as ml
 
+from torch.utils.data import Dataset
 from torch_geometric.data import Data
 from torch_geometric.data import Batch
-
 from scipy.signal import find_peaks
 
 from datasets.GWA_3DFRONT.preprocessing.rir_preprocessing import mesh2ir_rir_preprocessing
+
 
 def string_to_array(s):
     '''
@@ -23,9 +35,13 @@ def string_to_array(s):
     # Convert each element to float and create a numpy array
     return np.array([float(e) for e in elements])
 
+
 class GWA_3DFRONT_Dataset(Dataset):
     def __init__(self, csv_file="./datasets/GWA_3DFRONT/subsets/gwa_3Dfront.csv", rir_length = 3968, sample_rate=16000,
                  rir_std_normalization=False, gwa_scaling_compensation=False, dont_load_rirs=False, dont_load_meshes=False):
+        """
+        
+        """
         super().__init__()
         self.csv_file=csv_file
         self.rir_std_normalization = rir_std_normalization
@@ -41,7 +57,7 @@ class GWA_3DFRONT_Dataset(Dataset):
 
         self.meshes_folder = "./datasets/GWA_3DFRONT/preprocessed_obj_meshes"
         if not os.path.exists(self.meshes_folder):
-            raise Exception("Mesh folder not found: ", self.meshes_folder, "\nDidn't you run the preprocess_3Dfront.py script first?")
+            raise Exception("Mesh folder not found: ", self.meshes_folder, "\nDid you run the preprocess_3Dfront.py script first?")
         
         self.label_rir_folder = "./datasets/GWA_3DFRONT/GWA_Dataset_small"
         if not os.path.exists(self.label_rir_folder):
@@ -91,6 +107,10 @@ class GWA_3DFRONT_Dataset(Dataset):
 
     @staticmethod
     def _estimate_origin(label_rir):
+        '''
+        Estimate the RIR's first peak (origin) using scipy.signal find_peaks.
+        Returns 0 if no peak is found.
+        '''
         peak_indexes, _ = find_peaks(label_rir[0],height=0.05*np.max(label_rir), distance=40)
         try:
             label_origin = peak_indexes[0]
@@ -100,6 +120,21 @@ class GWA_3DFRONT_Dataset(Dataset):
         return label_origin
 
     def __getitem__(self, index):
+        """
+        Get one GWA_3DFRONT datapoint.
+        This includes:
+            - The mesh in (vector + edge index) format inside a torch_geometric.data.Data object.
+            - the corresponding rir in a torch.tensor of length self.rir_length
+            - the first peak / origin index of the corresponding rir
+            - the position of the label mic for the corresponding rir
+            - the position of the label src for the corresponding rir
+
+        Args:
+            index (int): Datapoint index.
+
+        Returns:
+            datapoint (tuple(torch_geometric.data, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor)): Datapoint.
+        """
         if torch.is_tensor(index):
             index = index.tolist()
         df = self.data.iloc[index]
@@ -135,6 +170,14 @@ class GWA_3DFRONT_Dataset(Dataset):
 
     @staticmethod
     def custom_collate_fn(list_of_tuples):
+        '''
+        To be used with a torch.utils.data.DataLoader.
+        
+        Stacks a list of dataset items into a tuple. 
+        
+        dataloader = DataLoader(GWA_3DFRONT_Dataset(csv_file="datasets/GWA_3DFRONT/subsets/gwa_3Dfront_train.csv")
+                        collate_fn=GWA_3DFRONT_Dataset.custom_collate_fn)
+        '''
         data_list, label_rir_tensors, label_origin_tensors, mic_pos_tensors, src_pos_tensors = zip(*list_of_tuples)
 
         # create a batch vector for the graph data.        
@@ -143,3 +186,4 @@ class GWA_3DFRONT_Dataset(Dataset):
         return (graph_batch.x, graph_batch.edge_index, graph_batch.batch,
                 torch.stack(label_rir_tensors,dim=0), torch.stack(label_origin_tensors, dim=0),
                 torch.stack(mic_pos_tensors, dim=0), torch.stack(src_pos_tensors, dim=0) )
+        
