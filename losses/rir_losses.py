@@ -1,7 +1,39 @@
+'''
+This script contains various RIR-based losses for pytorch.
+'''
+
 import torch
 from typing import Union, List
 import auraloss
 from backpropagatable_ISM.filters import create_filter_bank, apply_filter_bank
+
+#------------------------------------------------------------------------------
+# Utility ---------------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+def batch_cut_before_and_after_index(batch_tensor : torch.Tensor, batch_indexes : torch.Tensor, cut_severity=1.0, return_after=True):
+    '''
+    Cuts a batch_tensor before and after specific batch_indexes.
+    '''
+    assert len(batch_tensor.shape)==2
+    assert batch_tensor.shape[0]==batch_indexes.shape[0]
+
+    arange=torch.arange(batch_tensor.shape[1],device=batch_tensor.device)
+    batch_arange=arange.unsqueeze(0).expand(batch_tensor.shape[0], -1)
+
+    batch_indexes=batch_indexes.unsqueeze(1).expand(-1,batch_tensor.shape[1])  # repeat(batch_tensor.shape[1], 1).transpose(0,1)
+
+    batch_cut_after_index=torch.sigmoid((batch_arange-batch_indexes)*cut_severity)
+    batch_cut_before_index=1-batch_cut_after_index
+    
+    if return_after:
+        return batch_tensor*batch_cut_before_index, batch_tensor*batch_cut_after_index
+    else:
+        return batch_tensor*batch_cut_before_index
+
+#------------------------------------------------------------------------------
+# Various RIR-based Loss classes ----------------------------------------------
+#------------------------------------------------------------------------------
 
 class BaseRIRLoss(torch.nn.Module):
     def __init__(self):
@@ -619,25 +651,3 @@ class DRR_Loss(BaseRIRLoss):
         loss_DRR = self.mse(batch_estimated_DRR,batch_label_DRR)
         
         return loss_DRR
-
-####### C80 and D Utility #######
-
-def batch_cut_before_and_after_index(batch_tensor : torch.Tensor, batch_indexes : torch.Tensor, cut_severity=1.0, return_after=True):
-    '''
-    Cuts a batch_tensor before and after specific batch_indexes.
-    '''
-    assert len(batch_tensor.shape)==2
-    assert batch_tensor.shape[0]==batch_indexes.shape[0]
-
-    arange=torch.arange(batch_tensor.shape[1],device=batch_tensor.device)
-    batch_arange=arange.unsqueeze(0).expand(batch_tensor.shape[0], -1)
-
-    batch_indexes=batch_indexes.unsqueeze(1).expand(-1,batch_tensor.shape[1])  # repeat(batch_tensor.shape[1], 1).transpose(0,1)
-
-    batch_cut_after_index=torch.sigmoid((batch_arange-batch_indexes)*cut_severity)
-    batch_cut_before_index=1-batch_cut_after_index
-    
-    if return_after:
-        return batch_tensor*batch_cut_before_index, batch_tensor*batch_cut_after_index
-    else:
-        return batch_tensor*batch_cut_before_index

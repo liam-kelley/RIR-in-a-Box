@@ -1,3 +1,7 @@
+'''
+This script contains various Shoebox-based losses for pytorch.
+'''
+
 import torch
 from torch.nn import MSELoss
 
@@ -23,7 +27,8 @@ class ShoeboxLoss(torch.nn.Module):
 
 
 class SBoxRoomDimensionsLoss(ShoeboxLoss):
-    '''Loss module for Shoebox Room Dimensions. Used on Toy shoebox dataset.'''
+    '''Loss module for Shoebox Room Dimensions. Useful for toy shoebox datasets.'''
+    
     def __str__(self) -> str:
         return "Shoebox Room Dimensions Loss"
     
@@ -44,6 +49,8 @@ class SBoxRoomDimensionsLoss(ShoeboxLoss):
     
 
 class SBoxAbsorptionLoss(ShoeboxLoss):
+    '''Loss module for Shoebox wall absorptions. Useful for toy shoebox datasets.'''
+    
     def __str__(self) -> str:
         return "Shoebox Absorption Loss"
     
