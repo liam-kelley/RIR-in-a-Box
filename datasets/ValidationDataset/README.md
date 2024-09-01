@@ -2,9 +2,7 @@
 
 This is to be the validation dataset for RIR-in-a-Box.
 It contains 55 audio recordings of 10 ESS each.
-It also contains 30 room meshes recorded on the HoloLens of 1 (**TODO** : 2) room configuration(s) with 3 different recording methods.
-
-(Updated 09/02/2024)
+It also contains 30 room meshes recorded on the HoloLens of 1 room configuration with 3 different recording methods.
 
 ## Get the dataset
 
@@ -17,7 +15,7 @@ Google drive links:
 
 ### Dataset creation
 
-- I obtained mesh data from the HoloLens using the device portal. As you scan the room longer, the data becomes more precise, so I made sure to record the mesh multiple times to account for the amount of time spent scanning. I unfortunately only recorded the confroom open configuration...
+- I obtained mesh data from the HoloLens using the device portal. As you scan the room longer, the data becomes more precise, so I made sure to record the mesh multiple times to account for the amount of time spent scanning. I unfortunately only recorded the meshes for the confroom open configuration due to time constraints.
 - I manually measured mic and src positions in the office and wrote them down in 'validation_dataset.csv'. (see my notes room_geometry/manually_measured/).
 - I used 'ESS_play.ipynb' to play/save the ESS on my PC.
 - I recorded the ESS using the HoloLens and saved the recordings in 'audio_recordings/'. Audio filepaths are found in the 'validation_dataset.csv'.
@@ -32,10 +30,6 @@ Google drive links:
 ### Simplified summary of validation configurations
 
 This totals up to 481 usable configurations.
-<!--
-**TODO** For every mesh Diego/Arie/Fuijta :'\) records with the confroom closed, we'll add 35 configurations.
-**TODO**  For every mesh Diego/Arie/Fuijta :'\) records with the confroom open, we'll add 42 configurations.
--->
 
 | Room Configuration | Source Position          | Listener Position | Corresponding Meshes                                               |
 |--------------------|--------------------------|-------------------|--------------------------------------------------------------------|
