@@ -1,3 +1,8 @@
+'''
+This is the script used to train RIR-in-a-Box models on the GWA_3DFRONT dataset.
+Config files can be found in main/training/configs/*.json
+'''
+
 import wandb
 import torch
 import torch.optim as optim
@@ -9,13 +14,10 @@ from models.utility import load_mesh_net
 from losses.rir_losses import EnergyDecay_Loss, MRSTFT_Loss, AcousticianMetrics_Loss
 from training.utility import filter_rir_like_rirbox, print_config_parameters
 from tools.pyLiam.LKTimer import LKTimer
-from tools.pyLiam.LKMemCheck import LKMemCheck
 from tqdm import tqdm
 import argparse
 from json import load
 import time
-import gc
-import copy
 import os
 from torch.nn import MSELoss
 
