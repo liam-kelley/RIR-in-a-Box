@@ -10,7 +10,7 @@ from shutil import copyfile
 This is a reimplementation of GAMMA-UMD/GWA/tools/json2obj.py on github
 I commented a few lines to not add a convex hull to the mesh, because it messes up the optional mesh reconstruction preprocessing.
 I guess we could add it back in. MESH2IR says that this convex hull is not necessary, although they used it to train their mesh encoder which we reuse.
-I guess i should probably add it back in.
+So maybe we should probably add it back in? This is an open question.
 '''
 
 def split_path(paths):

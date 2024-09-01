@@ -4,7 +4,7 @@ Please add the 3D-FRONT, 3D-FUTURE-model and GWA_Dataset_small folders to this d
 
 GWA_Dataset_small link is available from the  [GWA Repository](https://github.com/GAMMA-UMD/GWA/tree/master/download), or [directly here](https://obj.umiacs.umd.edu/gamma-datasets/GWA_Dataset_small.zip).
 
-If you are specifically members of my team, feel free ask me for the much smaller preprocessed 3D-FRONT datasets, I'll put them on google drive for you guys.
+The 3D-FRONT and 3D-FUTURE-model are slightly difficult to get access to. [Please apply here](https://tianchi.aliyun.com/dataset/65347). You should get access within a week.
 
 Expected folder structure:
 
@@ -19,7 +19,7 @@ Expected folder structure:
 
 ```
 
-Then, run the following script while here: (unless you downloaded the preprocessed 3D-FRONT dataset from me)
+Then, run the following script while here:
 
 ```bash
 
@@ -30,13 +30,24 @@ python preprocess_3D_front.py
 Congrats, the datasets should be ready.
 You can now proceed to the 'RIR-in-a-Box/models' folder for extra instructions.
 
-## If the the csv file isn't right
+## How the csv subset were created
 
-If the gwa_3Dfront.csv file isn't right, please go into the preprocessing folder and run the following script:
+The gwa_3Dfront.csv was created using the format_csv.py script.
 
 ```bash
 
 cd preprocessing
 python format_csv.py
+
+```
+
+The training and validation subsets were sliced manually from gwa_3Dfront.csv.
+
+Other csv files were created using create_1m_and_dp_csvs.py
+
+```bash
+
+cd preprocessing
+python create_1m_and_dp_csvs.py
 
 ```

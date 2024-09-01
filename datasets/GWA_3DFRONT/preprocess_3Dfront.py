@@ -1,3 +1,11 @@
+'''
+This script is to preprocess the 3D_FRONT mesh data.
+Please run it once you have the proper folder structure in place.
+
+The preprocessing builds .obj files that have been decimated to the
+target number of faces (default is 2000 according to the MESH2IR paper).
+'''
+
 import json
 import os
 import argparse
@@ -62,9 +70,6 @@ for json_file_name in tqdm(files):
     temp_folder = os.path.join(args.obj_path, json_file_name[:-5])
     os.rmdir(temp_folder)
 
-#     i+=1
-#     if i >= 100:
-#         break
 os.rmdir(os.path.dirname(temp_folder))
 print('Done')
 

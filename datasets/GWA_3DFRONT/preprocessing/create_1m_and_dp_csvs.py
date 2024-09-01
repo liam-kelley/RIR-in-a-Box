@@ -1,17 +1,19 @@
+'''
+This script created these csvs
+gwa_3Dfront_[...]_1m.csv
+gwa_3Dfront_[...]_dp.csv
+gwa_3Dfront_[...]_nondp.csv
+gwa_3Dfront_[...]_peak_info.csv
+
+You should have run format_csv.py and any other relevant preprocessing script before running this one.
+'''
+
 import pandas as pd
 import numpy as np
 from datasets.GWA_3DFRONT.dataset import GWA_3DFRONT_Dataset
 from torch.utils.data import DataLoader
 import torch
 from tqdm import tqdm
-
-'''
-You should have run formay_csv.py and any other relevant preprocessing script before this one.
-This script created these csvs
-gwa_3Dfront_[...]_1m.csv
-gwa_3Dfront_[...]_dp.csv
-gwa_3Dfront_[...]_nondp.csv
-'''
 
 def string_to_array(s):
     '''

@@ -1,17 +1,23 @@
+'''
+csv structure
 "../gwa_3Dfront.csv  = room_name, Source_Pos, Receiver_Pos, T60_125Hz,T60_250Hz,T60_500Hz,T60_1000Hz,T60_2000Hz,T60_4000Hz,T60_8000Hz"
 "../GWA_Dataset_small/stats.csv = Path,T60_125Hz,T60_250Hz,T60_500Hz,T60_1000Hz,T60_2000Hz,T60_4000Hz,T60_8000Hz,Source_Pos,Receiver_Pos"
+
+This script generates the gwa_3Dfront.csv.
+The other csv subsets have been created using the create_1m_and_dp_csvs.py script.
+You probably don't need to use this. Just use the csv files provided.
+
+Script description:
+    from GWA_Dataset_small/stats.csv import all columns into gwa_3Dfront.csv
+    the Path column will be transformed into the room_name column.
+        This shall be done by removing the 13 last characters from the items in Path column
+    The other columns will be copied as is<
+'''
 
 import pandas as pd
 import os
 from os.path import isfile, join
 from tqdm import tqdm
-
-# You probably don't need to use this. Just use the csv file provided.
-
-# from GWA_Dataset_small/stats.csv import all columns into gwa_3Dfront.csv
-# the Path column will be transformed into the room_name column.
-#     This shall be done by removing the 13 last characters from the items in Path column
-# the other columns will be copied as is
 
 gwa_df = pd.read_csv("../GWA_Dataset_small/stats.csv")
 
